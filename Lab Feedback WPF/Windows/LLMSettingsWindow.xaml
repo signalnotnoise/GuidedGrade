@@ -1,0 +1,157 @@
+<Window x:Class="Lab_Feedback_WPF.Windows.LLMSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LLM Configuration" 
+        Height="600" 
+        Width="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Margin" Value="0,5,15,5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Provider Selection -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="LLM Provider" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="radioOllama" Content="Ollama (Local)" IsChecked="True" Checked="Provider_Changed"/>
+                <RadioButton x:Name="radioAzure" Content="Azure OpenAI" Checked="Provider_Changed"/>
+                <RadioButton x:Name="radioOpenAI" Content="OpenAI" Checked="Provider_Changed"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Provider-specific settings -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
+            <StackPanel>
+                <!-- Ollama Settings -->
+                <GroupBox x:Name="groupOllama" Header="Ollama Settings" 
+                          Foreground="#CCCCCC" BorderBrush="#3F3F46" Margin="0,0,0,10">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Server URL"/>
+                        <TextBox x:Name="txtOllamaUrl" Text="http://localhost:11434"/>
+
+                        <TextBlock Text="Model"/>
+                        <ComboBox x:Name="cmbOllamaModel" IsEditable="True">
+                            <ComboBoxItem Content="qwen2.5:3b" IsSelected="True"/>
+                            <ComboBoxItem Content="qwen3.5:9b"/>
+                            <ComboBoxItem Content="qwen3.6:27b"/>
+                            <ComboBoxItem Content="codellama:7b"/>
+                            <ComboBoxItem Content="codellama:13b"/>
+                            <ComboBoxItem Content="deepseek-coder:6.7b"/>
+                            <ComboBoxItem Content="phi4"/>
+                            <ComboBoxItem Content="llama3.3:70b"/>
+                        </ComboBox>
+
+                        <Button Content="🔄 Refresh Available Models" Click="RefreshOllamaModels_Click" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="txtOllamaStatus" Foreground="#4EC9B0" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Azure OpenAI Settings -->
+                <GroupBox x:Name="groupAzure" Header="Azure OpenAI Settings" 
+                          Foreground="#CCCCCC" BorderBrush="#3F3F46" Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Endpoint URL"/>
+                        <TextBox x:Name="txtAzureEndpoint" 
+                                 Text="https://your-resource.openai.azure.com/"/>
+
+                        <TextBlock Text="API Key"/>
+                        <PasswordBox x:Name="txtAzureApiKey"/>
+
+                        <TextBlock Text="Deployment Name"/>
+                        <ComboBox x:Name="cmbAzureDeployment" IsEditable="True">
+                            <ComboBoxItem Content="gpt-4o"/>
+                            <ComboBoxItem Content="gpt-4"/>
+                            <ComboBoxItem Content="gpt-35-turbo"/>
+                        </ComboBox>
+
+                        <Button Content="🧪 Test Connection" Click="TestAzure_Click" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="txtAzureStatus" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- OpenAI Settings -->
+                <GroupBox x:Name="groupOpenAI" Header="OpenAI Settings" 
+                          Foreground="#CCCCCC" BorderBrush="#3F3F46" Margin="0,0,0,10" Visibility="Collapsed">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="API Key"/>
+                        <PasswordBox x:Name="txtOpenAIApiKey"/>
+
+                        <TextBlock Text="Model"/>
+                        <ComboBox x:Name="cmbOpenAIModel" IsEditable="True">
+                            <ComboBoxItem Content="gpt-4o"/>
+                            <ComboBoxItem Content="gpt-4-turbo"/>
+                            <ComboBoxItem Content="gpt-4" IsSelected="True"/>
+                            <ComboBoxItem Content="gpt-3.5-turbo"/>
+                        </ComboBox>
+
+                        <Button Content="🧪 Test Connection" Click="TestOpenAI_Click" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="txtOpenAIStatus" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Requirements Template -->
+                <GroupBox Header="Analysis Settings" Foreground="#CCCCCC" BorderBrush="#3F3F46">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Default Requirements Template"/>
+                        <TextBox x:Name="txtRequirements" 
+                                 TextWrapping="Wrap" 
+                                 AcceptsReturn="True"
+                                 Height="120"
+                                 Text="// Assignment requirements will be added here"/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Save" Width="100" Click="Save_Click"/>
+            <Button Content="Cancel" Width="100" Click="Cancel_Click" Background="#3E3E42"/>
+        </StackPanel>
+    </Grid>
+</Window>

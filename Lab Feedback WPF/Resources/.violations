@@ -1,0 +1,39 @@
+# Violations Configuration File
+# Each line represents a term to flag as a violation in student code
+# Lines starting with # are comments and will be ignored
+# Blank lines are also ignored
+
+# Place this file in one of two locations:
+#   1. As ".violations" in the directory you open (where student folders are)
+#   2. As "violations.config" in the application directory
+# Priority: directory .violations > app violations.config > built-in defaults
+
+# Pointers and references
+&
+const
+
+# C++ casts
+static_cast
+reinterpret_cast
+dynamic_cast
+
+# Container methods
+resize()
+ignore()
+clear()
+
+# Keywords
+auto
+try
+catch
+goto
+var
+continue
+iterator
+
+# Special characters
+\0
+(...)
+
+# Type names
+size_t

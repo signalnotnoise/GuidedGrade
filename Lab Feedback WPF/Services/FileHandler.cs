@@ -10,6 +10,7 @@ namespace Lab_Feedback_WPF.Services
     {
         public static string SearchFile(string path, string filename)
         {
+           
             var files = Directory.GetFiles(path, filename, SearchOption.AllDirectories);
             if (files.Length > 0)
             {
@@ -24,17 +25,93 @@ namespace Lab_Feedback_WPF.Services
         public static List<Result> ParseFile(string filepath)
         {
             var results = new List<Result>();
-            var lines = File.ReadAllLines(filepath);
 
-            foreach (var line in lines)
+            if (string.IsNullOrEmpty(filepath) || !File.Exists(filepath))
             {
-                var parts = line.Split(new[] { " - " }, StringSplitOptions.None);
-                if (parts.Length == 2 && int.TryParse(parts[1], out var number))
+                System.Diagnostics.Debug.WriteLine($"ParseFile: File not found or empty path: {filepath}");
+                return results;
+            }
+
+            var lines = File.ReadAllLines(filepath);
+            var extension = Path.GetExtension(filepath).ToLower();
+            var filename = Path.GetFileName(filepath).ToLower();
+
+            System.Diagnostics.Debug.WriteLine($"ParseFile: Processing {filepath} ({lines.Length} lines, extension: {extension})");
+
+            // Handle .fslog, .log, or output.txt files - count build attempts
+            if (extension == ".fslog" || extension == ".log" || filename == "output.txt")
+            {
+                int buildCount = 0;
+                int lastScore = 0;
+
+                System.Diagnostics.Debug.WriteLine($"ParseFile: Using build log parser for {filename}");
+
+                foreach (var line in lines)
                 {
-                    results.Add(new Result(parts[0], number));
+                    // Look for build/compile indicators
+                    if (line.Contains("Build started", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("Building", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("Rebuild started", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("========== Build:", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("1>------ Build started:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        buildCount++;
+                        System.Diagnostics.Debug.WriteLine($"  Build #{buildCount} detected: {line.Trim()}");
+                    }
+
+                    // Try to extract score if present (format: "Score: 85" or "Score - 85")
+                    if (line.Contains("score", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var scoreParts = line.Split(new[] { ':', '-' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (scoreParts.Length >= 2 && int.TryParse(scoreParts[1].Trim(), out var score))
+                        {
+                            lastScore = score;
+                            System.Diagnostics.Debug.WriteLine($"  Score found: {lastScore}");
+                        }
+                    }
+                }
+
+                if (buildCount > 0)
+                {
+                    results.Add(new Result($"Builds from {Path.GetFileName(filepath)}", buildCount));
+                    System.Diagnostics.Debug.WriteLine($"ParseFile: Total builds found: {buildCount}");
+                }
+
+                if (lastScore > 0)
+                {
+                    results.Add(new Result("Last Score", lastScore));
+                }
+            }
+            // Handle hdkvkt.txt or other text files with "Description - Number" format
+            else if (extension == ".txt" && filename != "output.txt")
+            {
+                System.Diagnostics.Debug.WriteLine("ParseFile: Using legacy format parser (Description - Number)");
+                foreach (var line in lines)
+                {
+                    var parts = line.Split(new[] { " - " }, StringSplitOptions.None);
+                    if (parts.Length == 2 && int.TryParse(parts[1], out var number))
+                    {
+                        results.Add(new Result(parts[0], number));
+                        System.Diagnostics.Debug.WriteLine($"  Parsed: {parts[0]} - {number}");
+                    }
+                }
+            }
+            else
+            {
+                // Unknown format - try original parser as fallback
+                System.Diagnostics.Debug.WriteLine("ParseFile: Unknown format, trying legacy parser");
+                foreach (var line in lines)
+                {
+                    var parts = line.Split(new[] { " - " }, StringSplitOptions.None);
+                    if (parts.Length == 2 && int.TryParse(parts[1], out var number))
+                    {
+                        results.Add(new Result(parts[0], number));
+                        System.Diagnostics.Debug.WriteLine($"  Parsed: {parts[0]} - {number}");
+                    }
                 }
             }
 
+            System.Diagnostics.Debug.WriteLine($"ParseFile: Returning {results.Count} results");
             return results;
         }
 

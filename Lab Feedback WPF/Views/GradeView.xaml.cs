@@ -101,6 +101,7 @@ namespace Lab_Feedback_WPF.Views
         }
 
         public LabResults? GetResults() => _results;
+        public Student? CurrentStudent => _student;
 
         // ─── Header Controls ──────────────────────────────────────────────────
 
