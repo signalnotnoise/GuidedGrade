@@ -28,6 +28,12 @@ namespace Lab_Feedback_WPF.Models
 
         // Analysis settings
         public string RequirementsTemplate { get; set; } = "// Assignment requirements";
+        public bool ExecuteStudentSubmissions { get; set; } = false;
+        public SubmissionExecutionMode ExecutionMode { get; set; } = SubmissionExecutionMode.HyperV;
+        public string RunnerBaseDisk { get; set; } = "";
+        public string RunnerCredentialFile { get; set; } = "";
+        public string RunnerWorkerFolder { get; set; } = "";
+        public int RunnerMemoryMb { get; set; } = 4096;
 
         private static readonly string SettingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -83,6 +89,13 @@ namespace Lab_Feedback_WPF.Models
                 throw;
             }
         }
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum SubmissionExecutionMode
+    {
+        HyperV,
+        Local
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]

@@ -1,0 +1,402 @@
+using System.IO;
+using System.Text;
+
+namespace Lab_Feedback_WPF.Services
+{
+    public class SubmissionBuilder
+    {
+        private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(90);
+        internal delegate Task<ProcessRunResult> RunProcess(
+            string fileName, string arguments, string? workingDirectory, string? stdin,
+            TimeSpan timeout, CancellationToken cancellationToken);
+        private readonly RunProcess _runProcess;
+        private readonly Func<string, CancellationToken, Task<string?>>? _toolResolver;
+
+        public SubmissionBuilder() : this(ProcessRunner.RunAsync, null) { }
+
+        internal SubmissionBuilder(RunProcess runProcess,
+            Func<string, CancellationToken, Task<string?>>? toolResolver)
+        {
+            _runProcess = runProcess;
+            _toolResolver = toolResolver;
+        }
+
+        internal async Task<BuildResult> BuildAsync(RunnableSubmission submission, CancellationToken cancellationToken)
+        {
+            var outputDir = Path.Combine(Path.GetTempPath(), "LabFeedbackRun", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(outputDir);
+
+            return submission.Kind switch
+            {
+                SubmissionKind.VisualStudioSolution => await BuildVisualStudioSolutionAsync(submission, cancellationToken),
+                SubmissionKind.Python => await BuildPythonAsync(submission, cancellationToken),
+                SubmissionKind.DotNetProject => await BuildDotNetAsync(submission, cancellationToken),
+                SubmissionKind.Java => await BuildJavaAsync(submission, outputDir, cancellationToken),
+                SubmissionKind.CppProject => await BuildCppProjectAsync(submission, cancellationToken),
+                SubmissionKind.CppSources => await BuildCppSourcesAsync(submission, outputDir, cancellationToken),
+                SubmissionKind.NativeExecutable => new BuildResult(false, "", "", submission.RootDirectory, "Prebuilt executables cannot establish whether submitted source builds correctly."),
+                _ => new BuildResult(false, "", "", submission.RootDirectory, "Unsupported submission kind.")
+            };
+        }
+
+        private async Task<BuildResult> BuildVisualStudioSolutionAsync(
+            RunnableSubmission submission,
+            CancellationToken cancellationToken)
+        {
+            var outputDir = Path.Combine(Path.GetTempPath(), "LabFeedbackRun", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(outputDir);
+
+            var logs = new StringBuilder();
+            string? dotnet = null;
+
+            var msbuild = await FindMsBuildAsync(cancellationToken);
+            if (msbuild != null)
+            {
+                // Put the exe in the .vcxproj folder (RPG_Shop\x64\Debug), not
+                // $(SolutionDir)\X64\Debug, so sibling DLLs resolve. Always rebuild
+                // from the staged copy so leftover tlogs cannot link original sources.
+                var build = await _runProcess(
+                    msbuild,
+                    BuildMsBuildArguments(submission),
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+
+                logs.AppendLine(Combine(build));
+                if (build.Started && !build.TimedOut && build.ExitCode == 0)
+                {
+                    var runnable = await ResolveRunnableAsync(submission, submission.RootDirectory, cancellationToken);
+                    if (runnable != null)
+                        return runnable with { Log = logs.ToString().Trim() };
+                }
+            }
+
+            dotnet = await FindToolAsync("dotnet", cancellationToken);
+            if (dotnet != null)
+            {
+                await _runProcess(
+                    dotnet,
+                    $"clean \"{submission.EntryPath}\" -c Debug --nologo",
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+
+                var build = await _runProcess(
+                    dotnet,
+                    $"build \"{submission.EntryPath}\" -c Debug -o \"{outputDir}\" --nologo --no-incremental",
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+
+                logs.AppendLine(Combine(build));
+                if (build.Started && !build.TimedOut && build.ExitCode == 0)
+                {
+                    var runnable = await ResolveRunnableAsync(submission, outputDir, cancellationToken, dotnet);
+                    if (runnable != null)
+                        return runnable with { Log = logs.ToString().Trim() };
+
+                    return new BuildResult(
+                        false,
+                        "",
+                        "",
+                        submission.RootDirectory,
+                        logs + "\nBuild succeeded but no runnable program (.exe or .dll) was found.");
+                }
+            }
+
+            return new BuildResult(
+                false,
+                "",
+                "",
+                submission.RootDirectory,
+                string.IsNullOrWhiteSpace(logs.ToString())
+                    ? "Could not build or locate a runnable program for the solution."
+                    : logs.ToString().Trim());
+        }
+
+        internal static string BuildMsBuildArguments(RunnableSubmission submission)
+        {
+            var args = $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug";
+            var vcxproj = RunnableSubmissionDetector.FindPrimaryVcxproj(
+                submission.RootDirectory,
+                Path.GetFileNameWithoutExtension(submission.EntryPath));
+            if (vcxproj == null)
+                return args;
+
+            var projectDir = Path.GetDirectoryName(vcxproj);
+            if (string.IsNullOrEmpty(projectDir))
+                return args;
+
+            var platform = RunnableSubmissionDetector.InferNativePlatform(projectDir);
+            var outDir = RunnableSubmissionDetector.GetNativeOutDir(projectDir, platform)
+                .Replace('\\', '/')
+                .TrimEnd('/') + "/";
+            string command = $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /p:Platform={platform} /p:OutDir=\"{outDir}\" /p:IntDir=\"{outDir}\" /m";
+            return command;
+        }
+
+        private async Task<BuildResult?> ResolveRunnableAsync(
+            RunnableSubmission submission,
+            string searchRoot,
+            CancellationToken cancellationToken,
+            string? dotnet = null)
+        {
+            var preferredName = Path.GetFileNameWithoutExtension(submission.EntryPath);
+            var program = RunnableSubmissionDetector.FindRunnableOutput(searchRoot, preferredName);
+
+            if (string.IsNullOrWhiteSpace(program))
+                return null;
+
+            var workingDirectory = ResolveWorkingDirectory(submission, program);
+            if (program.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return new BuildResult(true, program, "", workingDirectory, "");
+            }
+
+            dotnet ??= await FindToolAsync("dotnet", cancellationToken);
+            if (dotnet == null)
+                return null;
+
+            return new BuildResult(true, dotnet, $"exec \"{program}\"", workingDirectory, "");
+        }
+
+        internal static string ResolveWorkingDirectory(RunnableSubmission submission, string program)
+        {
+            // Native Visual Studio programs commonly open source/data files relative
+            // to the project directory (the debugger default), not x64/Debug.
+            // DLL staging still uses the executable directory independently.
+            var project = submission.Kind == SubmissionKind.CppProject
+                ? submission.EntryPath
+                : submission.Kind == SubmissionKind.VisualStudioSolution
+                    ? RunnableSubmissionDetector.FindPrimaryVcxproj(submission.RootDirectory,
+                        Path.GetFileNameWithoutExtension(program))
+                    : null;
+            return project != null
+                ? Path.GetDirectoryName(project) ?? submission.RootDirectory
+                : Path.GetDirectoryName(program) ?? submission.RootDirectory;
+        }
+
+        private async Task<BuildResult> BuildPythonAsync(RunnableSubmission submission, CancellationToken cancellationToken)
+        {
+            var python = await FindToolAsync("py", cancellationToken)
+                ?? await FindToolAsync("python", cancellationToken)
+                ?? await FindToolAsync("python3", cancellationToken);
+            if (python == null)
+                return new BuildResult(false, "", "", submission.RootDirectory, "Python interpreter not found on PATH.");
+
+            var arguments = python.EndsWith("py.exe", StringComparison.OrdinalIgnoreCase)
+                ? $"-3 \"{submission.EntryPath}\""
+                : $"\"{submission.EntryPath}\"";
+
+            return new BuildResult(true, python, arguments, submission.RootDirectory, "Python script is ready to run.");
+        }
+
+        private async Task<BuildResult> BuildDotNetAsync(RunnableSubmission submission, CancellationToken cancellationToken)
+        {
+            var dotnet = await FindToolAsync("dotnet", cancellationToken);
+            if (dotnet == null)
+                return new BuildResult(false, "", "", submission.RootDirectory, "dotnet SDK not found on PATH.");
+
+            await _runProcess(
+                dotnet,
+                $"clean \"{submission.EntryPath}\" -c Debug --nologo",
+                submission.RootDirectory,
+                null,
+                BuildTimeout,
+                cancellationToken);
+
+            var build = await _runProcess(
+                dotnet,
+                $"build \"{submission.EntryPath}\" -c Debug --nologo --no-incremental",
+                submission.RootDirectory,
+                null,
+                BuildTimeout,
+                cancellationToken);
+
+            var log = Combine(build);
+            if (!build.Started || build.TimedOut || build.ExitCode != 0)
+                return new BuildResult(false, "", "", submission.RootDirectory, log);
+
+            var runnable = await ResolveRunnableAsync(submission, submission.RootDirectory, cancellationToken, dotnet);
+            if (runnable != null)
+                return runnable with { Log = log };
+
+            return new BuildResult(
+                false,
+                "",
+                "",
+                submission.RootDirectory,
+                log + "\nBuild succeeded but no runnable program (.exe or .dll) was found.");
+        }
+
+        private async Task<BuildResult> BuildJavaAsync(
+            RunnableSubmission submission,
+            string outputDir,
+            CancellationToken cancellationToken)
+        {
+            var javac = await FindToolAsync("javac", cancellationToken);
+            var java = await FindToolAsync("java", cancellationToken);
+            if (javac == null || java == null)
+                return new BuildResult(false, "", "", submission.RootDirectory, "javac/java not found on PATH.");
+
+            var sources = string.Join(" ", submission.SourceFiles.Select(path => $"\"{path}\""));
+            var build = await _runProcess(
+                javac,
+                $"-d \"{outputDir}\" {sources}",
+                submission.RootDirectory,
+                null,
+                BuildTimeout,
+                cancellationToken);
+
+            var log = Combine(build);
+            if (!build.Started || build.TimedOut || build.ExitCode != 0)
+                return new BuildResult(false, "", "", submission.RootDirectory, log);
+
+            var className = Path.GetFileNameWithoutExtension(submission.EntryPath);
+            return new BuildResult(true, java, $"-cp \"{outputDir}\" {className}", submission.RootDirectory, log);
+        }
+
+        private async Task<BuildResult> BuildCppProjectAsync(RunnableSubmission submission, CancellationToken cancellationToken)
+        {
+            var msbuild = await FindMsBuildAsync(cancellationToken);
+            if (msbuild != null)
+            {
+                var build = await _runProcess(
+                    msbuild,
+                    $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /m /v:minimal",
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+
+                var log = Combine(build);
+                var exe = RunnableSubmissionDetector.FindNewestExecutable(submission.RootDirectory);
+                if (build.Started && !build.TimedOut && build.ExitCode == 0 && exe != null)
+                    return new BuildResult(true, exe, "", ResolveWorkingDirectory(submission, exe), log);
+
+                return new BuildResult(false, "", "", submission.RootDirectory, log);
+            }
+
+            return await BuildCppSourcesAsync(submission, Path.Combine(Path.GetTempPath(), "LabFeedbackRun", Guid.NewGuid().ToString("N")), cancellationToken);
+        }
+
+        private async Task<BuildResult> BuildCppSourcesAsync(
+            RunnableSubmission submission,
+            string outputDir,
+            CancellationToken cancellationToken)
+        {
+            Directory.CreateDirectory(outputDir);
+            var outputExe = Path.Combine(outputDir, "student.exe");
+            var sources = string.Join(" ", submission.SourceFiles.Select(path => $"\"{path}\""));
+            if (string.IsNullOrWhiteSpace(sources))
+                sources = $"\"{submission.EntryPath}\"";
+
+            var gpp = await FindToolAsync("g++", cancellationToken) ?? await FindToolAsync("clang++", cancellationToken);
+            if (gpp != null)
+            {
+                var build = await _runProcess(
+                    gpp,
+                    $"-std=c++17 -O0 -o \"{outputExe}\" {sources}",
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+                var log = Combine(build);
+                if (build.Started && !build.TimedOut && build.ExitCode == 0 && File.Exists(outputExe))
+                    return new BuildResult(true, outputExe, "", outputDir, log);
+
+                return new BuildResult(false, "", "", submission.RootDirectory, log);
+            }
+
+            var cl = await FindToolAsync("cl", cancellationToken);
+            if (cl != null)
+            {
+                var build = await _runProcess(
+                    cl,
+                    $"/nologo /EHsc /Fe:\"{outputExe}\" {sources}",
+                    submission.RootDirectory,
+                    null,
+                    BuildTimeout,
+                    cancellationToken);
+                var log = Combine(build);
+                if (build.Started && !build.TimedOut && build.ExitCode == 0 && File.Exists(outputExe))
+                    return new BuildResult(true, outputExe, "", outputDir, log);
+
+                return new BuildResult(false, "", "", submission.RootDirectory, log);
+            }
+
+            return new BuildResult(false, "", "", submission.RootDirectory, "No C++ compiler (g++, clang++, cl, or MSBuild) was found.");
+        }
+
+        private async Task<string?> FindMsBuildAsync(CancellationToken cancellationToken)
+        {
+            if (_toolResolver != null)
+                return await _toolResolver("msbuild", cancellationToken);
+            var vswhere = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "Microsoft Visual Studio", "Installer", "vswhere.exe");
+
+            if (File.Exists(vswhere))
+            {
+                var result = await _runProcess(
+                    vswhere,
+                    "-latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe",
+                    null,
+                    null,
+                    TimeSpan.FromSeconds(15),
+                    cancellationToken);
+
+                var path = result.StandardOutput
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault(File.Exists);
+                if (path != null)
+                    return path;
+            }
+
+            return await FindToolAsync("msbuild", cancellationToken);
+        }
+
+        private async Task<string?> FindToolAsync(string name, CancellationToken cancellationToken)
+        {
+            if (_toolResolver != null)
+                return await _toolResolver(name, cancellationToken);
+            var whereExe = Path.Combine(Environment.SystemDirectory, "where.exe");
+            if (!File.Exists(whereExe))
+                return null;
+
+            var result = await _runProcess(
+                whereExe,
+                name,
+                null,
+                null,
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+
+            return result.StandardOutput
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault(File.Exists);
+        }
+
+        private static string Combine(ProcessRunResult result)
+        {
+            var sb = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(result.StandardOutput))
+                sb.AppendLine(result.StandardOutput);
+            if (!string.IsNullOrWhiteSpace(result.StandardError))
+                sb.AppendLine(result.StandardError);
+            if (!string.IsNullOrWhiteSpace(result.Error))
+                sb.AppendLine(result.Error);
+            return sb.ToString().Trim();
+        }
+
+        internal sealed record BuildResult(
+            bool Succeeded,
+            string CommandFileName,
+            string Arguments,
+            string WorkingDirectory,
+            string Log);
+    }
+}

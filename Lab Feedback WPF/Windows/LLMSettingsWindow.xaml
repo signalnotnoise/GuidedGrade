@@ -143,6 +143,28 @@
                                  AcceptsReturn="True"
                                  Height="120"
                                  Text="// Assignment requirements will be added here"/>
+                        <CheckBox x:Name="chkExecuteSubmissions"
+                                  Content="Build and run student programs"
+                                  Foreground="#CCCCCC"
+                                  IsChecked="False"
+                                  Margin="0,8,0,0"/>
+                        <TextBlock Text="Execution" Margin="0,12,0,0" FontWeight="Bold"/>
+                        <ComboBox x:Name="cmbExecutionMode" SelectedIndex="0">
+                            <ComboBoxItem Content="Isolated Windows VM (Hyper-V) - default"/>
+                            <ComboBoxItem Content="Local computer - warning before every operation"/>
+                        </ComboBox>
+                        <TextBlock Text="Isolation never falls back to local execution automatically. Local execution requires confirmation each time."
+                                   TextWrapping="Wrap" Margin="0,6,0,6"/>
+                        <TextBlock Text="Windows template disk (.vhdx)"/>
+                        <TextBox x:Name="txtRunnerBaseDisk"/>
+                        <TextBlock Text="Guest credential file (.xml)"/>
+                        <TextBox x:Name="txtRunnerCredentialFile"/>
+                        <TextBlock Text="Published runner folder"/>
+                        <TextBox x:Name="txtRunnerWorkerFolder"/>
+                        <TextBlock Text="VM memory (MB, 2048-16384)"/>
+                        <TextBox x:Name="txtRunnerMemory" Text="4096"/>
+                        <TextBlock Text="Hyper-V, a prepared Windows template, and guest credentials are required. See EXECUTION_SAFETY.md for setup. Run captures output; Test with AI answers console prompts."
+                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

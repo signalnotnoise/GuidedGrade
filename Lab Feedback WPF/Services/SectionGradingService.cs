@@ -15,9 +15,9 @@ namespace Lab_Feedback_WPF.Services
         private readonly LLMSettings _settings;
         private readonly GradingAssignment _assignment;
 
-        public SectionGradingService(GradingAssignment assignment)
+        public SectionGradingService(GradingAssignment assignment, LLMSettings? settings = null)
         {
-            _settings = LLMSettings.Load();
+            _settings = settings ?? LLMSettings.Load();
             _assignment = assignment;
         }
 
@@ -28,11 +28,13 @@ namespace Lab_Feedback_WPF.Services
             string sectionName, 
             string codeContent, 
             List<RubricItem> relevantRubricItems,
-            IEnumerable<string>? identifiersToRedact = null)
+            IEnumerable<string>? identifiersToRedact = null,
+            IReadOnlyList<RelatedSubmissionFile>? relatedFiles = null,
+            string? runtimeExecutionReport = null)
         {
-            var anonymousName = "section";
             var sanitizedCode = StudentDataSanitizer.Sanitize(codeContent, identifiersToRedact);
-            var prompt = BuildSectionPrompt(anonymousName, sanitizedCode, relevantRubricItems);
+            var sanitizedRelated = SanitizeRelatedFiles(relatedFiles, identifiersToRedact);
+            var prompt = BuildSectionPrompt(sectionName, sanitizedCode, relevantRubricItems, sanitizedRelated, runtimeExecutionReport);
 
             string response;
 
@@ -44,30 +46,78 @@ namespace Lab_Feedback_WPF.Services
                         _settings.AzureApiKey,
                         _settings.AzureDeployment);
 
-                    var azureFiles = new List<CodeFile>
-                    {
-                        new CodeFile { FileName = StudentDataSanitizer.AnonymousFileName(), Content = sanitizedCode }
-                    };
-
-                    response = await azureService.AnalyzeCodeAsync(prompt, azureFiles);
+                    response = await azureService.AnalyzeCodeAsync(prompt, BuildAzureFiles(sanitizedCode, sanitizedRelated), wrapPrompt: false);
                     break;
 
                 case LLMProvider.Ollama:
                 default:
                     var ollamaService = new OllamaService(_settings.OllamaBaseUrl, _settings.SelectedModel);
-                    var ollamaFiles = new List<OllamaService.CodeFile>
-                    {
-                        new OllamaService.CodeFile { Name = StudentDataSanitizer.AnonymousFileName(), Content = sanitizedCode }
-                    };
-
-                    response = await ollamaService.AnalyzeCodeAsync(ollamaFiles, prompt);
+                    response = await ollamaService.AnalyzeCodeAsync(BuildOllamaFiles(sanitizedCode, sanitizedRelated), prompt, wrapPrompt: false);
                     break;
             }
 
             return ParseFeedback(response, sectionName);
         }
 
-        private string BuildSectionPrompt(string sectionName, string code, List<RubricItem> rubricItems)
+        private static List<RelatedSubmissionFile> SanitizeRelatedFiles(
+            IReadOnlyList<RelatedSubmissionFile>? relatedFiles,
+            IEnumerable<string>? identifiersToRedact)
+        {
+            if (relatedFiles == null || relatedFiles.Count == 0)
+                return new List<RelatedSubmissionFile>();
+
+            return relatedFiles.Select((file, index) => new RelatedSubmissionFile
+            {
+                FileName = StudentDataSanitizer.SafeDisplayName(file.FileName, identifiersToRedact, index + 2),
+                FilePath = file.FilePath,
+                Extension = file.Extension,
+                Content = StudentDataSanitizer.Sanitize(file.Content, identifiersToRedact),
+                DeclaredTypes = file.DeclaredTypes
+            }).ToList();
+        }
+
+        private static List<CodeFile> BuildAzureFiles(
+            string sanitizedCode,
+            IReadOnlyList<RelatedSubmissionFile> relatedFiles)
+        {
+            var files = new List<CodeFile>
+            {
+                new() { FileName = "target.cpp", Content = sanitizedCode }
+            };
+
+            files.AddRange(relatedFiles.Select(file => new CodeFile
+            {
+                FileName = file.FileName,
+                Content = file.Content
+            }));
+
+            return files;
+        }
+
+        private static List<OllamaService.CodeFile> BuildOllamaFiles(
+            string sanitizedCode,
+            IReadOnlyList<RelatedSubmissionFile> relatedFiles)
+        {
+            var files = new List<OllamaService.CodeFile>
+            {
+                new() { Name = "target.cpp", Content = sanitizedCode }
+            };
+
+            files.AddRange(relatedFiles.Select(file => new OllamaService.CodeFile
+            {
+                Name = file.FileName,
+                Content = file.Content
+            }));
+
+            return files;
+        }
+
+        private string BuildSectionPrompt(
+            string sectionName,
+            string code,
+            List<RubricItem> rubricItems,
+            IReadOnlyList<RelatedSubmissionFile> relatedFiles,
+            string? runtimeExecutionReport)
         {
             var sb = new StringBuilder();
 
@@ -85,14 +135,53 @@ namespace Lab_Feedback_WPF.Services
             }
             sb.AppendLine();
 
-            sb.AppendLine("# SUBMITTED CODE");
+            sb.AppendLine("# TARGET CODE");
             sb.AppendLine("```cpp");
             sb.AppendLine(code);
             sb.AppendLine("```");
             sb.AppendLine();
 
+            if (relatedFiles.Count > 0)
+            {
+                sb.AppendLine("# SUBMISSION FILE INDEX");
+                sb.AppendLine("These files exist in the same student submission. Treat them as implemented code, not as missing work.");
+                foreach (var related in relatedFiles)
+                {
+                    var types = related.DeclaredTypes.Count > 0
+                        ? $" (defines {string.Join(", ", related.DeclaredTypes)})"
+                        : string.Empty;
+                    sb.AppendLine($"- {related.FileName}{types}");
+                }
+                sb.AppendLine();
+
+                sb.AppendLine("# RELATED FILES");
+                sb.AppendLine("These files are first-class parts of the submission. Read them before judging missing classes, methods, or includes.");
+                sb.AppendLine("Do NOT deduct points for functions, types, constants, or includes that are defined in these files.");
+                sb.AppendLine("Do NOT say a class is missing if it is listed above or defined in a related file.");
+                sb.AppendLine();
+
+                foreach (var related in relatedFiles)
+                {
+                    sb.AppendLine($"=== {related.FileName} ===");
+                    sb.AppendLine("```cpp");
+                    sb.AppendLine(related.Content);
+                    sb.AppendLine("```");
+                    sb.AppendLine();
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(runtimeExecutionReport))
+            {
+                sb.AppendLine(runtimeExecutionReport.Trim());
+                sb.AppendLine();
+            }
+
             sb.AppendLine("# TASK");
             sb.AppendLine($"Analyze the '{sectionName}' implementation against the rubric.");
+            sb.AppendLine("Account for related files. Do not penalize the target section for code that correctly lives in another file.");
+            sb.AppendLine("If a type, class, or method is defined in a related file, it exists. Do not report it as missing.");
+            sb.AppendLine("If runtime execution results are present, use them as evidence of crashes, hangs, wrong output, or weak input handling.");
+            sb.AppendLine("Do not invent runtime failures that are not listed. Do not deduct for inability to execute if the submission was not runnable.");
             sb.AppendLine();
             sb.AppendLine("Provide feedback in this format:");
             sb.AppendLine();

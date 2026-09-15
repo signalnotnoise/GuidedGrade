@@ -41,30 +41,38 @@ namespace Lab_Feedback_WPF.Services
         /// <param name="files">List of code files with content</param>
         /// <param name="requirements">Assignment requirements</param>
         /// <returns>Formatted feedback from the model</returns>
-        public async Task<string> AnalyzeCodeAsync(List<CodeFile> files, string requirements)
+        public async Task<string> AnalyzeCodeAsync(List<CodeFile> files, string requirements, bool wrapPrompt = true)
         {
-            var prompt = BuildAnalysisPrompt(files, requirements);
+            var prompt = wrapPrompt ? BuildAnalysisPrompt(files, requirements) : requirements;
+            return await CompleteAsync(
+                "You are an expert programming instructor providing constructive feedback on anonymous submitted code. " +
+                "Focus on correctness, code quality, and meeting requirements. " +
+                "Related headers and source files in the prompt are part of the same submission; do not claim those types or files are missing. " +
+                "Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. " +
+                "Follow the output format requested in the user prompt.",
+                prompt);
+        }
 
+        internal OllamaService(HttpClient client, string model)
+        {
+            _baseUrl = "http://localhost:11434";
+            _model = model;
+            _httpClient = client;
+        }
+
+        public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default, JsonElement? responseSchema = null)
+        {
             var request = new OllamaChatRequest
             {
                 Model = _model,
                 Messages = new List<OllamaMessage>
                 {
-                    new OllamaMessage
-                    {
-                        Role = "system",
-                        Content = "You are an expert programming instructor providing constructive feedback on anonymous submitted code. " +
-                                  "Focus on correctness, code quality, and meeting requirements. " +
-                                  "Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. " +
-                                  "Structure your response with clear sections: STRENGTHS, ISSUES, SUGGESTIONS, and SCORE."
-                    },
-                    new OllamaMessage
-                    {
-                        Role = "user",
-                        Content = prompt
-                    }
+                    new OllamaMessage { Role = "system", Content = systemPrompt },
+                    new OllamaMessage { Role = "user", Content = userPrompt }
                 },
-                Stream = false
+                Stream = false,
+                Format = responseSchema,
+                Options = responseSchema.HasValue ? new { temperature = 0 } : null
             };
 
             var jsonOptions = new JsonSerializerOptions
@@ -74,12 +82,12 @@ namespace Lab_Feedback_WPF.Services
             };
 
             var jsonContent = JsonSerializer.Serialize(request, jsonOptions);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content);
+            using var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var responseBody = await response.Content.ReadAsStringAsync();
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
             var chatResponse = JsonSerializer.Deserialize<OllamaChatResponse>(responseBody, jsonOptions);
 
             return chatResponse?.Message?.Content ?? "No response from model.";
@@ -136,8 +144,7 @@ namespace Lab_Feedback_WPF.Services
             var index = 1;
             foreach (var file in files)
             {
-                var extension = Path.GetExtension(file.Name);
-                sb.AppendLine($"=== {StudentDataSanitizer.AnonymousFileName(index, extension)} ===");
+                sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(file.Name, index: index)} ===");
                 sb.AppendLine(StudentDataSanitizer.Sanitize(file.Content));
                 sb.AppendLine();
                 index++;
@@ -177,6 +184,8 @@ namespace Lab_Feedback_WPF.Services
 
         private class OllamaChatRequest
         {
+            public JsonElement? Format { get; set; }
+            public object? Options { get; set; }
             public string Model { get; set; }
             public List<OllamaMessage> Messages { get; set; }
             public bool Stream { get; set; }

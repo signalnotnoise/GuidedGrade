@@ -23,20 +23,42 @@ namespace Lab_Feedback_WPF.Services
             _httpClient.DefaultRequestHeaders.Add("api-key", _apiKey);
         }
 
-        public async Task<string> AnalyzeCodeAsync(string requirements, List<CodeFile> files, CancellationToken cancellationToken = default)
+        public async Task<string> AnalyzeCodeAsync(
+            string requirements,
+            List<CodeFile> files,
+            CancellationToken cancellationToken = default,
+            bool wrapPrompt = true)
         {
             try
             {
                 Debug.WriteLine("=== Azure OpenAI Analysis Started ===");
 
-                var prompt = BuildAnalysisPrompt(requirements, files);
+                var prompt = wrapPrompt ? BuildAnalysisPrompt(requirements, files) : requirements;
+                return await CompleteAsync(
+                    "You are a code review assistant for a programming instructor. Analyze anonymous submitted code against requirements and provide constructive, specific feedback. Related headers and source files in the prompt are part of the same submission; do not claim those types or files are missing. Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. Follow the output format requested in the user prompt.",
+                    prompt,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Azure OpenAI Exception: {ex.Message}");
+                return $"Error analyzing code: {ex.Message}";
+            }
+        }
 
+        public async Task<string> CompleteAsync(
+            string systemPrompt,
+            string userPrompt,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
                 var requestBody = new
                 {
                     messages = new[]
                     {
-                        new { role = "system", content = "You are a code review assistant for a programming instructor. Analyze anonymous submitted code against requirements and provide constructive, specific feedback. Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. Format your response as: STRENGTHS, ISSUES, SUGGESTIONS, SCORE (0-100)." },
-                        new { role = "user", content = prompt }
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt }
                     },
                     temperature = 0.3,
                     max_tokens = 2000
@@ -85,8 +107,7 @@ namespace Lab_Feedback_WPF.Services
             var index = 1;
             foreach (var file in files)
             {
-                var extension = Path.GetExtension(file.FileName);
-                sb.AppendLine($"=== {StudentDataSanitizer.AnonymousFileName(index, extension)} ===");
+                sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(file.FileName, index: index)} ===");
                 sb.AppendLine(StudentDataSanitizer.Sanitize(file.Content));
                 sb.AppendLine();
                 index++;

@@ -52,6 +52,12 @@ namespace Lab_Feedback_WPF.Windows
 
             // Requirements
             txtRequirements.Text = _settings.RequirementsTemplate;
+            chkExecuteSubmissions.IsChecked = _settings.ExecuteStudentSubmissions;
+            cmbExecutionMode.SelectedIndex = _settings.ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
+            txtRunnerBaseDisk.Text = _settings.RunnerBaseDisk;
+            txtRunnerCredentialFile.Text = _settings.RunnerCredentialFile;
+            txtRunnerWorkerFolder.Text = _settings.RunnerWorkerFolder;
+            txtRunnerMemory.Text = _settings.RunnerMemoryMb.ToString();
 
             UpdateProviderVisibility();
         }
@@ -216,6 +222,14 @@ namespace Lab_Feedback_WPF.Windows
                 _settings.OpenAIModel = cmbOpenAIModel.Text;
 
                 _settings.RequirementsTemplate = txtRequirements.Text;
+                _settings.ExecuteStudentSubmissions = chkExecuteSubmissions.IsChecked == true;
+                if (!int.TryParse(txtRunnerMemory.Text, out var memory) || memory is < 2048 or > 16384)
+                    throw new InvalidOperationException("VM memory must be between 2048 and 16384 MB.");
+                _settings.ExecutionMode = cmbExecutionMode.SelectedIndex == 1 ? SubmissionExecutionMode.Local : SubmissionExecutionMode.HyperV;
+                _settings.RunnerBaseDisk = txtRunnerBaseDisk.Text.Trim();
+                _settings.RunnerCredentialFile = txtRunnerCredentialFile.Text.Trim();
+                _settings.RunnerWorkerFolder = txtRunnerWorkerFolder.Text.Trim();
+                _settings.RunnerMemoryMb = memory;
 
                 _settings.Save();
 

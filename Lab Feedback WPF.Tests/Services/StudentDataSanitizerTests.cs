@@ -47,4 +47,24 @@ public class StudentDataSanitizerTests
         var name = StudentDataSanitizer.AnonymousFileName(2, ".h");
         Assert.AreEqual("section-2.h", name);
     }
+
+    [TestMethod]
+    public void SafeDisplayName_KeepsOriginalHeaderName()
+    {
+        var student = new Student("Ada", "Lovelace", "12345", @"C:\labs\Lovelace_Ada-12345");
+        var identifiers = StudentDataSanitizer.GetIdentifiers(student);
+        var name = StudentDataSanitizer.SafeDisplayName("Item.h", identifiers, 2);
+
+        Assert.AreEqual("Item.h", name);
+    }
+
+    [TestMethod]
+    public void SafeDisplayName_RedactsStudentNameInFileName()
+    {
+        var student = new Student("Ada", "Lovelace", "12345", @"C:\labs\Lovelace_Ada-12345");
+        var identifiers = StudentDataSanitizer.GetIdentifiers(student);
+        var name = StudentDataSanitizer.SafeDisplayName("Lovelace_lab.cpp", identifiers, 3);
+
+        Assert.AreEqual("section-3.cpp", name);
+    }
 }

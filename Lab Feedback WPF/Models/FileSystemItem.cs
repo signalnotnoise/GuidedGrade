@@ -13,6 +13,10 @@ namespace Lab_Feedback_WPF.Models
         public string Name { get; set; }
         public string FullPath { get; set; }
         public bool IsDirectory { get; set; }
+        public bool IsSolution =>
+            !IsDirectory &&
+            (FullPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+             || FullPath.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase));
         public ObservableCollection<FileSystemItem> Children { get; set; }
 
         public bool IsExpanded

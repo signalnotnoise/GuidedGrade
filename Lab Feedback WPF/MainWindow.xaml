@@ -1,11 +1,11 @@
-﻿<ui:FluentWindow
+<ui:FluentWindow
     x:Class="Lab_Feedback_WPF.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:local="clr-namespace:Lab_Feedback_WPF.Converters"
-    Title="Lab Feedback" Height="800" Width="1200">
+    Title="Assignment Review" Height="800" Width="1200">
 
     <ui:FluentWindow.Resources>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
@@ -68,46 +68,6 @@
             <Setter Property="Margin" Value="8,2"/>
         </Style>
 
-        <!-- Violations Panel -->
-        <Border x:Key="ViolationsPanel" Background="#1E1E1E" Padding="8">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top"
-                    Text="Violations"
-                    FontWeight="SemiBold"
-                    FontSize="13"
-                    Foreground="#CCCCCC"
-                    Margin="0,0,0,8"/>
-                <ListView x:Name="violationsList"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Foreground="#CCCCCC"
-                    FontFamily="Consolas"
-                    FontSize="12"/>
-            </DockPanel>
-        </Border>
-
-        <!-- File Info Panel -->
-        <Border x:Key="FileInfoPanel" Background="#1E1E1E" Padding="8">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top"
-                    Text="File Info"
-                    FontWeight="SemiBold"
-                    FontSize="13"
-                    Foreground="#CCCCCC"
-                    Margin="0,0,0,8"/>
-                <StackPanel x:Name="fileInfoStack">
-                    <TextBlock x:Name="fileInfoName"
-                        Foreground="#CCCCCC"
-                        FontSize="12"
-                        TextWrapping="Wrap"/>
-                    <TextBlock x:Name="fileInfoPath"
-                        Foreground="#666666"
-                        FontSize="11"
-                        TextWrapping="Wrap"
-                        Margin="0,4,0,0"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -118,23 +78,25 @@
             <!-- Content -->
             <RowDefinition Height="Auto"/>
             <!-- Violations Panel -->
+            <RowDefinition x:Name="toolsPanelRow" Height="0"/>
+            <!-- Runtime Terminal Panel (shares remaining space if open) -->
             <RowDefinition Height="Auto"/>
             <!-- StatusBar -->
         </Grid.RowDefinitions>
 
         <!-- Title Bar (replaces your custom titleBar panel) -->
-        <ui:TitleBar Grid.Row="0" Title="Lab Feedback">
+        <ui:TitleBar Grid.Row="0" Title="Assignment Review">
             <ui:TitleBar.Header>
                 <DockPanel LastChildFill="True">
                     <Menu DockPanel.Dock="Left">
                         <MenuItem Header="File">
-                            <MenuItem Header="Open Folder" Click="OpenFolderMenuItem_Click"/>
+                            <MenuItem Header="Open Submissions Folder" Click="OpenFolderMenuItem_Click"/>
                             <Separator/>
                             <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
                         </MenuItem>
-                        <MenuItem Header="Tools">
-                            <MenuItem Header="Violations Settings..." Click="SettingsMenuItem_Click"/>
-                            <MenuItem Header="LLM Configuration..." Click="LLMSettingsMenuItem_Click"/>
+                        <MenuItem Header="Settings">
+                            <MenuItem Header="Programming Checks..." Click="SettingsMenuItem_Click"/>
+                            <MenuItem Header="AI Provider..." Click="LLMSettingsMenuItem_Click"/>
                             <Separator/>
                             <MenuItem Header="Setup Assignment..." Click="SetupAssignmentMenuItem_Click"/>
                         </MenuItem>
@@ -151,7 +113,20 @@
         </ui:TitleBar>
 
         <!-- Main Content (replaces your SplitContainers) -->
-        <Grid Grid.Row="1">
+        <DockPanel Grid.Row="1">
+            <Border DockPanel.Dock="Top" Background="#202B36" Padding="12,10" BorderBrush="#405060" BorderThickness="0,0,0,1">
+                <StackPanel>
+                    <TextBlock Text="Assignment review" FontSize="20" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="Set expectations, review submissions, and prepare feedback." Foreground="#BCCAD6" Margin="0,4,0,10"/>
+                    <WrapPanel>
+                        <Button Content="1  Assignment" Click="WorkspaceAssignment_Click" Padding="12,7" Margin="0,0,8,4"/>
+                        <Button Content="2  Open submissions" Click="OpenFolderMenuItem_Click" Padding="12,7" Margin="0,0,8,4"/>
+                        <Button Content="3  Review with rubric" Click="WorkspaceRubric_Click" Padding="12,7" Margin="0,0,8,4"/>
+                        <Button Content="4  Feedback" Click="WorkspaceFeedback_Click" Padding="12,7" Margin="0,0,8,4"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="1"/>
@@ -172,7 +147,7 @@
 
                 <!-- Students List -->
                 <DockPanel Grid.Row="0">
-                    <TextBlock DockPanel.Dock="Top" Text="STUDENTS" Foreground="#999999"
+                    <TextBlock DockPanel.Dock="Top" Text="SUBMISSIONS" Foreground="#999999"
                                Margin="5,4,5,4" FontWeight="Bold" FontSize="11"/>
                     <ListBox x:Name="listBoxStudents"
                              Background="#1E1E1E"
@@ -183,7 +158,7 @@
                              SelectionChanged="ListBoxStudents_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding FullName}" 
+                                <TextBlock Text="{Binding FullName}"
                                            Padding="4,2"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTip="{Binding FullName}"/>
@@ -193,7 +168,7 @@
                 </DockPanel>
 
                 <!-- Splitter -->
-                <GridSplitter Grid.Row="1" 
+                <GridSplitter Grid.Row="1"
                               Height="4"
                               HorizontalAlignment="Stretch"
                               Background="#3F3F46"
@@ -201,13 +176,14 @@
 
                 <!-- File Explorer Tree -->
                 <DockPanel Grid.Row="2">
-                    <TextBlock DockPanel.Dock="Top" Text="EXPLORER" Foreground="#999999"
+                    <TextBlock DockPanel.Dock="Top" Text="SUBMITTED FILES" Foreground="#999999"
                                Margin="5,4,5,8" FontWeight="Bold" FontSize="11"/>
                     <TreeView x:Name="fileTreeView"
                               Background="#1E1E1E"
                               BorderThickness="0"
                               Foreground="#CCCCCC"
-                              SelectedItemChanged="FileTreeView_SelectedItemChanged">
+                              SelectedItemChanged="FileTreeView_SelectedItemChanged"
+                              PreviewMouseRightButtonDown="FileTreeView_PreviewMouseRightButtonDown">
                         <TreeView.Resources>
                             <!-- TreeViewItem style -->
                             <Style TargetType="TreeViewItem">
@@ -304,6 +280,10 @@
                                                     <Setter TargetName="Icon" Property="Text" Value="&#xE8A5;"/>
                                                     <Setter TargetName="Icon" Property="Foreground" Value="#569CD6"/>
                                                 </Trigger>
+                                                <DataTrigger Binding="{Binding IsSolution}" Value="True">
+                                                    <Setter TargetName="Icon" Property="Text" Value="&#xE768;"/>
+                                                    <Setter TargetName="Icon" Property="Foreground" Value="#4EC9B0"/>
+                                                </DataTrigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
@@ -315,29 +295,51 @@
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Orientation="Horizontal">
                                     <!-- Checkbox for files only (not directories) -->
-                                    <CheckBox IsChecked="{Binding IsCheckedForAnalysis}" 
+                                    <CheckBox IsChecked="{Binding IsCheckedForAnalysis}"
                                               Margin="0,0,4,0"
                                               VerticalAlignment="Center"
                                               Visibility="{Binding IsDirectory, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                    <TextBlock Text="{Binding Name}" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#CCCCCC"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSolution}" Value="True">
+                                                        <Setter Property="Foreground" Value="#4EC9B0"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                             </HierarchicalDataTemplate>
                         </TreeView.ItemTemplate>
 
                         <TreeView.ContextMenu>
-                            <ContextMenu>
+                            <ContextMenu Opened="FileTreeContextMenu_Opened">
+                                <MenuItem Header="Programming tools" Tag="solution-command">
+                                <MenuItem Header="Build" Tag="solution-command" Click="BuildSolutionMenuItem_Click"/>
+                                <MenuItem Header="Run" Tag="solution-command" Click="RunSolutionMenuItem_Click"/>
+                                <MenuItem Header="Test with AI" Tag="solution-command" Click="TestSolutionWithAiMenuItem_Click"
+                                          ToolTip="Uses the execution environment selected in LLM Settings (isolated by default)."/>
+                                <MenuItem Header="Test with AI locally..." Tag="solution-command" CommandParameter="local"
+                                          Click="TestSolutionWithAiMenuItem_Click"
+                                          ToolTip="Runs on this computer after a warning. Use only for trusted submissions."/>
+                                <Separator Tag="solution-command"/>
                                 <MenuItem Header="Open in File Explorer" Click="OpenTreeItemInExplorer_Click"/>
                                 <MenuItem Header="Refresh" Click="RefreshTreeView_Click"/>
+                                </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="Analyze Selected Files with LLM" Click="AnalyzeWithLLM_Click"/>
+                                <MenuItem Header="Analyze Selected Code Files with AI" Click="AnalyzeWithLLM_Click"/>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                     </TreeView>
                 </DockPanel>
             </Grid>
 
-            <GridSplitter 
-                Grid.Column="1" 
+            <GridSplitter
+                Grid.Column="1"
                 Width="1"
                 HorizontalAlignment="Stretch"
                 Background="#3F3F46" />
@@ -348,16 +350,16 @@
 
                     <Button x:Name="buttonOpenGrading"
                         DockPanel.Dock="Right"
-                        Width="28"
-                        Height="28"
+                        Width="105"
+                        Height="32"
                         Padding="0"
-                        ToolTip="Open Grading Panel"
+                        ToolTip="Show feedback beside the submission" Click="WorkspaceFeedback_Click"
                         Background="#272822"
                         BorderThickness="0"
                         VerticalAlignment="Center">
 
-                        <TextBlock Text="&#xE762;"
-                           FontFamily="Segoe MDL2 Assets"
+                        <TextBlock Text="Feedback"
+                           FontFamily="Segoe UI"
                            FontSize="14"
                            Foreground="#999999"
                            HorizontalAlignment="Center"
@@ -405,18 +407,18 @@
                            HorizontalAlignment="Center"
                            Foreground="#F8F8F2"
                            Margin="0,0,0,16"/>
-                            <TextBlock Text="No file selected"
+                            <TextBlock Text="Review student work"
                            FontSize="18"
                            FontWeight="SemiBold"
                            HorizontalAlignment="Center"
                            Foreground="#F8F8F2"
                            Margin="0,0,0,8"/>
-                            <TextBlock Text="1. Select a student from the list"
+                            <TextBlock Text="Choose an assignment and open a submissions folder."
                            FontSize="13"
                            HorizontalAlignment="Center"
                            Foreground="#F8F8F2"
                            Margin="0,0,0,4"/>
-                            <TextBlock Text="2. Select an assignment to view its code"
+                            <TextBlock Text="Select a student, then a file to review beside the rubric."
                            FontSize="13"
                            HorizontalAlignment="Center"
                            Foreground="#F8F8F2"/>
@@ -446,46 +448,23 @@
             </Border>
 
         </Grid>
+        </DockPanel>
 
-        <!-- Violations Panel -->
-        <Border Grid.Row="2" 
-                x:Name="violationsPanel"
-                Background="#1E1E1E" 
-                BorderBrush="#3F3F46"
-                BorderThickness="0,1,0,0"
-                MaxHeight="200"
-                Visibility="Collapsed">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- Header with close button -->
-                <DockPanel Grid.Row="0" Background="#2D2D30" Height="28">
-                    <Button DockPanel.Dock="Right"
-                            Width="28"
-                            Height="28"
-                            Click="CloseViolationsPanel_Click"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            ToolTip="Close Violations Panel"
-                            Cursor="Hand">
-                        <TextBlock Text="&#xE711;" 
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="12"
-                                   Foreground="#CCCCCC"/>
-                    </Button>
-
-                    <TextBlock Text="Violations"
-                               Margin="10,0,0,0"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Foreground="#CCCCCC"/>
-                </DockPanel>
-
-                <!-- Violations List -->
-                <ListView Grid.Row="1"
+        <!-- Persistent tool tabs; collapsed content takes no review space. -->
+        <Border Grid.Row="2" Background="#252526" BorderBrush="#454545" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <Button x:Name="toolsPanelToggle" DockPanel.Dock="Right" Content="Show panel" Click="ToggleToolsPanel_Click" Padding="12,6" ToolTip="Show or hide the selected tools panel"/>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton x:Name="consoleToolTab" Content="Console" Click="ConsoleToolTab_Click" Padding="16,6" IsChecked="True" AutomationProperties.Name="Console tab"/>
+                    <ToggleButton x:Name="violationsToolTab" Content="Violations" Click="ViolationsToolTab_Click" Padding="16,6" AutomationProperties.Name="Violations tab"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <Grid Grid.Row="3" x:Name="toolsPanelContent" Visibility="Collapsed">
+            <Grid.RowDefinitions><RowDefinition Height="5"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#454545"/>
+            <Border Grid.Row="1" x:Name="violationsPanel" Background="#1E1E1E" Visibility="Collapsed">
+                <ListView
                           x:Name="violationsList"
                           Background="Transparent"
                           BorderThickness="0"
@@ -507,16 +486,30 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-            </Grid>
-        </Border>
+            </Border>
+            <Border Grid.Row="1" x:Name="runtimeTerminalPanel" Background="#0C0C0C" Visibility="Collapsed">
+                <RichTextBox
+                             x:Name="runtimeTerminalRichTextBox"
+                             Background="#0C0C0C"
+                             Foreground="#CCCCCC"
+                             FontFamily="Consolas"
+                             FontSize="13"
+                             BorderThickness="0"
+                             IsReadOnly="True"
+                             IsReadOnlyCaretVisible="False"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             Padding="8"/>
+            </Border>
+        </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3"
-        Height="24"
-        Background="#2D2D30"
-        BorderBrush="#3F3F46"
-        BorderThickness="0,1,0,0">
-            <StackPanel 
+        <Border Grid.Row="4"
+                Height="24"
+                Background="#2D2D30"
+                BorderBrush="#3F3F46"
+                BorderThickness="0,1,0,0">
+            <StackPanel
                 Orientation="Horizontal"
                 VerticalAlignment="Center"
                 Margin="15,0,15,3">

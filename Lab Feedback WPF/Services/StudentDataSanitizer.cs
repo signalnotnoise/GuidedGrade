@@ -29,6 +29,22 @@ namespace Lab_Feedback_WPF.Services
             return $"section-{Math.Max(1, index)}{ext}";
         }
 
+        public static string SafeDisplayName(string? fileName, IEnumerable<string?>? identifiers = null, int index = 1)
+        {
+            var name = Path.GetFileName(fileName ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(name))
+                return AnonymousFileName(index);
+
+            var sanitized = Sanitize(name, identifiers);
+            if (string.IsNullOrWhiteSpace(sanitized) ||
+                sanitized.Contains("[REDACTED]", StringComparison.OrdinalIgnoreCase))
+            {
+                return AnonymousFileName(index, Path.GetExtension(name));
+            }
+
+            return sanitized;
+        }
+
         public static string Sanitize(string? text, IEnumerable<string?>? identifiers = null)
         {
             if (string.IsNullOrEmpty(text))

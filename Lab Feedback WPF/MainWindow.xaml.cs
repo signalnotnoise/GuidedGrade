@@ -9,6 +9,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Wpf.Ui.Controls;
@@ -28,6 +29,8 @@ namespace Lab_Feedback_WPF
     public partial class MainWindow : FluentWindow
     {
         private readonly GradingView _gradingView = new();
+        private readonly AiTestQueue _aiTestQueue = new();
+        private readonly RuntimeTerminalPresenter _runtimeTerminal;
         private readonly Services.AssignmentPersistenceService _assignmentPersistenceService = new();
 
         private WpfButton? _selectedTabButton;
@@ -46,6 +49,8 @@ namespace Lab_Feedback_WPF
         public MainWindow()
         {
             InitializeComponent();
+            _runtimeTerminal = new RuntimeTerminalPresenter(runtimeTerminalRichTextBox);
+            Closed += (_, _) => _runtimeTerminal.Dispose();
             LoadMonokaiTheme();
             SetupInlineComments();
             LoadSavedCourseOptions();
@@ -102,6 +107,7 @@ namespace Lab_Feedback_WPF
                 return;
 
             _currentAssignment = assignment;
+            CloseSidePanel();
             MessageBox.Show($"Loaded assignment '{assignment.Title}' for course '{assignment.Course}'.",
                 "Saved Assignment Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -180,13 +186,15 @@ namespace Lab_Feedback_WPF
             }
 
             var gradingService = new Services.SectionGradingService(_currentAssignment);
+            var relatedFiles = GetRelatedFilesForGrading(filePath);
             foreach (var section in sections)
             {
                 var feedback = await gradingService.AnalyzeSectionAsync(
                     section.Name,
                     section.Code,
                     _currentAssignment.Rubric,
-                    GetStudentIdentifiers(filePath));
+                    GetStudentIdentifiers(filePath),
+                    relatedFiles);
 
                 feedback.StartLine = section.StartLine;
                 feedback.EndLine = section.EndLine;
@@ -362,6 +370,7 @@ namespace Lab_Feedback_WPF
             _commentLayer?.ClearComments();
 
             var filePath = (string?)_selectedTabButton?.Tag ?? string.Empty;
+            var relatedFiles = GetRelatedFilesForGrading(filePath);
             foreach (var section in sections)
             {
                 _ = Task.Run(async () =>
@@ -371,7 +380,8 @@ namespace Lab_Feedback_WPF
                         section.Name,
                         section.Code,
                         _currentAssignment.Rubric,
-                        GetStudentIdentifiers(filePath));
+                        GetStudentIdentifiers(filePath),
+                        relatedFiles);
 
                     feedback.StartLine = section.StartLine;
                     feedback.EndLine = section.EndLine;
@@ -418,13 +428,15 @@ namespace Lab_Feedback_WPF
 
             var filePath = (string?)_selectedTabButton?.Tag ?? string.Empty;
             var gradingService = new Services.SectionGradingService(_currentAssignment);
+            var relatedFiles = GetRelatedFilesForGrading(filePath);
             foreach (var section in sections)
             {
                 var feedback = await gradingService.AnalyzeSectionAsync(
                     section.Name,
                     section.Code,
                     _currentAssignment.Rubric,
-                    GetStudentIdentifiers(filePath));
+                    GetStudentIdentifiers(filePath),
+                    relatedFiles);
 
                 feedback.StartLine = section.StartLine;
                 feedback.EndLine = section.EndLine;
@@ -493,6 +505,7 @@ namespace Lab_Feedback_WPF
         {
             try
             {
+                var feedbackTarget = CurrentFeedbackKey();
                 // Collect all checked files from the tree
                 var checkedFiles = GetCheckedFiles(fileTreeView.Items);
 
@@ -504,6 +517,7 @@ namespace Lab_Feedback_WPF
                 }
 
                 var settings = Models.LLMSettings.Load();
+
 
                 if (_currentAssignment != null && _currentAssignment.Rubric.Count > 0)
                 {
@@ -527,6 +541,7 @@ namespace Lab_Feedback_WPF
                             Name = Services.StudentDataSanitizer.AnonymousFileName(codeFiles.Count + 1, Path.GetExtension(file.Name)),
                             Content = Services.StudentDataSanitizer.Sanitize(content, identifiers)
                         });
+
                     }
                     catch (Exception ex)
                     {
@@ -605,7 +620,7 @@ namespace Lab_Feedback_WPF
                         break;
                 }
 
-                MessageBox.Show(feedback, "LLM Analysis Result", MessageBoxButton.OK, MessageBoxImage.Information);
+                PresentGeneratedFeedback(feedbackTarget, feedback);
             }
             catch (Exception ex)
             {
@@ -624,6 +639,7 @@ namespace Lab_Feedback_WPF
             if (setupWindow.ShowDialog() == true)
             {
                 _currentAssignment = setupWindow.Assignment;
+                CloseSidePanel();
                 MessageBox.Show($"Assignment '{_currentAssignment.Title}' configured with {_currentAssignment.Rubric.Count} rubric items.",
                     "Assignment Setup", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -688,7 +704,8 @@ namespace Lab_Feedback_WPF
                     sectionName,
                     selection,
                     relevantItems,
-                    GetStudentIdentifiers(currentPath));
+                    GetStudentIdentifiers(currentPath),
+                    GetRelatedFilesForGrading(currentPath));
 
                 feedback.StartLine = startLine;
                 feedback.EndLine = endLine;
@@ -736,7 +753,8 @@ namespace Lab_Feedback_WPF
                     feedback.SectionName,
                     sectionCode,
                     _currentAssignment.Rubric,
-                    GetStudentIdentifiers(filePath));
+                    GetStudentIdentifiers(filePath),
+                    GetRelatedFilesForGrading(filePath));
 
                 regenerated.StartLine = feedback.StartLine;
                 regenerated.EndLine = feedback.EndLine;
@@ -808,6 +826,7 @@ namespace Lab_Feedback_WPF
             }
 
             RenderCommentsForFile(filePath);
+            RestoreApprovedFeedback(filePath, comments);
         }
 
         private void RenderCommentsForFile(string filePath)
@@ -829,6 +848,67 @@ namespace Lab_Feedback_WPF
                 _gradingView.CurrentStudent,
                 filePath,
                 _openedDirectoryPath);
+        }
+
+        private IReadOnlyList<Services.RelatedSubmissionFile> GetRelatedFilesForGrading(string? filePath)
+        {
+            var extraPaths = new List<string>();
+
+            try
+            {
+                extraPaths.AddRange(GetCheckedFiles(fileTreeView.Items).Select(item => item.FullPath));
+            }
+            catch
+            {
+            }
+
+            extraPaths.AddRange(panelFileTabs.Children
+                .OfType<WpfButton>()
+                .Select(tab => tab.Tag as string)
+                .Where(path => !string.IsNullOrWhiteSpace(path))!);
+
+            return Services.RelatedFileResolver.FindRelatedFiles(
+                filePath,
+                extraPaths,
+                _gradingView.CurrentStudent?.Folder);
+        }
+
+        private Services.SubmissionExecutionService CreateExecutionService()
+            => new Services.SubmissionExecutionService(confirmLocal: warning =>
+                MessageBox.Show(this, warning, "Run student code locally?",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+        private async Task<string?> GetRuntimeExecutionReportAsync(
+            string? filePath,
+            bool forceExecution = false,
+            IProgress<ConsoleProgress>? progress = null, SubmissionExecutionMode? executionMode = null)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            var settings = Models.LLMSettings.Load();
+            if (executionMode.HasValue) settings.ExecutionMode = executionMode.Value;
+            if (!forceExecution && !settings.ExecuteStudentSubmissions)
+                return null;
+
+            try
+            {
+                var service = CreateExecutionService();
+                var requirements = _currentAssignment?.Requirements ?? settings.RequirementsTemplate;
+                var report = await service.ExecuteAndFormatAsync(
+                    filePath,
+                    _gradingView.CurrentStudent?.Folder ?? _openedDirectoryPath,
+                    requirements,
+                    GetStudentIdentifiers(filePath),
+                    GetRelatedFilesForGrading(filePath),
+                    settings,
+                    progress);
+                return report == Services.SubmissionExecutionPolicy.LocalDeclined ? null : report;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Submission execution failed: {ex.Message}");
+                return "# RUNTIME EXECUTION RESULTS\nExecution attempt failed: " + ex.Message;
+            }
         }
 
         private string GetSectionText(Models.SectionFeedback feedback)
@@ -867,6 +947,12 @@ namespace Lab_Feedback_WPF
             else
             {
                 comments.Add(feedback);
+            }
+            if (IsSelectedFile(filePath))
+            {
+                var text = Services.SavedFeedbackText.Format(feedback);
+                MarkFeedbackImported(filePath, feedback);
+                PresentGeneratedFeedback(CurrentFeedbackKey(), text);
             }
         }
 
@@ -960,6 +1046,7 @@ namespace Lab_Feedback_WPF
         /*
         private async void ListBoxStudents_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            CloseSidePanel();
             if (listBoxStudents.SelectedItem is not Student student) return;
 
             var path = student.Folder;
@@ -1236,9 +1323,9 @@ namespace Lab_Feedback_WPF
 
             // Only open files, not directories
             // Directories just expand/collapse in the tree
-            if (!selectedItem.IsDirectory)
+            // Solution files are launched from the right-click menu instead of the editor.
+            if (!selectedItem.IsDirectory && !selectedItem.IsSolution)
             {
-                // File selected - open it in a new tab
                 OpenFileInTab(selectedItem.FullPath);
             }
         }
@@ -1314,6 +1401,182 @@ namespace Lab_Feedback_WPF
             {
                 PopulateTreeView(_openedDirectoryPath);
             }
+        }
+
+        private void FileTreeView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var treeViewItem = FindVisualParent<System.Windows.Controls.TreeViewItem>(e.OriginalSource as DependencyObject);
+            if (treeViewItem == null)
+                return;
+
+            treeViewItem.IsSelected = true;
+            treeViewItem.Focus();
+        }
+
+        private void FileTreeContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ContextMenu menu)
+                return;
+
+            var isSolution = fileTreeView.SelectedItem is Models.FileSystemItem item && item.IsSolution;
+            var visibility = isSolution ? Visibility.Visible : Visibility.Collapsed;
+
+            foreach (var obj in menu.Items)
+            {
+                if (obj is FrameworkElement element && Equals(element.Tag, "solution-command"))
+                    element.Visibility = visibility;
+            }
+        }
+
+        private async void BuildSolutionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var solutionPath = GetSelectedSolutionPath();
+            if (solutionPath == null)
+                return;
+
+            try
+            {
+                var service = CreateExecutionService();
+                var result = await service.BuildOnlyAsync(solutionPath);
+                MessageBox.Show(result, "Build", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Build failed: {ex.Message}", "Build", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void RunSolutionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var solutionPath = GetSelectedSolutionPath();
+            if (solutionPath == null)
+                return;
+
+            try
+            {
+                var service = CreateExecutionService();
+                var result = await service.LaunchAsync(solutionPath);
+                MessageBox.Show(result, "Run", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Run failed: {ex.Message}", "Run", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void TestSolutionWithAiMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var solutionPath = GetSelectedSolutionPath();
+            if (solutionPath == null) return;
+            solutionPath = Path.GetFullPath(solutionPath);
+            var settings = LLMSettings.Load();
+            if ((sender as System.Windows.Controls.MenuItem)?.CommandParameter as string == "local")
+                settings.ExecutionMode = SubmissionExecutionMode.Local;
+            var searchRoot = _gradingView.CurrentStudent?.Folder ?? _openedDirectoryPath;
+            var identifiers = GetStudentIdentifiers(solutionPath).ToArray();
+            var checkedPaths = GetCheckedFiles(fileTreeView.Items)
+                .Where(file => !file.IsSolution).Select(file => file.FullPath).ToArray();
+            var assignment = _currentAssignment == null ? null : new GradingAssignment
+            {
+                Course = _currentAssignment.Course,
+                Title = _currentAssignment.Title,
+                Requirements = _currentAssignment.Requirements,
+                Rubric = _currentAssignment.Rubric.Select(r => new RubricItem(r.Name, r.MaxPoints)).ToList()
+            };
+            var requirements = assignment?.Requirements ?? settings.RequirementsTemplate;
+            // Capture metadata only; load source and create the VM when the job starts.
+            if (!_aiTestQueue.TryEnqueue(solutionPath, async () =>
+            {
+                OpenRuntimeTerminalPanel();
+                using var progress = _runtimeTerminal.BeginSession();
+                AppendToRuntimeTerminal($"Testing: {solutionPath}\n", Brushes.DeepSkyBlue);
+                var related = RelatedFileResolver.FindRelatedFiles(solutionPath, checkedPaths, searchRoot);
+                var report = await CreateExecutionService().ExecuteAndFormatAsync(
+                    solutionPath, searchRoot, requirements, identifiers, related, settings, progress);
+                if (report == SubmissionExecutionPolicy.LocalDeclined) return;
+                var reportDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "LabFeedbackWPF", "TestReports");
+                Directory.CreateDirectory(reportDirectory);
+                var reportPath = Path.Combine(reportDirectory, $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.txt");
+                await File.WriteAllTextAsync(reportPath, $"Submission: {solutionPath}\n\n{report}");
+                if (assignment != null && assignment.Rubric.Count > 0)
+                    foreach (var path in checkedPaths)
+                        await GradeFileWithRuntimeReportAsync(path, report, assignment, identifiers, checkedPaths, searchRoot, settings);
+                AppendToRuntimeTerminal($"\nCompleted: {solutionPath}\nReport saved: {reportPath}\n", Brushes.DeepSkyBlue);
+            }, out var completion))
+            {
+                MessageBox.Show("This solution is already running or queued, or the queue has reached its 50-test limit.",
+                    "AI test queue", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            Title = $"Lab Feedback - {_aiTestQueue.Count} AI test(s) running or queued";
+            try { await completion; }
+            catch (Exception ex)
+            {
+                AppendToRuntimeTerminal($"Test failed ({solutionPath}): {ex.Message}\n", Brushes.Tomato);
+                Debug.WriteLine($"AI test failed ({solutionPath}): {ex}");
+            }
+            finally { Title = $"Lab Feedback - {_aiTestQueue.Count} AI test(s) running or queued"; }
+        }
+
+        private string? GetSelectedSolutionPath()
+        {
+            return fileTreeView.SelectedItem is Models.FileSystemItem item && item.IsSolution
+                ? item.FullPath
+                : null;
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T match)
+                    return match;
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
+        }
+
+        private async Task GradeFileWithRuntimeReportAsync(string filePath, string runtimeReport,
+            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot, LLMSettings settings)
+        {
+            if (assignment == null || assignment.Rubric.Count == 0)
+                return;
+
+            var fileText = await File.ReadAllTextAsync(filePath);
+            var sections = ExtractCodeSections(fileText, Path.GetFileNameWithoutExtension(filePath));
+            if (sections.Count == 0)
+            {
+                sections.Add(new CodeSection
+                {
+                    Name = Path.GetFileName(filePath),
+                    Code = fileText,
+                    StartLine = 1,
+                    EndLine = fileText.Split('\n').Length
+                });
+            }
+
+            var gradingService = new Services.SectionGradingService(assignment, settings);
+            var relatedFiles = RelatedFileResolver.FindRelatedFiles(filePath, checkedPaths, searchRoot);
+            foreach (var section in sections)
+            {
+                var feedback = await gradingService.AnalyzeSectionAsync(
+                    section.Name,
+                    section.Code,
+                    assignment.Rubric,
+                    identifiers,
+                    relatedFiles,
+                    runtimeReport);
+
+                feedback.StartLine = section.StartLine;
+                feedback.EndLine = section.EndLine;
+                TrackCommentForFile(filePath, feedback);
+                if (IsSelectedFile(filePath))
+                    _commentLayer?.AddComment(feedback, section.StartLine, section.EndLine);
+            }
+
+            PersistCommentsForFile(filePath);
         }
 
         private List<Models.FileSystemItem> GetCheckedFiles(System.Collections.IEnumerable items)
@@ -1704,22 +1967,12 @@ namespace Lab_Feedback_WPF
         }
 
         private void StatusViolations_Click(object sender, MouseButtonEventArgs e)
-        {
-            // Toggle violations panel visibility
-            if (violationsPanel.Visibility == Visibility.Visible)
-            {
-                violationsPanel.Visibility = Visibility.Collapsed;
-            }
-            else
-            {
-                violationsPanel.Visibility = Visibility.Visible;
-            }
-        }
+            => SelectToolsPanel(true, toggleSelected: true);
 
-        private void CloseViolationsPanel_Click(object sender, RoutedEventArgs e)
-        {
-            violationsPanel.Visibility = Visibility.Collapsed;
-        }
+        private void OpenRuntimeTerminalPanel() => SelectToolsPanel(false);
+
+        private void AppendToRuntimeTerminal(string text, Brush? brush = null)
+            => _runtimeTerminal.Append(text, brush ?? Brushes.LightGray);
 
         private void ViolationsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
