@@ -18,10 +18,13 @@ MainWindow.ToolsPanel owns Console/Violations tab selection and show/hide behavi
 
 ## Review findings still open
 - Durable edited-draft storage and an unsaved-draft close flow are needed to prevent lost edits.
-- Section completion routing still depends on the selected file/current assignment; switching context during section generation needs captured submission/assignment identity throughout that pipeline.
+- Draft destination routing captures the initiating context; the underlying file-keyed SQLite records still lack assignment identity.
 - SQLite section records are keyed by file rather than assignment; reusing one file under different assignments can import old feedback.
 - Rejected or regenerated source feedback does not reconcile text already copied into an edited draft. The draft intentionally preserves edits; reconciliation needs an explicit review workflow.
 - Draft retention needs a bounded, durable store. HTML supports a small Markdown subset, not tables or full CommonMark.
 
 ## Verification
 Formatter regression tests cover HTML escaping, category colors, code preservation, and TXT/Markdown output. Build checks compile XAML and handler wiring. No live clipboard/editor integration or visual UI validation was performed in this review.
+
+## September 16 fixes
+Section requests now capture their draft destination before awaiting work, including queued runtime grading and multi-file batches. Completed results append to that destination even when another file is selected; visible publication checks the current draft key. Approval updates stored review status without publishing a second draft entry. SuggestedScore is double; parsing uses an invariant decimal separator, and SQLite reads both historical integer and fractional values as double. Existing SQLite INTEGER-affinity columns accept fractional values without rebuilding the table. Rubric import, setup submission, and persistence reject nonfinite or nonpositive maximum points. Manual GUI switching/approval validation remains outstanding.

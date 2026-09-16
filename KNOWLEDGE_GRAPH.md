@@ -1,23 +1,23 @@
 # Lab Feedback dependency knowledge graph
 
-Source-reviewed map of the working tree, updated September 15, 2026. Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
+Source-reviewed map of the working tree, updated September 16, 2026. Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
 ## Application overview
 
 ```mermaid
 flowchart TD
-    UI["MainWindow Â· coordinates navigation and grading"]
-    Import["Import Â· ZIPs, students and source files"]
-    Editor["AvalonEdit Â· source and inline feedback"]
-    Rules["Violation checks Â· configured source rules"]
-    Queue["AiTestQueue Â· one test at a time"]
-    Execute["SubmissionExecutionService Â· builds and tests"]
-    Agent["ConsoleDriverAgent Â· reads prompts and types input"]
-    Grade["SectionGradingService Â· rubric feedback"]
-    Model["Ollama / Azure Â· model completions"]
-    Store["SQLite Â· assignments and comments"]
-    Terminal["Terminal presenter Â· bounded live output"]
-    Reports["Text reports Â· saved execution evidence"]
+    UI["MainWindow · coordinates navigation and grading"]
+    Import["Import · ZIPs, students and source files"]
+    Editor["AvalonEdit · source and inline feedback"]
+    Rules["Violation checks · configured source rules"]
+    Queue["AiTestQueue · one test at a time"]
+    Execute["SubmissionExecutionService · builds and tests"]
+    Agent["ConsoleDriverAgent · reads prompts and types input"]
+    Grade["SectionGradingService · rubric feedback"]
+    Model["Ollama / Azure · model completions"]
+    Store["SQLite · assignments and comments"]
+    Terminal["Terminal presenter · bounded live output"]
+    Reports["Text reports · saved execution evidence"]
     UI -->|loads| Import
     UI -->|displays| Editor
     UI -->|scans source| Rules
@@ -39,20 +39,20 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Exec["SubmissionExecutionService Â· execution workflow"]
-    Detect["RunnableSubmissionDetector Â· identifies runnable source"]
-    Policy["SubmissionExecutionPolicy Â· local consent"]
-    Stage["AiTestStaging Â· working copy"]
-    Build["SubmissionBuilder Â· selects compiler and command"]
-    Process["ProcessRunner Â· drains build stdout/stderr"]
+    Exec["SubmissionExecutionService · execution workflow"]
+    Detect["RunnableSubmissionDetector · identifies runnable source"]
+    Policy["SubmissionExecutionPolicy · local consent"]
+    Stage["AiTestStaging · working copy"]
+    Build["SubmissionBuilder · selects compiler and command"]
+    Process["ProcessRunner · drains build stdout/stderr"]
     Tools["MSBuild / dotnet / C++ / Java / Python"]
-    Session["InteractiveProcessSession Â· child I/O and cleanup"]
-    Contract["IInteractiveConsoleSession Â· common interface"]
-    Agent["ConsoleDriverAgent Â· adaptive console interaction"]
-    VM["HyperVRunner Â· packages inputs and sends requests"]
-    Bridge["HyperVBridge.ps1 Â· creates and removes VM"]
-    Worker["Runner Program.cs Â· guest JSON command loop"]
-    Watch["HyperVWatchdog.ps1 Â· emergency VM cleanup"]
+    Session["InteractiveProcessSession · child I/O and cleanup"]
+    Contract["IInteractiveConsoleSession · common interface"]
+    Agent["ConsoleDriverAgent · adaptive console interaction"]
+    VM["HyperVRunner · packages inputs and sends requests"]
+    Bridge["HyperVBridge.ps1 · creates and removes VM"]
+    Worker["Runner Program.cs · guest JSON command loop"]
+    Watch["HyperVWatchdog.ps1 · emergency VM cleanup"]
     Exec -->|detects submission| Detect
     Exec -->|local mode checks| Policy
     Exec -->|local mode copies| Stage
@@ -98,17 +98,17 @@ The guest worker compiles shared execution sources directly; it does not load th
 
 ```mermaid
 flowchart TD
-    Child["Student process Â· stdout/stderr or ConPTY"]
-    Capture["InteractiveProcessSession Â· pumps output"]
-    Ring["BoundedTextBuffer Â· 64,000-char tail per stream"]
-    Agent["Console agent / report Â· bounded snapshots"]
-    Mail["BoundedConsoleProgress Â· 16,000 chars / 128 chunks"]
-    Render["RuntimeTerminalPresenter Â· 100 ms batches"]
-    Doc["RichTextBox Â· 100,000 chars / 256 runs, no undo"]
-    Compiler["Compiler process Â· build output"]
-    Build["ProcessRunner Â· first 8,000 chars per pipe"]
-    BuildReport["Build result Â· retained output and truncation notice"]
-    Limits["OutputLimits Â· shared budgets"]
+    Child["Student process · stdout/stderr or ConPTY"]
+    Capture["InteractiveProcessSession · pumps output"]
+    Ring["BoundedTextBuffer · 64,000-char tail per stream"]
+    Agent["Console agent / report · bounded snapshots"]
+    Mail["BoundedConsoleProgress · 16,000 chars / 128 chunks"]
+    Render["RuntimeTerminalPresenter · 100 ms batches"]
+    Doc["RichTextBox · 100,000 chars / 256 runs, no undo"]
+    Compiler["Compiler process · build output"]
+    Build["ProcessRunner · first 8,000 chars per pipe"]
+    BuildReport["Build result · retained output and truncation notice"]
+    Limits["OutputLimits · shared budgets"]
     Child -->|emits| Capture
     Capture -->|retains tail| Ring
     Ring -->|slices by absolute cursor| Agent
@@ -129,29 +129,29 @@ For Hyper-V, the worker sends bounded output through its JSON protocol and `Hype
 
 ```mermaid
 flowchart TD
-    UI["MainWindow Â· assembles context and handles review"]
-    Context["RelatedFileResolver Â· headers and companion source"]
-    Grade["SectionGradingService Â· rubric prompt and parsed feedback"]
-    Sanitize["StudentDataSanitizer Â· removes identifiers"]
-    Agent["ConsoleDriverAgent Â· next-input prompt"]
-    Route["LlmCompletionService Â· provider selection"]
-    Ollama["OllamaService Â· local model HTTP calls"]
-    Azure["AzureOpenAIService Â· Azure HTTP calls"]
-    Feedback["SectionFeedback Â· issues, suggestions and review state"]
-    Overlay["InlineCommentLayer + Adorner Â· review controls"]
-    Comments["CommentPersistenceService Â· SQLite comments"]
-    Assignment["AssignmentPersistenceService Â· SQLite rubric library"]
-    Settings["LLMSettings Â· provider, execution and model settings"]
+    UI["MainWindow · assembles context and handles review"]
+    Context["RelatedFileResolver · headers and companion source"]
+    Grade["SectionGradingService · rubric prompt and parsed feedback"]
+    Sanitize["StudentDataSanitizer · removes identifiers"]
+    Agent["ConsoleDriverAgent · next-input prompt"]
+    Route["LlmCompletionService · provider selection"]
+    Ollama["OllamaService · local model HTTP calls"]
+    Azure["AzureOpenAIService · Azure HTTP calls"]
+    Feedback["SectionFeedback · issues, suggestions and review state"]
+    Overlay["InlineCommentLayer + Adorner · review controls"]
+    Comments["CommentPersistenceService · SQLite comments"]
+    Assignment["AssignmentPersistenceService · SQLite rubric library"]
+    Settings["LLMSettings · provider, execution and model settings"]
     UI -->|resolves dependencies| Context
     UI -->|source, rubric and runtime report| Grade
     Grade -->|sanitizes prompt context| Sanitize
     Grade -->|selected provider| Ollama
     Grade -->|selected provider| Azure
-    Screen["ConsoleScreen Â· readable current terminal state"]
+    Screen["ConsoleScreen · readable current terminal state"]
     Agent -->|feeds received terminal updates| Screen
     Screen -->|screen and cursor context| Agent
-    InputPolicy["ConsoleInputPolicy Â· menu keys and input validation"]
-    SourceContext["ConsoleSourceContext Â· input-reading excerpts"]
+    InputPolicy["ConsoleInputPolicy · menu keys and input validation"]
+    SourceContext["ConsoleSourceContext · input-reading excerpts"]
     Agent -->|checks before typing| InputPolicy
     Agent -->|builds prompt context| SourceContext
     Agent -->|requests validated JSON action| Route
@@ -182,16 +182,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    UI["MainWindow Â· folder/file navigation"]
-    Zip["ZipFileHandler Â· validates and extracts ZIPs"]
-    Progress["ExtractionProgressDialog Â· progress and cancellation"]
-    Student["Student / Assignment Â· submission folders"]
-    File["FileHandler Â· discovers source, parses logs/results"]
-    Tree["FileSystemItem Â· checked/expanded tree nodes"]
-    Config["ViolationsConfigService Â· terms and file patterns"]
-    Match["ViolationsMatcher Â· source matches and context"]
-    Highlight["ViolationHighlighter Â· AvalonEdit backgrounds"]
-    GradeView["GradingView Â· scores, deductions and feedback text"]
+    UI["MainWindow · folder/file navigation"]
+    Zip["ZipFileHandler · validates and extracts ZIPs"]
+    Progress["ExtractionProgressDialog · progress and cancellation"]
+    Student["Student / Assignment · submission folders"]
+    File["FileHandler · discovers source, parses logs/results"]
+    Tree["FileSystemItem · checked/expanded tree nodes"]
+    Config["ViolationsConfigService · terms and file patterns"]
+    Match["ViolationsMatcher · source matches and context"]
+    Highlight["ViolationHighlighter · AvalonEdit backgrounds"]
+    GradeView["GradingView · scores, deductions and feedback text"]
     UI -->|imports| Zip
     Zip -->|reports extraction work| Progress
     UI -->|discovers folders| Student
@@ -256,7 +256,12 @@ flowchart LR
     Persistence --> Load[LoadCommentsForFile]
     Load --> Approved[Approved feedback import]
     Approved --> Text[SavedFeedbackText]
-    Generated[Generated section feedback] --> Text
+    Selection --> Target[Draft destination captured before async work]
+    Target --> Routing[Completion routing by captured draft key]
+    Generated[Generated section feedback] --> Routing
+    Routing --> Text
+    Approval[Approve existing section] --> Persistence
+    Approval --> Status[Update review status without appending draft text]
     Text --> Draft[Editable session draft]
     Analysis[Whole-file AI analysis] --> Draft
     Workspace --> Draft
@@ -270,6 +275,36 @@ flowchart LR
     Draft --> Export[Text-file export]
     Tools[MainWindow.ToolsPanel] --> Console[Bounded runtime terminal]
     Tools --> Violations[Violation list]
+    Close[Close last file / empty editor] --> Clear[Clear inline comment overlay]
+    Late[Late comment rendering] --> Guard[Require originating file to remain selected]
+    Guard --> Overlay[Inline comment overlay]
 ```
 
 Draft edits stay in memory; the arrow from SQLite imports original section records and does not save edited drafts back. Import tracking avoids repeated appends within a session. Tool-tab collapse frees the bottom content row without clearing capture buffers. See [feedback workspace documentation](FEEDBACK_WORKSPACE.md) for limitations and review findings.
+
+## Decimal scores and rubric validation
+
+```mermaid
+flowchart LR
+    Import[Rubric text import] --> Finite[Finite positive maximum points]
+    Setup[Assignment setup save] --> Finite
+    Finite --> Rubric[RubricItem double point values]
+    Rubric --> Save[AssignmentPersistenceService validation]
+    Save --> Assignments[(assignments.db / rubric JSON)]
+    Response[Model SCORE text] --> Parse[SectionGradingService invariant decimal parsing]
+    Parse --> Score[SectionFeedback.SuggestedScore : double]
+    Score --> Comments[CommentPersistenceService]
+    Comments --> DB[(section-comments.db)]
+    DB --> Read[GetDouble: historical integers and fractional scores]
+```
+
+New section-score columns use REAL affinity. Existing SQLite INTEGER-affinity columns can retain fractional values; no destructive table migration is required. Setup and persistence validation reject nonfinite or nonpositive rubric maxima. DecimalFeedbackTests cover decimal parsing under a non-English culture and compatibility with an existing INTEGER-affinity column.
+
+### Current behavioral boundaries
+- Batch and queued grading capture the destination draft before awaiting work. Results for another selection remain in that draft rather than opening the currently selected student's panel.
+- Approval persists status without republishing feedback. Generated sections and restored approved sections share import tracking and SavedFeedbackText.
+- Empty-editor transitions clear inline overlays. RenderCommentsForFile ignores late results for a file that is no longer selected.
+- Draft edits remain session-only; section persistence is still file-keyed rather than assignment-keyed. See FEEDBACK_WORKSPACE.md for remaining limitations.
+
+### Maintenance
+Update affected diagrams and component descriptions in the same change as dependency, workflow, persistence, or memory-ownership changes. Document implemented behavior separately from planned work. The date above records the latest source-checked update, not an automated synchronization guarantee.

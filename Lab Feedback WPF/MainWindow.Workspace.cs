@@ -8,10 +8,10 @@ public partial class MainWindow
 {
     private readonly Dictionary<string, string> _reviewDrafts = new();
     private readonly HashSet<string> _restoredFeedback = new(StringComparer.Ordinal);
-    private string FeedbackIdentity(string filePath, Models.SectionFeedback feedback) =>
-        CurrentFeedbackKey() + "|" + filePath + "|" + feedback.StartLine + "|" + feedback.EndLine + "|" + feedback.SectionName;
-    private void MarkFeedbackImported(string filePath, Models.SectionFeedback feedback)
-        => _restoredFeedback.Add(FeedbackIdentity(filePath, feedback));
+    private string FeedbackIdentity(string filePath, Models.SectionFeedback feedback, string? draftTarget = null) =>
+        (draftTarget ?? CurrentFeedbackKey()) + "|" + filePath + "|" + feedback.StartLine + "|" + feedback.EndLine + "|" + feedback.SectionName;
+    private void MarkFeedbackImported(string filePath, Models.SectionFeedback feedback, string? draftTarget = null)
+        => _restoredFeedback.Add(FeedbackIdentity(filePath, feedback, draftTarget));
 
     private void RestoreApprovedFeedback(string filePath, IEnumerable<Models.SectionFeedback> comments)
     {

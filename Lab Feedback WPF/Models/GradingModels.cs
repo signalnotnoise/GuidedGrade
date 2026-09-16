@@ -8,12 +8,12 @@ namespace Lab_Feedback_WPF.Models
     public class RubricItem
     {
         public string Name { get; set; }
-        public int MaxPoints { get; set; }
-        public int EarnedPoints { get; set; }
+        public double MaxPoints { get; set; }
+        public double EarnedPoints { get; set; }
         public string Feedback { get; set; }
         public bool IsGraded { get; set; }
 
-        public RubricItem(string name, int maxPoints)
+        public RubricItem(string name, double maxPoints)
         {
             Name = name;
             MaxPoints = maxPoints;
@@ -41,22 +41,22 @@ namespace Lab_Feedback_WPF.Models
             Rubric = new List<RubricItem>();
         }
 
-        public int TotalMaxPoints
+        public double TotalMaxPoints
         {
             get
             {
-                int total = 0;
+                double total = 0;
                 foreach (var item in Rubric)
                     total += item.MaxPoints;
                 return total;
             }
         }
 
-        public int TotalEarnedPoints
+        public double TotalEarnedPoints
         {
             get
             {
-                int total = 0;
+                double total = 0;
                 foreach (var item in Rubric)
                     total += item.EarnedPoints;
                 return total;
@@ -79,7 +79,7 @@ namespace Lab_Feedback_WPF.Models
         public List<string> Issues { get; set; }
         public List<string> Strengths { get; set; }
         public string SuggestedCode { get; set; }
-        public int SuggestedScore { get; set; }
+        public double SuggestedScore { get; set; }
         public string Explanation { get; set; }
         public FeedbackReviewStatus ReviewStatus { get; set; }
 

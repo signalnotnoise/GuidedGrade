@@ -160,9 +160,11 @@ namespace Lab_Feedback_WPF
             };
         }
 
-        private async Task GradeFileSectionsAsync(string filePath, bool clearComments = true)
+        private async Task GradeFileSectionsAsync(string filePath, bool clearComments = true, string? capturedTarget = null, GradingAssignment? capturedAssignment = null)
         {
-            if (_currentAssignment == null || _currentAssignment.Rubric.Count == 0)
+            var draftTarget = capturedTarget ?? CurrentFeedbackKey();
+            var assignment = capturedAssignment ?? _currentAssignment;
+            if (assignment == null || assignment.Rubric.Count == 0)
                 return;
 
             var fileText = await File.ReadAllTextAsync(filePath);
@@ -185,21 +187,21 @@ namespace Lab_Feedback_WPF
                 _commentLayer?.ClearComments();
             }
 
-            var gradingService = new Services.SectionGradingService(_currentAssignment);
+            var gradingService = new Services.SectionGradingService(assignment);
             var relatedFiles = GetRelatedFilesForGrading(filePath);
             foreach (var section in sections)
             {
                 var feedback = await gradingService.AnalyzeSectionAsync(
                     section.Name,
                     section.Code,
-                    _currentAssignment.Rubric,
+                    assignment.Rubric,
                     GetStudentIdentifiers(filePath),
                     relatedFiles);
 
                 feedback.StartLine = section.StartLine;
                 feedback.EndLine = section.EndLine;
-                TrackCommentForFile(filePath, feedback);
-                if (IsSelectedFile(filePath))
+                TrackCommentForFile(filePath, feedback, draftTarget);
+                if (draftTarget == CurrentFeedbackKey() && IsSelectedFile(filePath))
                     _commentLayer?.AddComment(feedback, section.StartLine, section.EndLine);
             }
 
@@ -216,11 +218,13 @@ namespace Lab_Feedback_WPF
             if (checkedFiles.Count == 0)
                 return;
 
+            var target = CurrentFeedbackKey();
+            var assignment = _currentAssignment;
             _commentLayer?.ClearComments();
 
             foreach (var file in checkedFiles)
             {
-                await GradeFileSectionsAsync(file.FullPath, clearComments: false);
+                await GradeFileSectionsAsync(file.FullPath, clearComments: false, capturedTarget: target, capturedAssignment: assignment);
             }
         }
 
@@ -350,7 +354,9 @@ namespace Lab_Feedback_WPF
 
         private void GradeCurrentFileWithSections()
         {
-            if (_currentAssignment == null || _currentAssignment.Rubric.Count == 0)
+            var draftTarget = CurrentFeedbackKey();
+            var assignment = _currentAssignment;
+            if (assignment == null || assignment.Rubric.Count == 0)
                 return;
 
             var fileText = codeEditor.Text;
@@ -375,11 +381,11 @@ namespace Lab_Feedback_WPF
             {
                 _ = Task.Run(async () =>
                 {
-                    var gradingService = new Services.SectionGradingService(_currentAssignment);
+                    var gradingService = new Services.SectionGradingService(assignment);
                     var feedback = await gradingService.AnalyzeSectionAsync(
                         section.Name,
                         section.Code,
-                        _currentAssignment.Rubric,
+                        assignment.Rubric,
                         GetStudentIdentifiers(filePath),
                         relatedFiles);
 
@@ -390,7 +396,7 @@ namespace Lab_Feedback_WPF
                     {
                         if (!string.IsNullOrWhiteSpace(filePath))
                         {
-                            TrackCommentForFile(filePath, feedback);
+                            TrackCommentForFile(filePath, feedback, draftTarget);
                         }
 
                         if (string.IsNullOrWhiteSpace(filePath) || IsSelectedFile(filePath))
@@ -407,7 +413,9 @@ namespace Lab_Feedback_WPF
 
         private async Task GradeCurrentFileWithSectionsAsync()
         {
-            if (_currentAssignment == null || _currentAssignment.Rubric.Count == 0)
+            var draftTarget = CurrentFeedbackKey();
+            var assignment = _currentAssignment;
+            if (assignment == null || assignment.Rubric.Count == 0)
                 return;
 
             var fileText = codeEditor.Text;
@@ -427,14 +435,14 @@ namespace Lab_Feedback_WPF
             _commentLayer?.ClearComments();
 
             var filePath = (string?)_selectedTabButton?.Tag ?? string.Empty;
-            var gradingService = new Services.SectionGradingService(_currentAssignment);
+            var gradingService = new Services.SectionGradingService(assignment);
             var relatedFiles = GetRelatedFilesForGrading(filePath);
             foreach (var section in sections)
             {
                 var feedback = await gradingService.AnalyzeSectionAsync(
                     section.Name,
                     section.Code,
-                    _currentAssignment.Rubric,
+                    assignment.Rubric,
                     GetStudentIdentifiers(filePath),
                     relatedFiles);
 
@@ -442,7 +450,7 @@ namespace Lab_Feedback_WPF
                 feedback.EndLine = section.EndLine;
                 if (!string.IsNullOrWhiteSpace(filePath))
                 {
-                    TrackCommentForFile(filePath, feedback);
+                    TrackCommentForFile(filePath, feedback, draftTarget);
                 }
 
                 if (string.IsNullOrWhiteSpace(filePath) || IsSelectedFile(filePath))
@@ -683,6 +691,7 @@ namespace Lab_Feedback_WPF
             if (sectionDialog.ShowDialog() != true)
                 return;
 
+            var draftTarget = CurrentFeedbackKey();
             var sectionName = sectionDialog.SectionName;
             var relevantItems = sectionDialog.SelectedRubricItems;
 
@@ -711,11 +720,12 @@ namespace Lab_Feedback_WPF
                 feedback.EndLine = endLine;
                 if (!string.IsNullOrWhiteSpace(currentPath))
                 {
-                    TrackCommentForFile(currentPath, feedback);
+                    TrackCommentForFile(currentPath, feedback, draftTarget);
                     PersistCommentsForFile(currentPath);
                 }
 
-                _commentLayer?.AddComment(feedback, startLine, endLine);
+                if (draftTarget == CurrentFeedbackKey() && currentPath != null && IsSelectedFile(currentPath))
+                    _commentLayer?.AddComment(feedback, startLine, endLine);
                 codeEditor.ScrollToLine(Math.Max(1, startLine));
             }
             catch (Exception)
@@ -730,13 +740,14 @@ namespace Lab_Feedback_WPF
             feedback.ReviewStatus = Models.FeedbackReviewStatus.Approved;
             if (_selectedTabButton?.Tag is string filePath)
             {
-                TrackCommentForFile(filePath, feedback);
+                TrackCommentForFile(filePath, feedback, publishToDraft: false);
                 PersistCommentsForFile(filePath);
             }
         }
 
         private async void CommentLayer_RegenerateRequested(object? sender, Models.SectionFeedback feedback)
         {
+            var draftTarget = CurrentFeedbackKey();
             if (_currentAssignment == null || _currentAssignment.Rubric.Count == 0)
             {
                 MessageBox.Show("Load an assignment with a rubric before regenerating feedback.",
@@ -762,7 +773,7 @@ namespace Lab_Feedback_WPF
 
                 if (!string.IsNullOrWhiteSpace(filePath))
                 {
-                    TrackCommentForFile(filePath, regenerated);
+                    TrackCommentForFile(filePath, regenerated, draftTarget);
                     PersistCommentsForFile(filePath);
                     RenderCommentsForFile(filePath);
                 }
@@ -831,6 +842,8 @@ namespace Lab_Feedback_WPF
 
         private void RenderCommentsForFile(string filePath)
         {
+            // Async results may finish after this tab has been closed or replaced.
+            if (!IsSelectedFile(filePath)) return;
             _commentLayer?.ClearComments();
 
             if (!_fileComments.TryGetValue(filePath, out var comments))
@@ -924,7 +937,7 @@ namespace Lab_Feedback_WPF
             return codeEditor.Document.GetText(start.Offset, end.EndOffset - start.Offset);
         }
 
-        private void TrackCommentForFile(string filePath, Models.SectionFeedback feedback)
+        private void TrackCommentForFile(string filePath, Models.SectionFeedback feedback, string? draftTarget = null, bool publishToDraft = true)
         {
             if (string.IsNullOrWhiteSpace(filePath) || feedback == null)
                 return;
@@ -948,11 +961,11 @@ namespace Lab_Feedback_WPF
             {
                 comments.Add(feedback);
             }
-            if (IsSelectedFile(filePath))
+            if (publishToDraft)
             {
                 var text = Services.SavedFeedbackText.Format(feedback);
-                MarkFeedbackImported(filePath, feedback);
-                PresentGeneratedFeedback(CurrentFeedbackKey(), text);
+                MarkFeedbackImported(filePath, feedback, draftTarget);
+                PresentGeneratedFeedback(draftTarget ?? CurrentFeedbackKey(), text);
             }
         }
 
@@ -1249,6 +1262,7 @@ namespace Lab_Feedback_WPF
 
         private void SetEmptyState(bool isEmpty)
         {
+            if (isEmpty) _commentLayer?.ClearComments();
             emptyStateOverlay.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -1483,6 +1497,7 @@ namespace Lab_Feedback_WPF
                 Requirements = _currentAssignment.Requirements,
                 Rubric = _currentAssignment.Rubric.Select(r => new RubricItem(r.Name, r.MaxPoints)).ToList()
             };
+            var draftTarget = CurrentFeedbackKey();
             var requirements = assignment?.Requirements ?? settings.RequirementsTemplate;
             // Capture metadata only; load source and create the VM when the job starts.
             if (!_aiTestQueue.TryEnqueue(solutionPath, async () =>
@@ -1501,7 +1516,7 @@ namespace Lab_Feedback_WPF
                 await File.WriteAllTextAsync(reportPath, $"Submission: {solutionPath}\n\n{report}");
                 if (assignment != null && assignment.Rubric.Count > 0)
                     foreach (var path in checkedPaths)
-                        await GradeFileWithRuntimeReportAsync(path, report, assignment, identifiers, checkedPaths, searchRoot, settings);
+                        await GradeFileWithRuntimeReportAsync(path, report, assignment, identifiers, checkedPaths, searchRoot, settings, draftTarget);
                 AppendToRuntimeTerminal($"\nCompleted: {solutionPath}\nReport saved: {reportPath}\n", Brushes.DeepSkyBlue);
             }, out var completion))
             {
@@ -1539,7 +1554,7 @@ namespace Lab_Feedback_WPF
         }
 
         private async Task GradeFileWithRuntimeReportAsync(string filePath, string runtimeReport,
-            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot, LLMSettings settings)
+            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot, LLMSettings settings, string draftTarget)
         {
             if (assignment == null || assignment.Rubric.Count == 0)
                 return;
@@ -1571,8 +1586,8 @@ namespace Lab_Feedback_WPF
 
                 feedback.StartLine = section.StartLine;
                 feedback.EndLine = section.EndLine;
-                TrackCommentForFile(filePath, feedback);
-                if (IsSelectedFile(filePath))
+                TrackCommentForFile(filePath, feedback, draftTarget);
+                if (draftTarget == CurrentFeedbackKey() && IsSelectedFile(filePath))
                     _commentLayer?.AddComment(feedback, section.StartLine, section.EndLine);
             }
 

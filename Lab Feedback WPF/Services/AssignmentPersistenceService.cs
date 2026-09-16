@@ -50,6 +50,10 @@ namespace Lab_Feedback_WPF.Services
             if (assignment == null)
                 throw new ArgumentNullException(nameof(assignment));
 
+            if (assignment.Rubric.Any(item => !double.IsFinite(item.MaxPoints) || item.MaxPoints <= 0 || !double.IsFinite(item.EarnedPoints))
+                || !double.IsFinite(assignment.TotalMaxPoints))
+                throw new ArgumentException("Rubric points must be finite and maximum points must be positive.", nameof(assignment));
+
             var course = string.IsNullOrWhiteSpace(assignment.Course) ? "General" : assignment.Course.Trim();
             var title = assignment.Title?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(title))

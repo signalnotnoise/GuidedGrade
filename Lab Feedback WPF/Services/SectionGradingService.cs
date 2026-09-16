@@ -207,16 +207,17 @@ namespace Lab_Feedback_WPF.Services
             return sb.ToString();
         }
 
-        private SectionFeedback ParseFeedback(string response, string sectionName)
+        internal static SectionFeedback ParseFeedback(string response, string sectionName)
         {
             var feedback = new SectionFeedback { SectionName = sectionName };
 
             // Parse SCORE
-            var scoreMatch = System.Text.RegularExpressions.Regex.Match(response, @"SCORE:\s*(\d+)", 
+            var scoreMatch = System.Text.RegularExpressions.Regex.Match(response, @"SCORE:\s*(\d+(?:\.\d+)?)",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (scoreMatch.Success)
             {
-                feedback.SuggestedScore = int.Parse(scoreMatch.Groups[1].Value);
+                if (double.TryParse(scoreMatch.Groups[1].Value, System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var score) && double.IsFinite(score))
+                    feedback.SuggestedScore = score;
             }
 
             // Parse STRENGTHS
@@ -252,7 +253,7 @@ namespace Lab_Feedback_WPF.Services
             return feedback;
         }
 
-        private string ExtractSection(string text, string startMarker, string endMarker)
+        private static string ExtractSection(string text, string startMarker, string endMarker)
         {
             var startIndex = text.IndexOf(startMarker, StringComparison.OrdinalIgnoreCase);
             if (startIndex == -1) return "";
@@ -273,7 +274,7 @@ namespace Lab_Feedback_WPF.Services
             return text.Substring(startIndex, endIndex - startIndex);
         }
 
-        private List<string> ParseBulletPoints(string text)
+        private static List<string> ParseBulletPoints(string text)
         {
             var points = new List<string>();
             var lines = text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);

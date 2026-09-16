@@ -163,7 +163,7 @@ namespace Lab_Feedback_WPF.Windows
                             continue;
 
                         var gradeText = tokens[^1];
-                        if (!int.TryParse(gradeText.Trim(), out int points) || points <= 0)
+                        if (!double.TryParse(gradeText.Trim(), out double points) || !double.IsFinite(points) || points <= 0)
                             continue;
 
                         var name = string.Join(" ", tokens.Take(tokens.Length - 1)).Trim();
@@ -212,6 +212,13 @@ namespace Lab_Feedback_WPF.Windows
             if (_rubricItems.Count == 0)
             {
                 MessageBox.Show("Please add at least one rubric item.", "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_rubricItems.Any(item => !double.IsFinite(item.MaxPoints) || item.MaxPoints <= 0)
+                || !double.IsFinite(_rubricItems.Sum(item => item.MaxPoints)))
+            {
+                MessageBox.Show("Rubric points must be finite positive numbers.", "Validation");
                 return;
             }
 
