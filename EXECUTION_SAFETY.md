@@ -5,13 +5,14 @@ For sequential AI testing, duplicate handling, saved reports and memory limitati
 ## Choosing an execution environment
 
 **Isolated Windows VM (Hyper-V)** is the default, including for existing settings
-that predate the execution-mode setting. Choose the default in LLM Settings under
-Execution. Build, Run, and Test with AI use it. An unavailable VM never triggers a
+that predate the execution-mode setting. Choose the default in Settings under Build and run on, or LLM Settings under
+Execution. Build, Build and Run, Run, and Test with AI use it. An unavailable VM never triggers a
 local fallback.
 
 **Local computer** remains available for trusted submissions on smaller machines.
-Every local operation requires a fresh Yes/No warning, defaulting to No. Selecting
-local mode does not suppress future warnings. The right-click **Test with AI
+Saving Local in Settings authorizes local operations without repeated prompts.
+LLM Settings also provides an optional Ask before each local build or run checkbox.
+Existing settings keep prompting until the preference is saved. The right-click **Test with AI
 locally...** command uses local execution once without changing the saved default.
 Build scripts and student programs then have your Windows permissions; staging a
 copy is not isolation. Prefer running the app without administrator privileges for
@@ -88,10 +89,14 @@ termination are inconclusive; failed builds never fall back to stale binaries.
 
 ## Validation
 
-The automated suite covers mode defaults, per-click local consent, no silent
+The automated suite covers mode defaults, saved and per-click local consent, run without compilation, no silent
 fallback, bounded protocol parsing, submission packaging, and a worker integration
 test that builds a synthetic console project and replies to its prompt without
 LLM access. A real Hyper-V acceptance test additionally requires the prepared
 template: verify fresh state on successive runs, no guest network adapter, live
 prompt/reply, compiler errors, and cleanup after closing the host app. Worker tests
 on the host do not validate the VM isolation boundary.
+
+## Manual solution actions
+
+Build compiles; Build and Run compiles then launches; Run launches existing output without compilation and reports when none exists. Local manual actions use the selected submission folder, preserving outputs for later Run actions. AI testing continues to stage source copies. VM Run uses prebuilt output uploaded from the selected folder; VM Build outputs are discarded with the disposable guest, so use Build and Run to compile and launch in one VM. Republish the runner after this update to enable the `resolve` worker command. VM runs capture output for up to 90 seconds; use Test with AI for automated console input.

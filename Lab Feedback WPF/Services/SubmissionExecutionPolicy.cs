@@ -3,7 +3,7 @@ using Lab_Feedback_WPF.Models;
 namespace Lab_Feedback_WPF.Services;
 
 /// <summary>
-/// Local execution requires fresh user consent; isolation failures never authorize it.
+/// Local execution requires saved authorization or fresh user consent; isolation failures never authorize it.
 /// </summary>
 internal static class SubmissionExecutionPolicy
 {
@@ -14,6 +14,10 @@ internal static class SubmissionExecutionPolicy
 
     public static bool IsLocalAuthorized(SubmissionExecutionMode mode, Func<string, bool>? confirm, string path)
         => mode == SubmissionExecutionMode.Local && confirm?.Invoke(path + "\n\n" + LocalWarning) == true;
+
+    public static bool IsLocalAuthorized(LLMSettings settings, Func<string, bool>? confirm, string path)
+        => settings.ExecutionMode == SubmissionExecutionMode.Local &&
+           (!settings.ConfirmLocalExecution || IsLocalAuthorized(settings.ExecutionMode, confirm, path));
 
     public const string LocalDeclined = "Local execution was not authorized. No student code was executed.";
     public const string NoRuntimeDeduction = "Runtime testing is unavailable or incomplete. Do not deduct points for this; grade from source only.";

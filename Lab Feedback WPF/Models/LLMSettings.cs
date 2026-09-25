@@ -30,6 +30,7 @@ namespace Lab_Feedback_WPF.Models
         public string RequirementsTemplate { get; set; } = "// Assignment requirements";
         public bool ExecuteStudentSubmissions { get; set; } = false;
         public SubmissionExecutionMode ExecutionMode { get; set; } = SubmissionExecutionMode.HyperV;
+        public bool ConfirmLocalExecution { get; set; } = true;
         public string RunnerBaseDisk { get; set; } = "";
         public string RunnerCredentialFile { get; set; } = "";
         public string RunnerWorkerFolder { get; set; } = "";

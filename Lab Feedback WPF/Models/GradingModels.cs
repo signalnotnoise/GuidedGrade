@@ -73,6 +73,7 @@ namespace Lab_Feedback_WPF.Models
     /// </summary>
     public class SectionFeedback
     {
+        public bool IsOverallReview { get; set; }
         public string SectionName { get; set; }
         public int StartLine { get; set; }
         public int EndLine { get; set; }

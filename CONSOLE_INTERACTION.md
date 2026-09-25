@@ -1,5 +1,9 @@
 # Console-agent interaction
 
+The September 23 shell conversion uses framework Console/Violations actions and a native sizing
+adapter. The same bounded RichTextBox document remains mounted across panel changes; output,
+input routing and cancellation contracts below are unchanged. No XAML-generated shell controls remain.
+
 The agent now decides from a bounded, readable **current screen**, separately from recent action history. This fixes a failure where inventory redraws filled the beginning of the transcript, the current item prompt was omitted, and fallback `q` inputs were sent until the test timed out.
 
 ## Data flow
@@ -47,3 +51,19 @@ Recognized multiline numbered/lettered menus now use a deterministic coverage pl
 ## Coverage and progress limits
 Menu planning uses all visible screen rows through the cursor, rather than the eight-row prompt excerpt. Common choice prompts including Option Choice are recognized. Menu identity includes the nearest nonblank heading above the options; identical headings and options in different contexts remain ambiguous, and menus extending beyond the 30-row screen are not fully observable. The runner allows up to 64 input decisions within 90 seconds; blank observations and model wait actions do not consume that budget. Successful input resets continuous-output detection, while repeated flowing windows without input still trigger the observation guard. Limits can still leave coverage incomplete; selecting an option is not an assertion that it passed.
 
+
+## Model queue integration (September 16, 2026)
+
+Console-input completions use the shared LLM scheduler with assignment priority and a turn label in the right-side Job queue tab. Requests can wait behind an active completion; priority applies before choosing the next pending request. Cancelling a console request stops that interaction; cancelling its solution-test row propagates through execution and subsequent grading, with cleanup awaited before another solution starts. See [AI job queues](AI_TEST_QUEUE.md).
+
+### Ollama GPU-memory recovery (September 16, 2026)
+
+An explicit CUDA/GPU out-of-memory HTTP server error triggers one CPU retry within the same queued request. Cancellation still applies, and no subsequent job starts during this retry. The same prompt and response schema are preserved. CPU fallback can be slower and consume host RAM; it does not change saved provider settings or impose a RAM budget. Failed jobs retain the server explanation (up to 4,000 characters); unrelated HTTP errors are not retried.
+
+Manual solution actions now distinguish Build and Run from Run (existing output only). Both use the saved Local/VM environment. Local manual launches open the program directly; VM manual runs retain bounded capture and a 90-second limit without manual input forwarding. Test with AI still drives console input. VM Run requires output in the uploaded folder and does not reuse a previous disposable guest.
+
+### Build and run diagnostics (September 20, 2026)
+
+Manual Build, Build and Run, and Run results now open the existing scrollable Console panel instead of placing potentially long logs into a MessageBox. Existing terminal retention limits still apply. Build logs put timeout explanations and recognized xcopy file/directory prompts before raw tool output. A timeout is incomplete evidence, not proof of a student-code defect. Other unexpected UI exceptions still use short error dialogs.
+
+The UI-framework migration retains the native colored RichTextBox terminal and RuntimeTerminalPresenter. Their mailbox, text/run caps and disposal behavior remain unchanged while app-owned settings, review panels and queue controls use declarative hosts.

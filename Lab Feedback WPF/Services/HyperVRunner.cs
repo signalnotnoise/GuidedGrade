@@ -139,6 +139,10 @@ internal sealed class HyperVRunner : IInteractiveConsoleSession
         => (await RequestAsync(new { command = "build", entry = relativeEntry }, token))
             .Deserialize<SubmissionBuilder.BuildResult>(JsonOptions) ?? throw new IOException("Invalid build response.");
 
+    public async Task<SubmissionBuilder.BuildResult> ResolveExistingAsync(string relativeEntry, CancellationToken token)
+        => (await RequestAsync(new { command = "resolve", entry = relativeEntry }, token))
+            .Deserialize<SubmissionBuilder.BuildResult>(JsonOptions) ?? throw new IOException("Invalid resolve response.");
+
     public async Task StartAsync(CancellationToken token) => UpdateStatus(await RequestAsync(new { command = "start" }, token));
 
     public async Task<ConsoleSlice> WaitForIdleAsync(TimeSpan idle, TimeSpan window, CancellationToken cancellationToken = default)

@@ -40,17 +40,13 @@ namespace Lab_Feedback_WPF.Services
             if (zipFiles.Length == 0)
                 return true;
 
-            var progressDialog = existingDialog ?? new ExtractionProgressDialog
+            var progressDialog = existingDialog?.IsVisible == true ? existingDialog : new ExtractionProgressDialog
             {
                 Owner = Application.Current.MainWindow
             };
 
             if (!progressDialog.IsVisible)
             {
-                progressDialog = new ExtractionProgressDialog
-                {
-                    Owner = Application.Current.MainWindow
-                };
                 progressDialog.Show();
             }
 
@@ -103,6 +99,11 @@ namespace Lab_Feedback_WPF.Services
             {
                 progressDialog.FailOperation(operationId, ex.Message);
                 return false;
+            }
+            finally
+            {
+                // Cancellation may close the dialog before the worker unwinds.
+                operation.Dispose();
             }
         }
 

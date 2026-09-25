@@ -10,6 +10,19 @@ namespace Lab_Feedback_WPF_Tests.Services;
 [TestClass]
 public class OllamaStructuredOutputTests
 {
+    [DataTestMethod]
+    [DataRow("{}")]
+    [DataRow("{\"message\":null}")]
+    [DataRow("{\"message\":{}}")]
+    [DataRow("{\"message\":{\"content\":null}}")]
+    public async Task MissingResponseContentUsesExistingFallback(string reply)
+    {
+        using var handler = new CaptureHandler { Reply = reply };
+        using var client = new HttpClient(handler);
+        var service = new OllamaService(client, "test-model");
+        Assert.AreEqual("No response from model.", await service.CompleteAsync("system", "prompt"));
+    }
+
     [TestMethod]
     public async Task ConsoleRequestSendsSchemaAndReturnsActionWhilePlainRequestsRemainText()
     {
@@ -42,12 +55,13 @@ public class OllamaStructuredOutputTests
     {
         public string? Body;
         public string? Path;
+        public string? Reply;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Body = await request.Content!.ReadAsStringAsync(cancellationToken);
             Path = request.RequestUri!.AbsolutePath;
             var reply = JsonSerializer.Serialize(new { message = new { content = "{\"action\":\"type\",\"input\":\"1\",\"reason\":\"Choose buy\",\"observation\":\"ok\"}" } });
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(reply, Encoding.UTF8, "application/json") };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(Reply ?? reply, Encoding.UTF8, "application/json") };
         }
     }
 }

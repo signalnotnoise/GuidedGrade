@@ -6,6 +6,49 @@ namespace Lab_Feedback_WPF_Tests.Services;
 [TestClass]
 public class SubmissionExecutionServiceTests
 {
+    [TestMethod]
+    public void SavedLocalPreference_DoesNotPromptOrAuthorizeVmFallback()
+    {
+        var settings = new Lab_Feedback_WPF.Models.LLMSettings
+        {
+            ExecutionMode = Lab_Feedback_WPF.Models.SubmissionExecutionMode.Local,
+            ConfirmLocalExecution = false
+        };
+        Assert.IsTrue(SubmissionExecutionPolicy.IsLocalAuthorized(settings,
+            _ => throw new AssertFailedException("Saved local preference must not prompt."), "solution.sln"));
+        settings.ExecutionMode = Lab_Feedback_WPF.Models.SubmissionExecutionMode.HyperV;
+        Assert.IsFalse(SubmissionExecutionPolicy.IsLocalAuthorized(settings, _ => true, "solution.sln"));
+        var restored = System.Text.Json.JsonSerializer.Deserialize<Lab_Feedback_WPF.Models.LLMSettings>(
+            System.Text.Json.JsonSerializer.Serialize(settings))!;
+        Assert.IsFalse(restored.ConfirmLocalExecution);
+    }
+
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task RunOnly_ResolvesExistingOutputWithoutBuilding(bool hasOutput)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "LabFeedbackTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var output = Path.Combine(root, "Game.exe");
+            if (hasOutput) File.WriteAllText(output, "fixture");
+            var builder = new SubmissionBuilder(
+                (_, _, _, _, _, _) => throw new AssertFailedException("Run must not invoke a build process."),
+                (_, _) => throw new AssertFailedException("Native Run must not resolve a compiler."));
+            var result = await builder.ResolveExistingAsync(new RunnableSubmission
+            {
+                Kind = SubmissionKind.VisualStudioSolution, RootDirectory = root,
+                EntryPath = Path.Combine(root, "Game.sln")
+            }, CancellationToken.None);
+            Assert.AreEqual(hasOutput, result.Succeeded);
+            if (hasOutput) Assert.AreEqual(output, result.CommandFileName);
+            else StringAssert.Contains(result.Log, "Run does not compile");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [DataTestMethod]
     [DataRow(SubmissionKind.VisualStudioSolution)]
     [DataRow(SubmissionKind.CppProject)]

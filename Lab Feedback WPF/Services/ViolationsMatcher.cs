@@ -408,7 +408,7 @@ namespace Lab_Feedback_WPF.Services
         // Helper class for match information
         private class MatchInfo
         {
-            public string SearchString { get; set; }
+            public required string SearchString { get; set; }
             public int Position { get; set; }
             public int Length { get; set; }
         }
@@ -419,11 +419,11 @@ namespace Lab_Feedback_WPF.Services
     /// </summary>
     public class MatchContext
     {
-        public string SearchString { get; set; }
-        public string MatchedText { get; set; }
+        public required string SearchString { get; set; }
+        public required string MatchedText { get; set; }
         public int Position { get; set; }
-        public string BeforeContext { get; set; }
-        public string AfterContext { get; set; }
-        public string FullContext { get; set; }
+        public required string BeforeContext { get; set; }
+        public required string AfterContext { get; set; }
+        public required string FullContext { get; set; }
     }
 }

@@ -39,11 +39,19 @@ namespace Lab_Feedback_WPF.Services
             };
         }
 
+        internal async Task<BuildResult> ResolveExistingAsync(RunnableSubmission submission, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            return await ResolveRunnableAsync(submission, submission.RootDirectory, token)
+                ?? new BuildResult(false, "", "", submission.RootDirectory,
+                    "No existing runnable output was found. Build the solution first; Run does not compile source.");
+        }
+
         private async Task<BuildResult> BuildVisualStudioSolutionAsync(
             RunnableSubmission submission,
             CancellationToken cancellationToken)
         {
-            var outputDir = Path.Combine(Path.GetTempPath(), "LabFeedbackRun", Guid.NewGuid().ToString("N"));
+            var outputDir = Path.Combine(submission.RootDirectory, "bin", "LabFeedback");
             Directory.CreateDirectory(outputDir);
 
             var logs = new StringBuilder();
@@ -53,8 +61,8 @@ namespace Lab_Feedback_WPF.Services
             if (msbuild != null)
             {
                 // Put the exe in the .vcxproj folder (RPG_Shop\x64\Debug), not
-                // $(SolutionDir)\X64\Debug, so sibling DLLs resolve. Always rebuild
-                // from the staged copy so leftover tlogs cannot link original sources.
+                // $(SolutionDir)\X64\Debug, so sibling DLLs resolve. Rebuild avoids
+                // reusing stale intermediates; AI tests supply a staged copy.
                 var build = await _runProcess(
                     msbuild,
                     BuildMsBuildArguments(submission),
@@ -64,6 +72,8 @@ namespace Lab_Feedback_WPF.Services
                     cancellationToken);
 
                 logs.AppendLine(Combine(build));
+                if (build.TimedOut)
+                    return new BuildResult(false, "", "", submission.RootDirectory, logs.ToString().Trim());
                 if (build.Started && !build.TimedOut && build.ExitCode == 0)
                 {
                     var runnable = await ResolveRunnableAsync(submission, submission.RootDirectory, cancellationToken);
@@ -71,6 +81,13 @@ namespace Lab_Feedback_WPF.Services
                         return runnable with { Log = logs.ToString().Trim() };
                 }
             }
+
+            // A second toolchain cannot recover a timed-out build or a native MSBuild failure.
+            // In particular, do not clean an executable just linked before a failed post-build step.
+            if (RunnableSubmissionDetector.FindPrimaryVcxproj(submission.RootDirectory,
+                    Path.GetFileNameWithoutExtension(submission.EntryPath)) != null)
+                return new BuildResult(false, "", "", submission.RootDirectory,
+                    logs.Length == 0 ? "Visual Studio C++ build tools were not found." : logs.ToString().Trim());
 
             dotnet = await FindToolAsync("dotnet", cancellationToken);
             if (dotnet != null)
@@ -119,7 +136,7 @@ namespace Lab_Feedback_WPF.Services
 
         internal static string BuildMsBuildArguments(RunnableSubmission submission)
         {
-            var args = $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug";
+            var args = $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /v:minimal /nologo";
             var vcxproj = RunnableSubmissionDetector.FindPrimaryVcxproj(
                 submission.RootDirectory,
                 Path.GetFileNameWithoutExtension(submission.EntryPath));
@@ -131,10 +148,11 @@ namespace Lab_Feedback_WPF.Services
                 return args;
 
             var platform = RunnableSubmissionDetector.InferNativePlatform(projectDir);
+            // Native post-build tools such as xcopy require Windows separators.
+            // Double the trailing backslash for Windows argument parsing before a quote.
             var outDir = RunnableSubmissionDetector.GetNativeOutDir(projectDir, platform)
-                .Replace('\\', '/')
-                .TrimEnd('/') + "/";
-            string command = $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /p:Platform={platform} /p:OutDir=\"{outDir}\" /p:IntDir=\"{outDir}\" /m";
+                .Replace('/', '\\').TrimEnd('\\') + "\\\\";
+            string command = $"{args} /p:Platform={platform} /p:OutDir=\"{outDir}\" /p:IntDir=\"{outDir}\" /m";
             return command;
         }
 
@@ -383,12 +401,16 @@ namespace Lab_Feedback_WPF.Services
         private static string Combine(ProcessRunResult result)
         {
             var sb = new StringBuilder();
+            if (result.TimedOut)
+                sb.AppendLine("Build stopped after the time limit. A build step may be waiting for input; build commands must run unattended. A timeout alone is not evidence of a student-code defect.");
+            if (result.StandardOutput.Contains("(F = file, D = directory)", StringComparison.OrdinalIgnoreCase))
+                sb.AppendLine("A post-build copy step requested a file/directory choice. Use an existing destination directory with Windows backslashes, or xcopy /I for directory copies.");
+            if (!string.IsNullOrWhiteSpace(result.Error))
+                sb.AppendLine(result.Error);
             if (!string.IsNullOrWhiteSpace(result.StandardOutput))
                 sb.AppendLine(result.StandardOutput);
             if (!string.IsNullOrWhiteSpace(result.StandardError))
                 sb.AppendLine(result.StandardError);
-            if (!string.IsNullOrWhiteSpace(result.Error))
-                sb.AppendLine(result.Error);
             return sb.ToString().Trim();
         }
 

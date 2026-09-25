@@ -51,6 +51,20 @@ namespace Lab_Feedback_WPF.Services
             indexCommand.ExecuteNonQuery();
 
             EnsureReviewStatusColumn(connection);
+            using var columns = connection.CreateCommand();
+            columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('SectionComments') WHERE name = 'IsOverallReview';";
+            if (Convert.ToInt64(columns.ExecuteScalar()) == 0)
+            {
+                using var alter = connection.CreateCommand();
+                alter.CommandText = "ALTER TABLE SectionComments ADD COLUMN IsOverallReview INTEGER NOT NULL DEFAULT 0;";
+                alter.ExecuteNonQuery();
+            }
+        }
+
+        internal CommentPersistenceService(string databasePath)
+        {
+            _databasePath = databasePath;
+            Initialize();
         }
 
         private static void EnsureReviewStatusColumn(SqliteConnection connection)
@@ -113,7 +127,7 @@ namespace Lab_Feedback_WPF.Services
                         Issues,
                         SuggestedCode,
                         Explanation,
-                        ReviewStatus)
+                        ReviewStatus, IsOverallReview)
                     VALUES (
                         @filePath,
                         @sectionName,
@@ -124,7 +138,7 @@ namespace Lab_Feedback_WPF.Services
                         @issues,
                         @suggestedCode,
                         @explanation,
-                        @reviewStatus);
+                        @reviewStatus, @isOverallReview);
                 ";
 
                 insertCommand.Parameters.AddWithValue("@filePath", filePath);
@@ -137,6 +151,7 @@ namespace Lab_Feedback_WPF.Services
                 insertCommand.Parameters.AddWithValue("@suggestedCode", comment.SuggestedCode ?? string.Empty);
                 insertCommand.Parameters.AddWithValue("@explanation", comment.Explanation ?? string.Empty);
                 insertCommand.Parameters.AddWithValue("@reviewStatus", comment.ReviewStatus.ToString());
+                insertCommand.Parameters.AddWithValue("@isOverallReview", comment.IsOverallReview ? 1 : 0);
 
                 insertCommand.ExecuteNonQuery();
             }
@@ -156,7 +171,7 @@ namespace Lab_Feedback_WPF.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus
+                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus, IsOverallReview
                 FROM SectionComments
                 WHERE FilePath = @filePath
                 ORDER BY StartLine, EndLine;
@@ -176,7 +191,8 @@ namespace Lab_Feedback_WPF.Services
                     Issues = DeserializeList(reader.GetString(5)),
                     SuggestedCode = reader.GetString(6),
                     Explanation = reader.GetString(7),
-                    ReviewStatus = ParseReviewStatus(reader.GetString(8))
+                    ReviewStatus = ParseReviewStatus(reader.GetString(8)),
+                    IsOverallReview = reader.GetInt64(9) != 0
                 });
             }
 
@@ -192,7 +208,7 @@ namespace Lab_Feedback_WPF.Services
             connection.Open();
 
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM SectionComments WHERE FilePath = @filePath";
+            command.CommandText = "DELETE FROM SectionComments WHERE FilePath = @filePath COLLATE NOCASE";
             command.Parameters.AddWithValue("@filePath", filePath);
             command.ExecuteNonQuery();
         }

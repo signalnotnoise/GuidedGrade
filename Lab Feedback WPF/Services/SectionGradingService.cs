@@ -30,7 +30,7 @@ namespace Lab_Feedback_WPF.Services
             List<RubricItem> relevantRubricItems,
             IEnumerable<string>? identifiersToRedact = null,
             IReadOnlyList<RelatedSubmissionFile>? relatedFiles = null,
-            string? runtimeExecutionReport = null)
+            string? runtimeExecutionReport = null, CancellationToken cancellationToken = default)
         {
             var sanitizedCode = StudentDataSanitizer.Sanitize(codeContent, identifiersToRedact);
             var sanitizedRelated = SanitizeRelatedFiles(relatedFiles, identifiersToRedact);
@@ -46,13 +46,13 @@ namespace Lab_Feedback_WPF.Services
                         _settings.AzureApiKey,
                         _settings.AzureDeployment);
 
-                    response = await azureService.AnalyzeCodeAsync(prompt, BuildAzureFiles(sanitizedCode, sanitizedRelated), wrapPrompt: false);
+                    response = await azureService.AnalyzeCodeAsync(prompt, BuildAzureFiles(sanitizedCode, sanitizedRelated), wrapPrompt: false, cancellationToken: cancellationToken, jobTitle: $"Grade section: {sectionName}");
                     break;
 
                 case LLMProvider.Ollama:
                 default:
                     var ollamaService = new OllamaService(_settings.OllamaBaseUrl, _settings.SelectedModel);
-                    response = await ollamaService.AnalyzeCodeAsync(BuildOllamaFiles(sanitizedCode, sanitizedRelated), prompt, wrapPrompt: false);
+                    response = await ollamaService.AnalyzeCodeAsync(BuildOllamaFiles(sanitizedCode, sanitizedRelated), prompt, wrapPrompt: false, cancellationToken: cancellationToken, jobTitle: $"Grade section: {sectionName}");
                     break;
             }
 
@@ -253,7 +253,7 @@ namespace Lab_Feedback_WPF.Services
             return feedback;
         }
 
-        private static string ExtractSection(string text, string startMarker, string endMarker)
+        private static string ExtractSection(string text, string startMarker, string? endMarker)
         {
             var startIndex = text.IndexOf(startMarker, StringComparison.OrdinalIgnoreCase);
             if (startIndex == -1) return "";

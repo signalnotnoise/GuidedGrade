@@ -115,7 +115,7 @@ namespace Lab_Feedback_WPF.Services
             return results;
         }
 
-        public static List<string> SearchCppFiles(string path, List<string> exclusions = null)
+        public static List<string> SearchCppFiles(string path, List<string>? exclusions = null)
         {
             // If exclusions is null, initialize it as an empty HashSet
             var exclusionSet = exclusions != null
@@ -143,7 +143,7 @@ namespace Lab_Feedback_WPF.Services
             return cppFiles;
         }
 
-        public static List<string> SearchHeaderFiles(string path, List<string> exclusions = null)
+        public static List<string> SearchHeaderFiles(string path, List<string>? exclusions = null)
         {
             // If exclusions is null, initialize it as an empty HashSet
             var exclusionSet = exclusions != null

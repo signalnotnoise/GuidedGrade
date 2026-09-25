@@ -19,6 +19,12 @@ namespace Lab_Feedback_WPF.Services
             Initialize();
         }
 
+        internal AssignmentPersistenceService(string databasePath)
+        {
+            _databasePath = databasePath;
+            Initialize();
+        }
+
         private void Initialize()
         {
             using var connection = new SqliteConnection($"Data Source={_databasePath}");

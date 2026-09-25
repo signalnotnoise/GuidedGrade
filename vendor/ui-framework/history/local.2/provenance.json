@@ -1,0 +1,37 @@
+{
+  "version": "0.1.0-alpha.2-local.2",
+  "sourceRevision": "d3e2001a165e3fc4573403e02b7606db8a00bc16",
+  "purpose": "Local migration integration testing only; public publication blocked by performance gate",
+  "testsPassed": 57,
+  "visualAssertionsPassed": 15,
+  "stressAssertionsPassed": 21,
+  "packageSmokePassed": true,
+  "nativeDiagnostic": {
+    "updates": 1000,
+    "milliseconds": 2.53,
+    "uiThreadAllocatedBytes": 1376040,
+    "creates": 1,
+    "releases": 1,
+    "historicalComparison": false
+  },
+  "performancePassed": false,
+  "performanceFailure": "Full-list mount median +14.95%, exceeding the unchanged 10% budget versus published baseline",
+  "files": [
+    {
+      "name": "SignalNotNoise.UI.0.1.0-alpha.2-local.2.nupkg",
+      "sha256": "02E52FD9762385F5FFE235361A15F94EB95E5AF40A07453FCD84698D14A3D1DD"
+    },
+    {
+      "name": "SignalNotNoise.UI.0.1.0-alpha.2-local.2.snupkg",
+      "sha256": "3418E69CC3A859A230EAFCAE9FC52054A555BA80CE7EF6D5F777147B19D63D29"
+    },
+    {
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.2-local.2.nupkg",
+      "sha256": "36665827D3E01313948B7BDF1F766C3E4765E32F145EF4A0A1E4D18171463E52"
+    },
+    {
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.2-local.2.snupkg",
+      "sha256": "56BABE60C6D8D19026EAD638162CBEFB24259EBEA602E18258DDB20A87B28A1A"
+    }
+  ]
+}

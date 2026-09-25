@@ -27,7 +27,7 @@ namespace Lab_Feedback_WPF.Services
             string requirements,
             List<CodeFile> files,
             CancellationToken cancellationToken = default,
-            bool wrapPrompt = true)
+            bool wrapPrompt = true, string? jobTitle = null)
         {
             try
             {
@@ -37,19 +37,24 @@ namespace Lab_Feedback_WPF.Services
                 return await CompleteAsync(
                     "You are a code review assistant for a programming instructor. Analyze anonymous submitted code against requirements and provide constructive, specific feedback. Related headers and source files in the prompt are part of the same submission; do not claim those types or files are missing. Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. Follow the output format requested in the user prompt.",
                     prompt,
-                    cancellationToken);
+                    cancellationToken, LlmJobPriority.Assignment, jobTitle);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Azure OpenAI Exception: {ex.Message}");
-                return $"Error analyzing code: {ex.Message}";
+                throw;
             }
         }
 
-        public async Task<string> CompleteAsync(
+        public Task<string> CompleteAsync(
             string systemPrompt,
             string userPrompt,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            LlmJobPriority priority = LlmJobPriority.General, string? jobTitle = null)
+            => LlmJobQueue.Shared.EnqueueAsync(token => CompleteCoreAsync(systemPrompt, userPrompt, token), priority, cancellationToken, jobTitle ?? (priority == LlmJobPriority.Assignment ? "Assignment analysis" : "General AI task"));
+
+        private async Task<string> CompleteCoreAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken)
         {
             try
             {
@@ -65,21 +70,21 @@ namespace Lab_Feedback_WPF.Services
                 };
 
                 var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var url = $"{_endpoint}/openai/deployments/{_deploymentName}/chat/completions?api-version=2024-02-15-preview";
                 Debug.WriteLine($"Request URL: {url}");
 
-                var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                using var response = await _httpClient.PostAsync(url, content, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var error = await response.Content.ReadAsStringAsync();
+                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
                     Debug.WriteLine($"Azure OpenAI Error: {response.StatusCode} - {error}");
-                    return $"Error: {response.StatusCode}\n{error}";
+                    throw LlmHttpErrors.Create($"Azure OpenAI ({_deploymentName})", response, error);
                 }
 
-                var responseJson = await response.Content.ReadAsStringAsync();
+                var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
                 var result = JsonSerializer.Deserialize<ChatCompletionResponse>(responseJson);
 
                 var feedback = result?.Choices?[0]?.Message?.Content ?? "No response received";
@@ -87,10 +92,11 @@ namespace Lab_Feedback_WPF.Services
                 Debug.WriteLine("=== Azure OpenAI Analysis Complete ===");
                 return feedback;
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Azure OpenAI Exception: {ex.Message}");
-                return $"Error analyzing code: {ex.Message}";
+                throw;
             }
         }
 

@@ -23,6 +23,7 @@ try
             object result;
             switch (request.GetProperty("command").GetString())
             {
+                case "resolve":
                 case "build":
                     if (build != null) throw new InvalidOperationException("Use a fresh worker for each build.");
                     var entry = Path.GetFullPath(Path.Combine(root, request.GetProperty("entry").GetString()!));
@@ -30,7 +31,10 @@ try
                         throw new InvalidDataException("Entry must be inside the submission.");
                     var submission = RunnableSubmissionDetector.Detect(entry)
                         ?? throw new InvalidDataException("No runnable solution was found.");
-                    build = await new SubmissionBuilder().BuildAsync(submission, lifetime.Token);
+                    var builder = new SubmissionBuilder();
+                    build = request.GetProperty("command").GetString() == "resolve"
+                        ? await builder.ResolveExistingAsync(submission, lifetime.Token)
+                        : await builder.BuildAsync(submission, lifetime.Token);
                     result = build;
                     break;
                 case "start":

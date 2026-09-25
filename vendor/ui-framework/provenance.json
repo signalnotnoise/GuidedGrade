@@ -1,0 +1,38 @@
+{
+  "version": "0.1.0-alpha.2-local.3",
+  "sourceRevision": "ca428c73b9f571664f100340653f3d7782174208",
+  "purpose": "Local integration only; public release blocked by performance gate",
+  "testsPassed": 61,
+  "visualAssertionsPassed": 15,
+  "stressAssertionsPassed": 21,
+  "packageSmokePassed": true,
+  "verificationNote": "Consumer driver needed fully-qualified Button.ClickEvent; unchanged packages then passed fresh isolated consumer",
+  "performancePassed": false,
+  "performanceFailure": "Themed update UI-thread allocations +7.81%, exceeding unchanged 6% allowance. Themed update time +9.87%.",
+  "nativeDiagnostic": {
+    "releases": 1,
+    "historicalComparison": false,
+    "creates": 1,
+    "updates": 1000,
+    "milliseconds": 4.01,
+    "uiThreadAllocatedBytes": 1376040
+  },
+  "files": [
+    {
+      "sha256": "B3E623EA3DA4000A98FA407F21EAE7FDDF8A355F4B48B4A929DB337584DAC471",
+      "name": "SignalNotNoise.UI.0.1.0-alpha.2-local.3.nupkg"
+    },
+    {
+      "sha256": "35C58DE666288A959A80674F6564E619A216FC23EB60D42CCA5044FDA81129A5",
+      "name": "SignalNotNoise.UI.0.1.0-alpha.2-local.3.snupkg"
+    },
+    {
+      "sha256": "0F7145A5CDFB3CE59BEAFEE3723A8546EA38F8F4AE7B6BB3171C2FDE79D09D16",
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.2-local.3.nupkg"
+    },
+    {
+      "sha256": "1F5CC1AF642D00DDE88D963B2E9E04B6B3E20A580F68F063246A1783518685CD",
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.2-local.3.snupkg"
+    }
+  ]
+}

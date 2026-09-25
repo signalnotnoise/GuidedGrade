@@ -15,8 +15,7 @@ public partial class MainWindow
     {
         var collapse = toggleSelected && violations == _violationsToolSelected && toolsPanelContent.Visibility == Visibility.Visible;
         _violationsToolSelected = violations;
-        consoleToolTab.IsChecked = !violations;
-        violationsToolTab.IsChecked = violations;
+        _violationsSelected.Value = violations;
         SetToolsPanelVisible(!collapse);
     }
 
@@ -27,6 +26,6 @@ public partial class MainWindow
         violationsPanel.Visibility = visible && _violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
         runtimeTerminalPanel.Visibility = visible && !_violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
         runtimeTerminalPanel.Tag = visible && !_violationsToolSelected ? "open" : "closed";
-        toolsPanelToggle.Content = visible ? "Hide panel" : "Show panel";
+        _toolsVisible.Value = visible;
     }
 }

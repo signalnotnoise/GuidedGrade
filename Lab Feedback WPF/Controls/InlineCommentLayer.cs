@@ -55,6 +55,7 @@ namespace Lab_Feedback_WPF.Controls
 
             _comments.Remove(adorner);
             Children.Remove(adorner);
+            adorner.Dispose();
 
             UpdateCommentPositions();
         }

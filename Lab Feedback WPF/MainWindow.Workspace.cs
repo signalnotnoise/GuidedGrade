@@ -1,6 +1,10 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using UI_Framework;
+using UI_Framework.Wpf;
+using Lab_Feedback_WPF.Presentation;
+using static UI_Framework.UI;
 
 namespace Lab_Feedback_WPF;
 
@@ -28,7 +32,11 @@ public partial class MainWindow
         }
         WorkspaceFeedback_Click(this, new RoutedEventArgs());
     }
-    private TextBox? _feedbackEditor;
+    private State<string>? _feedbackEditor;
+    private ViewHost? _feedbackHost;
+    private ViewHost? _rubricHost;
+    private readonly State<double> _feedbackHeight = new(240);
+    private readonly State<bool> _showProgrammingResults = new(false);
     private string? _feedbackEditorKey;
     private string CurrentFeedbackKey() => System.Text.Json.JsonSerializer.Serialize(new[]
     {
@@ -43,8 +51,8 @@ public partial class MainWindow
         if (key != CurrentFeedbackKey()) return;
         if (_feedbackEditor != null && _feedbackEditorKey == key)
         {
-            _feedbackEditor.Text = _reviewDrafts[key];
-            if (sidePanelContent.Child != null) OpenSidePanel();
+            _feedbackEditor.Value = _reviewDrafts[key];
+            if (_panelPreferences.ShowComments) { rightPanelTabs.SelectedItem = commentsDetailsTab; OpenSidePanel(); }
         }
         else WorkspaceFeedback_Click(this, new RoutedEventArgs());
     }
@@ -57,97 +65,79 @@ public partial class MainWindow
 
     private void WorkspaceRubric_Click(object sender, RoutedEventArgs e)
     {
-        _feedbackEditor = null;
-        _feedbackEditorKey = null;
-        var content = new StackPanel { Margin = new Thickness(18) };
-        void Text(string value, double size = 14) => content.Children.Add(new TextBlock
-        {
-            Text = value, FontSize = size, Foreground = Brushes.White,
-            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12)
-        });
-        Text(_currentAssignment?.Title ?? "Assignment and rubric", 20);
-        Text(_currentAssignment?.Requirements ?? "Choose a saved assignment above or set up an assignment to define expectations and rubric criteria.");
-        if (_currentAssignment != null)
-        {
-            Text("Rubric", 18);
-            foreach (var criterion in _currentAssignment.Rubric)
-                Text($"{criterion.Name} · {criterion.MaxPoints} points");
-            if (_currentAssignment.Rubric.Count == 0) Text("No rubric criteria have been added yet.");
-        }
-        var edit = new Button { Content = "Set up assignment", Padding = new Thickness(10), Margin = new Thickness(0, 8, 0, 8) };
-        edit.Click += WorkspaceAssignment_Click;
-        content.Children.Add(edit);
-        var close = new Button { Content = "Close panel", Padding = new Thickness(10) };
-        close.Click += (_, _) => CloseSidePanel();
-        content.Children.Add(close);
-        sidePanelContent.Child = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var assignment = _currentAssignment;
+        _rubricHost?.Dispose();
+        rubricDetailsTab.Content = _rubricHost = ReviewTheme.Host(() => Scroll(VStack(
+            Text(assignment?.Title ?? "Assignment and rubric").FontSize(22),
+            Text(assignment?.Requirements ?? "Choose a saved assignment or set one up to define expectations."),
+            Text("Rubric").FontSize(18),
+            VStack(assignment?.Rubric.Select((item, index) => Text($"{item.Name}: {item.MaxPoints} points").Id(index.ToString())).ToArray() ?? [] ).Spacing(10),
+            HStack(Button("Set up assignment", () => WorkspaceAssignment_Click(this, new())),
+                Button("Close panel", CloseSidePanel)).Spacing(8)
+        ).Spacing(14).Padding(18)));
+        rightPanelTabs.SelectedItem = rubricDetailsTab;
         OpenSidePanel();
     }
 
     private void WorkspaceFeedback_Click(object sender, RoutedEventArgs e)
     {
+        if (!_panelPreferences.ShowComments) return;
         if (listBoxStudents.SelectedItem is not Models.Student student)
         {
-            System.Windows.MessageBox.Show("Select an assignment and a student before preparing feedback.", "Feedback");
+            _feedbackHost?.Dispose(); _feedbackHost = null; _feedbackEditor = null; _feedbackEditorKey = null;
+            commentsDetailsTab.Content = _feedbackHost = ReviewTheme.Host(() => Text("Select a student to prepare comments and feedback.").Padding(20));
+            rightPanelTabs.SelectedItem = commentsDetailsTab;
+            OpenSidePanel();
             return;
         }
-        var assignmentTitle = _currentAssignment?.Title ?? "Submission feedback";
         var draftKey = CurrentFeedbackKey();
-        var panel = new DockPanel();
-        var close = new Button { Content = "Close feedback", HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(8) };
-        close.Click += (_, _) => CloseSidePanel();
-        DockPanel.SetDock(close, Dock.Top);
-        panel.Children.Add(close);
-        var heading = new TextBlock { Text = $"{student.FullName}\n{assignmentTitle}\nFeedback draft · export to keep a copy", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White, Margin = new Thickness(12) };
-        DockPanel.SetDock(heading, Dock.Top);
-        panel.Children.Add(heading);
-        var draft = new TextBox { Text = _reviewDrafts.GetValueOrDefault(draftKey, ""), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MinHeight = 160, Margin = new Thickness(12), Foreground = Brushes.White, Background = new SolidColorBrush(Color.FromRgb(40, 43, 48)) };
-        _feedbackEditor = draft;
-        _feedbackEditorKey = draftKey;
-        var format = new ComboBox { ItemsSource = new[] { "TXT", "Markdown", "HTML" }, SelectedIndex = 0, Margin = new Thickness(12, 4, 12, 4), ToolTip = "Clipboard format" };
-        DockPanel.SetDock(format, Dock.Bottom);
-        panel.Children.Add(format);
-        var copy = new Button { Content = "Copy feedback", Margin = new Thickness(12, 4, 12, 4), Padding = new Thickness(8), IsEnabled = !string.IsNullOrWhiteSpace(draft.Text) };
-        draft.TextChanged += (_, _) =>
+        if (_feedbackEditorKey == draftKey && _feedbackHost != null)
         {
-            _reviewDrafts[draftKey] = draft.Text;
-            copy.Content = "Copy feedback";
-            copy.IsEnabled = !string.IsNullOrWhiteSpace(draft.Text);
-        };
-        copy.Click += (_, _) =>
+            rightPanelTabs.SelectedItem = commentsDetailsTab;
+            OpenSidePanel();
+            return;
+        }
+        _feedbackHost?.Dispose();
+        var assignmentTitle = _currentAssignment?.Title ?? "Submission feedback";
+        var draft = new State<string>(_reviewDrafts.GetValueOrDefault(draftKey, ""));
+        var format = new State<int>(0);
+        var copyLabel = new State<string>("Copy feedback");
+        _feedbackEditor = draft; _feedbackEditorKey = draftKey;
+        var draftBinding = new Binding<string>(() => draft.Value, value =>
+        {
+            draft.Value = value; _reviewDrafts[draftKey] = value; copyLabel.Value = "Copy feedback";
+        });
+        void Copy()
         {
             try
             {
-                Clipboard.SetText(Services.FeedbackCopyFormatter.Format(draft.Text, format.SelectedItem as string ?? "TXT"));
-                copy.Content = "Copied!";
+                Clipboard.SetText(Services.FeedbackCopyFormatter.Format(draft.Value, new[] { "TXT", "Markdown", "HTML" }[format.Value]));
+                copyLabel.Value = "Copied!";
             }
             catch (System.Runtime.InteropServices.ExternalException)
-            {
-                System.Windows.MessageBox.Show("The clipboard is busy. Please try copying again.", "Copy feedback");
-            }
-        };
-        DockPanel.SetDock(copy, Dock.Bottom);
-        panel.Children.Add(copy);
-        var export = new Button { Content = "Export feedback…", Margin = new Thickness(12), Padding = new Thickness(8) };
-        export.Click += (_, _) =>
+            { MessageBox.Show(this, "The clipboard is busy. Please try copying again.", "Copy feedback"); }
+        }
+        void Export()
         {
             var dialog = new Microsoft.Win32.SaveFileDialog { Filter = "Text document|*.txt", FileName = "feedback.txt" };
-            if (dialog.ShowDialog(this) == true)
-            {
-                try { System.IO.File.WriteAllText(dialog.FileName, heading.Text.Split('\n')[0] + "\n" + assignmentTitle + "\n\n" + draft.Text); }
-                catch (Exception ex) { System.Windows.MessageBox.Show("Could not export feedback: " + ex.Message, "Export feedback"); }
-            }
-        };
-        DockPanel.SetDock(export, Dock.Bottom);
-        panel.Children.Add(export);
-        // Detach before reusing the existing view in a new panel.
-        if (_gradingView.Parent is Panel parent) parent.Children.Remove(_gradingView);
-        if (_gradingView.Parent is Expander oldExpander) oldExpander.Content = null;
-        var programming = new Expander { Header = "Programming results and deductions", Content = _gradingView, IsExpanded = false, Margin = new Thickness(12), MaxHeight = 350 };
-        DockPanel.SetDock(programming, Dock.Bottom);
-        panel.Children.Add(programming);
-        panel.Children.Add(draft);
-        sidePanelContent.Child = panel;
+            if (dialog.ShowDialog(this) != true) return;
+            try { System.IO.File.WriteAllText(dialog.FileName, student.FullName + "\n" + assignmentTitle + "\n\n" + draft.Value); }
+            catch (Exception ex) { MessageBox.Show(this, "Could not export feedback: " + ex.Message, "Export feedback"); }
+        }
+        _feedbackHost = ReviewTheme.Host(() => Scroll(VStack(
+            Text(student.FullName).FontSize(18), Text(assignmentTitle).FontSize(14),
+            Text("Feedback draft - export to keep a copy").FontSize(12),
+            TextEditor(draftBinding).Height(_feedbackHeight.Value).UndoLimit(100).AccessibilityLabel("Editable feedback draft"),
+            Picker(new[] { "TXT", "Markdown", "HTML" }, format).AccessibilityLabel("Clipboard format"),
+            HStack(Button(copyLabel.Value, Copy).IsEnabled(!string.IsNullOrWhiteSpace(draft.Value)), Button("Export feedback", Export)).Spacing(8),
+            Button("Close feedback", CloseSidePanel),
+            Toggle("Programming results and deductions", _showProgrammingResults),
+            _showProgrammingResults.Value
+                ? WpfUI.Native(() => _gradingView).Height(350).Id("programming-results")
+                : Text("").Id("programming-results-collapsed")
+        ).Spacing(10).Padding(12)));
+        commentsDetailsTab.Content = _feedbackHost;
+        rightPanelTabs.SelectedItem = commentsDetailsTab;
         OpenSidePanel();
     }
 }

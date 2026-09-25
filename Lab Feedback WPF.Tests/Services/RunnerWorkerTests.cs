@@ -8,10 +8,11 @@ namespace Lab_Feedback_WPF_Tests.Services;
 public class RunnerWorkerTests
 {
     [DataTestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
     [Timeout(120000)]
-    public async Task Worker_BuildsAndDrivesConsoleWithoutLlmCredentials(bool floodOutput)
+    public async Task Worker_BuildsAndDrivesConsoleWithoutLlmCredentials(bool floodOutput, bool runOnly)
     {
         var root = Path.Combine(Path.GetTempPath(), "LabFeedbackTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -46,7 +47,20 @@ public class RunnerWorkerTests
             start.Environment["APPDATA"] = Path.Combine(root, "test-profile");
             worker = Process.Start(start)!;
             var errors = worker.StandardError.ReadToEndAsync();
-            var build = await Request(worker, new { command = "build", entry = "Hello.slnx" });
+            if (runOnly)
+            {
+                var prepared = await Request(worker, new { command = "build", entry = "Hello.slnx" });
+                Assert.IsTrue(prepared.GetProperty("Succeeded").GetBoolean(), prepared.GetProperty("Log").GetString());
+                worker.StandardInput.Close();
+                await worker.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.AreEqual(0, worker.ExitCode, await errors);
+                worker.Dispose();
+                worker = Process.Start(start)!;
+                errors = worker.StandardError.ReadToEndAsync();
+                // A run-only worker must use the existing output even when source no longer builds.
+                File.WriteAllText(Path.Combine(root, "Program.cs"), "deliberately invalid source");
+            }
+            var build = await Request(worker, new { command = runOnly ? "resolve" : "build", entry = "Hello.slnx" });
             Assert.IsTrue(build.GetProperty("Succeeded").GetBoolean(), build.GetProperty("Log").GetString());
             var started = await Request(worker, new { command = "start" });
             Assert.IsTrue(started.GetProperty("started").GetBoolean(), started.GetProperty("error").GetString());

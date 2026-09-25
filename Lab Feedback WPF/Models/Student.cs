@@ -29,10 +29,18 @@ namespace Lab_Feedback_WPF.Models
             var cleanPath = FileHandler.GetSubfolderFromPath(path, studentFolder);
 
             var splitName = cleanPath?.Split('_');
+            var firstNameAndId = splitName is { Length: >= 2 } ? splitName[1].Split('-', 2) : null;
+            if (splitName is not { Length: >= 2 } || firstNameAndId is not { Length: 2 }
+                || string.IsNullOrWhiteSpace(splitName[0])
+                || string.IsNullOrWhiteSpace(firstNameAndId[0])
+                || string.IsNullOrWhiteSpace(firstNameAndId[1]))
+            {
+                throw new ArgumentException("Student folder must use the Last_First-ID naming format.", nameof(studentFolder));
+            }
 
             LastName = splitName[0];
-            FirstName = splitName[1].Split('-')[0];
-            IdNumber = splitName[1].Split('-')[1];
+            FirstName = firstNameAndId[0];
+            IdNumber = firstNameAndId[1];
             Folder = studentFolder;
         }
 
@@ -49,9 +57,14 @@ namespace Lab_Feedback_WPF.Models
 
                     foreach (var subFolder in subFolders)
                     {
-                        var student = new Student(path, subFolder);
-
-                        folders.Add(student);
+                        try
+                        {
+                            folders.Add(new Student(path, subFolder));
+                        }
+                        catch (ArgumentException ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Skipping invalid student folder: {ex.Message}");
+                        }
                     }
                 }
                 else
@@ -62,8 +75,7 @@ namespace Lab_Feedback_WPF.Models
             }
             catch (Exception ex)
             {
-                // TODO: Update this to WPF equivalent  
-                //MessageBox.Show("Error: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine($"Unable to load student folders: {ex.Message}");
             }
 
             return folders;

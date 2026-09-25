@@ -41,7 +41,7 @@ namespace Lab_Feedback_WPF.Services
         /// <param name="files">List of code files with content</param>
         /// <param name="requirements">Assignment requirements</param>
         /// <returns>Formatted feedback from the model</returns>
-        public async Task<string> AnalyzeCodeAsync(List<CodeFile> files, string requirements, bool wrapPrompt = true)
+        public async Task<string> AnalyzeCodeAsync(List<CodeFile> files, string requirements, bool wrapPrompt = true, CancellationToken cancellationToken = default, string? jobTitle = null)
         {
             var prompt = wrapPrompt ? BuildAnalysisPrompt(files, requirements) : requirements;
             return await CompleteAsync(
@@ -50,7 +50,7 @@ namespace Lab_Feedback_WPF.Services
                 "Related headers and source files in the prompt are part of the same submission; do not claim those types or files are missing. " +
                 "Do not request, infer, or mention student names, IDs, emails, file paths, or other personal data. " +
                 "Follow the output format requested in the user prompt.",
-                prompt);
+                prompt, cancellationToken, priority: LlmJobPriority.Assignment, jobTitle: jobTitle);
         }
 
         internal OllamaService(HttpClient client, string model)
@@ -60,7 +60,10 @@ namespace Lab_Feedback_WPF.Services
             _httpClient = client;
         }
 
-        public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default, JsonElement? responseSchema = null)
+        public Task<string> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default, JsonElement? responseSchema = null, LlmJobPriority priority = LlmJobPriority.General, string? jobTitle = null)
+            => LlmJobQueue.Shared.EnqueueAsync(token => CompleteCoreAsync(systemPrompt, userPrompt, token, responseSchema), priority, cancellationToken, jobTitle ?? (priority == LlmJobPriority.Assignment ? "Assignment analysis" : "General AI task"));
+
+        private async Task<string> CompleteCoreAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken, JsonElement? responseSchema)
         {
             var request = new OllamaChatRequest
             {
@@ -81,16 +84,29 @@ namespace Lab_Feedback_WPF.Services
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
-            var jsonContent = JsonSerializer.Serialize(request, jsonOptions);
-            using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            using var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            var chatResponse = JsonSerializer.Deserialize<OllamaChatResponse>(responseBody, jsonOptions);
-
-            return chatResponse?.Message?.Content ?? "No response from model.";
+            for (var attempt = 0; ; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var jsonContent = JsonSerializer.Serialize(request, jsonOptions);
+                using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                using var response = await _httpClient.PostAsync($"{_baseUrl}/api/chat", content, cancellationToken);
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (attempt == 0 && (int)response.StatusCode >= 500 && LlmHttpErrors.IsGpuMemoryFailure(responseBody))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Ollama GPU memory failure for {_model}; retrying this request once on CPU.");
+                        var options = new Dictionary<string, object> { ["num_gpu"] = 0 };
+                        if (responseSchema.HasValue) options["temperature"] = 0;
+                        request.Options = options;
+                        continue;
+                    }
+                    throw LlmHttpErrors.Create($"Ollama ({_model})", response, responseBody,
+                        attempt > 0 ? "The CPU fallback also failed. Check the Ollama server log; its runner may need restarting." : "");
+                }
+                var chatResponse = JsonSerializer.Deserialize<OllamaChatResponse>(responseBody, jsonOptions);
+                return chatResponse?.Message?.Content ?? "No response from model.";
+            }
         }
 
         /// <summary>
@@ -178,39 +194,39 @@ namespace Lab_Feedback_WPF.Services
 
         public class CodeFile
         {
-            public string Name { get; set; }
-            public string Content { get; set; }
+            public required string Name { get; set; }
+            public required string Content { get; set; }
         }
 
         private class OllamaChatRequest
         {
             public JsonElement? Format { get; set; }
             public object? Options { get; set; }
-            public string Model { get; set; }
-            public List<OllamaMessage> Messages { get; set; }
+            public required string Model { get; set; }
+            public required List<OllamaMessage> Messages { get; set; }
             public bool Stream { get; set; }
         }
 
         private class OllamaMessage
         {
-            public string Role { get; set; }
-            public string Content { get; set; }
+            public string? Role { get; set; }
+            public string? Content { get; set; }
         }
 
         private class OllamaChatResponse
         {
-            public string Model { get; set; }
-            public OllamaMessage Message { get; set; }
+            public string? Model { get; set; }
+            public OllamaMessage? Message { get; set; }
         }
 
         private class OllamaTagsResponse
         {
-            public List<OllamaModel> Models { get; set; }
+            public List<OllamaModel>? Models { get; set; }
         }
 
         private class OllamaModel
         {
-            public string Name { get; set; }
+            public string? Name { get; set; }
         }
 
         #endregion

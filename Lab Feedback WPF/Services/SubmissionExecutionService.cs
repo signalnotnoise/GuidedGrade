@@ -33,7 +33,7 @@ namespace Lab_Feedback_WPF.Services
             cancellationToken.ThrowIfCancellationRequested();
             if (settings.ExecutionMode == SubmissionExecutionMode.HyperV)
                 return await ExecuteIsolatedAsync(primaryFilePath, searchRoot, requirements, identifiers, relatedFiles, settings, progress, cancellationToken);
-            if (!SubmissionExecutionPolicy.IsLocalAuthorized(settings.ExecutionMode, _confirmLocal, primaryFilePath))
+            if (!SubmissionExecutionPolicy.IsLocalAuthorized(settings, _confirmLocal, primaryFilePath))
                 return SubmissionExecutionPolicy.LocalDeclined;
 
             var submission = RunnableSubmissionDetector.Detect(primaryFilePath, searchRoot);
@@ -181,22 +181,12 @@ namespace Lab_Feedback_WPF.Services
             cancellationToken.ThrowIfCancellationRequested();
             if (_settings.ExecutionMode == SubmissionExecutionMode.HyperV)
                 return await BuildOrRunIsolatedAsync(solutionPath, false, cancellationToken);
-            if (!SubmissionExecutionPolicy.IsLocalAuthorized(_settings.ExecutionMode, _confirmLocal, solutionPath))
+            if (!SubmissionExecutionPolicy.IsLocalAuthorized(_settings, _confirmLocal, solutionPath))
                 return SubmissionExecutionPolicy.LocalDeclined;
 
             var submission = RunnableSubmissionDetector.Detect(solutionPath);
             if (submission == null)
                 return "No Visual Studio solution (.sln) was found.";
-
-            try
-            {
-                submission = await Task.Run(() => StageSubmission(submission), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                return $"Could not copy the submission to {AiTestStaging.DefaultRoot}: {ex.Message}";
-            }
 
             var build = await BuildAsync(submission, cancellationToken);
             return build.Succeeded
@@ -204,31 +194,23 @@ namespace Lab_Feedback_WPF.Services
                 : $"Build failed.\n{build.Log}".Trim();
         }
 
-        public async Task<string> LaunchAsync(string solutionPath, CancellationToken cancellationToken = default)
+        public async Task<string> LaunchAsync(string solutionPath, CancellationToken cancellationToken = default, bool buildFirst = true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (_settings.ExecutionMode == SubmissionExecutionMode.HyperV)
-                return await BuildOrRunIsolatedAsync(solutionPath, true, cancellationToken);
-            if (!SubmissionExecutionPolicy.IsLocalAuthorized(_settings.ExecutionMode, _confirmLocal, solutionPath))
+                return await BuildOrRunIsolatedAsync(solutionPath, true, cancellationToken, buildFirst);
+            if (!SubmissionExecutionPolicy.IsLocalAuthorized(_settings, _confirmLocal, solutionPath))
                 return SubmissionExecutionPolicy.LocalDeclined;
 
             var submission = RunnableSubmissionDetector.Detect(solutionPath);
             if (submission == null)
                 return "No Visual Studio solution (.sln) was found.";
 
-            try
-            {
-                submission = await Task.Run(() => StageSubmission(submission), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                return $"Could not copy the submission to {AiTestStaging.DefaultRoot}: {ex.Message}";
-            }
-
-            var build = await BuildAsync(submission, cancellationToken);
+            var build = buildFirst
+                ? await BuildAsync(submission, cancellationToken)
+                : await ResolveExistingAsync(submission, cancellationToken);
             if (!build.Succeeded || string.IsNullOrWhiteSpace(build.CommandFileName))
-                return $"Build failed; cannot run.\n{build.Log}".Trim();
+                return $"Cannot run.\n{build.Log}".Trim();
 
             try
             {
@@ -255,7 +237,7 @@ namespace Lab_Feedback_WPF.Services
             }
         }
 
-        private async Task<string> BuildOrRunIsolatedAsync(string path, bool run, CancellationToken token)
+        private async Task<string> BuildOrRunIsolatedAsync(string path, bool run, CancellationToken token, bool buildFirst = true)
         {
             try
             {
@@ -264,9 +246,12 @@ namespace Lab_Feedback_WPF.Services
                 var submission = RunnableSubmissionDetector.Detect(path);
                 if (submission == null) return "No runnable solution was found.";
                 await using var runner = await HyperVRunner.CreateAsync(_settings, submission.RootDirectory, null, token);
-                var build = await runner.BuildAsync(Path.GetRelativePath(submission.RootDirectory, submission.EntryPath), token);
+                var entry = Path.GetRelativePath(submission.RootDirectory, submission.EntryPath);
+                var build = buildFirst ? await runner.BuildAsync(entry, token) : await runner.ResolveExistingAsync(entry, token);
                 if (!build.Succeeded || !run)
-                    return $"Isolated build {(build.Succeeded ? "succeeded" : "failed")}.\n{build.Log}";
+                    return buildFirst
+                        ? $"Isolated build {(build.Succeeded ? "succeeded" : "failed")}.\n{build.Log}"
+                        : $"Cannot run existing output in the VM.\n{build.Log}";
                 await runner.StartAsync(token);
                 if (!runner.Started) return "Guest program did not start: " + runner.Error;
                 var deadline = DateTime.UtcNow.AddSeconds(90);
@@ -294,7 +279,8 @@ namespace Lab_Feedback_WPF.Services
                 if (submission == null) return "No runnable solution was found. " + SubmissionExecutionPolicy.NoRuntimeDeduction;
                 var source = BuildPlannerSource(submission, relatedFiles, identifiers);
                 await using var runner = await HyperVRunner.CreateAsync(settings, submission.RootDirectory, progress, token);
-                var build = await runner.BuildAsync(Path.GetRelativePath(submission.RootDirectory, submission.EntryPath), token);
+                var entry = Path.GetRelativePath(submission.RootDirectory, submission.EntryPath);
+                var build = await runner.BuildAsync(entry, token);
                 var report = new StringBuilder("# RUNTIME EXECUTION RESULTS\nEnvironment: isolated Hyper-V VM\n");
                 report.AppendLine($"Build: {(build.Succeeded ? "succeeded" : "failed")}");
                 report.AppendLine(Sanitize(build.Log, identifiers));
