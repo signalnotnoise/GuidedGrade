@@ -1,6 +1,6 @@
 # Lab Feedback dependency knowledge graph
 
-Latest affected-path source review: September 24, 2026 (file-tree virtualization and active-file selection retention). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: September 25, 2026 (explicit experimental COM cleanup ownership, failure reporting and shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
 
 Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
@@ -9,6 +9,9 @@ Source-reviewed map of the working tree, updated September 23, 2026 (restored Fi
 ```mermaid
 flowchart LR
     Startup[App.cs STA entry] --> Shell[MainWindow.cs]
+    Startup -->|explicit default-off flag| Cleanup[ApplicationComCleanupPolicy]
+    Cleanup -->|ContextIdle / OnExit after window disposal| Drain[CLR COM cleanup]
+    Cleanup -->|failures persist across retries| Diagnostics[Local diagnostics log / nonzero exit]
     Shell --> Views[Framework views and state]
     Views --> Actions[Toolbar / pickers / file tabs / navigation / status]
     Shell --> Adapter[Native sizing adapters]
@@ -482,3 +485,6 @@ The declarative framework Views/GradingView.cs is now the sole GradingView type.
 `MainWindow.NativeControls.ConfigureFileTree` enables recycling virtualization with virtualizing panels at the root and nested item levels. FileSystemItem owns expansion, selection and analysis-checkbox state through two-way bindings, so recycled containers restore state for the correct file. `MainWindow.FileTreeView_SelectedItemChanged` skips reopening the already-active file, preserving its AvalonEdit document, caret and review state when a selected container is recreated.
 
 `FileTreeVirtualizationTests` and `FileTreeChecks` cover bounded realization with 1,000 files, nested expansion/collapse, offscreen selection, checked-state isolation, automation patterns, actual source-file opening, document/caret retention and host disposal. The full consumer suite passed 188 tests. Performance evidence is described in FILE_TREE_PERFORMANCE.md; the pinned framework package is unchanged.
+## Experimental COM cleanup ownership
+
+App installs the application-owned policy only with `--experimental-com-cleanup`. MainWindow's existing Closed handlers dispose native/framework owners before App.OnExit drains cleanup. The thread-wide CLR setting lasts until process exit; the policy is not installed by ViewHost. Failures are logged and counted across recovery. Real typing, IME and screen-reader validation remain pending; see [the experiment checklist](COM_CLEANUP_EXPERIMENT.md). The framework package pin remains unchanged.
