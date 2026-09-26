@@ -36,11 +36,11 @@ public partial class MainWindow
         var host = ReviewTheme.Host(body); _shellHosts.Add(host); return host;
     }
 
-    // The pinned framework has horizontal flex only. This adapter supplies constrained
+    // Preserve the existing native layout during package adoption. This adapter supplies constrained
     // vertical fill and native splitter mechanics; all surrounding content is declarative.
     private static DockPanel FillBelow(FrameworkElement header, FrameworkElement body)
     {
-        var dock = new DockPanel(); DockPanel.SetDock(header, Dock.Top);
+        var dock = new DockPanel(); DockPanel.SetDock(header, System.Windows.Controls.Dock.Top);
         dock.Children.Add(header); dock.Children.Add(body); return dock;
     }
 
@@ -174,8 +174,8 @@ public partial class MainWindow
         var tools = ShellHost(BuildToolTabs); Grid.SetRow(tools, 1); workspace.Children.Add(tools);
         Grid.SetRow(toolsPanelContent, 2); workspace.Children.Add(toolsPanelContent);
         var shell = new DockPanel();
-        var header = ShellHost(BuildHeader); DockPanel.SetDock(header, Dock.Top); shell.Children.Add(header);
-        var status = ShellHost(BuildStatus); status.ToolTip = _violationTooltip; DockPanel.SetDock(status, Dock.Bottom); shell.Children.Add(status);
+        var header = ShellHost(BuildHeader); DockPanel.SetDock(header, System.Windows.Controls.Dock.Top); shell.Children.Add(header);
+        var status = ShellHost(BuildStatus); status.ToolTip = _violationTooltip; DockPanel.SetDock(status, System.Windows.Controls.Dock.Bottom); shell.Children.Add(status);
         shell.Children.Add(workspace);
         Content = _workspaceHost = ReviewTheme.Host(() => WpfUI.Native(() => shell).Id("resize-layout"));
         Closed += (_, _) =>

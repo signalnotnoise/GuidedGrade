@@ -1,44 +1,69 @@
-# Themed button content validation — September 20, 2026
+# UI-framework local package validation
 
-## Application integration follow-up — September 23, 2026
+## Package and lifecycle
 
-The Lab Feedback shell now uses declarative toolbars, pickers, keyed file tabs, panel actions
-and status with C# startup and code-built native resources. No application XAML remains.
-The pinned API still lacks vertical fill/docking/splitters, horizontal scroll, tree/context-menu,
-progress and tooltip primitives; focused native adapters retain these behaviors. These gaps
-were reported to the framework task. Normal-size declarative close buttons replace the compact
-close workaround. No package versions or bytes changed, and the release/performance limitations
-below still apply. Consumer validation: warning-as-error build, 187 passing tests, nine focused
-UI/grading checks after final text fixes, and a normal-profile executable launch/close with exit 0.
-Offscreen actual-control captures use fictitious demo data, not live model output.
+`0.1.0-alpha.3-local.2` adds the package-level `WpfComCleanupPolicy`. The app
+creates one owner before `MainWindow`, reports failures without opening a modal
+dialog, disposes native/framework owners before final cleanup, and returns a
+nonzero exit code if cleanup failed.
 
-The previous scoped Button template bound `Content` directly to `TextBlock.Text`. A native file-tab button containing a panel with a filename and close button therefore lost its visual content. The WPF template now uses a `ContentPresenter` with native content, template, selector and string-format bindings. A small WPF-only presenter preserves wrapping for ordinary generated string labels; application visuals and data templates retain their own layout policy. The renderer also skips assigning an unchanged string label to Button.Content, avoiding unnecessary presenter invalidation.
+The native lifecycle fixture passed 49 assertions: all 1,100 counted COM objects
+were released on their owning STA, none remained alive, and no wrong-thread
+release occurred. Framework tests cover one-owner enforcement, failure recovery,
+selection, undo, and enabled input-method support.
 
-The four new regression tests cover visible/interactable rich content, content replacement and theme updates, automation names for plain labels, wrapped labels and inherited foreground, explicit/implicit/selected templates, native TextBlock wrapping, null content, and formatting. All 61 framework tests, 15 visual assertions and 21 full-list stress assertions passed. These are automated offscreen checks, not a visible-window screen-reader campaign.
+## Editor diagnosis
 
-## Initial measurement
+Three fresh runtime-default and policy processes retained 1,000 WPF TextBoxes,
+50 updates, 10,000 checked text writes, input methods, and read-only/undo
+changes.
 
-Seven alternating measured processes per side/scenario plus discarded warmups compared the initial presenter against pre-change `8b8f4f2`. The workload remained 1,000 logical rows and 50 updates, including full-list, virtualized and themed-full-list cases. The initial presenter passed the comparison's configured budgets but added themed update latency (+7.01%) and allocations (+2.02%); mount time was +2.65%, mount allocations +1.42%. Component builds and mount/unmount counts were unchanged. This is a measured regression, not a speedup.
+| Mode | Total range | Final-update range |
+| --- | ---: | ---: |
+| Runtime default | 19.40-21.21 s | 12.73-13.38 s |
+| Packaged policy | 7.37-7.67 s | 0.19-0.22 s |
 
-The allocation exception in that comparison is still the existing 6% themed-update limit; passing against the immediate predecessor does not establish compliance against the accepted published baseline. The renderer's redundant-label guard and reuse of the string-template resource key were added after this measurement. The final comparison uses the accepted published reference without changing budgets or workloads.
+The reproduced late setter stall is resolved under the supported application
+lifecycle. Visible keyboard input, installed IME composition, and screen-reader
+acceptance remain manual release checks.
 
-Initial evidence in framework source docs/performance-evidence/2026-09-20-button-content-initial.json. Raw runs: `artifacts/performance/button-content-before-after`.
+## Framework release gate
 
-## Final measurement and release status
+Seven alternating measured processes per side/scenario plus discarded warmups
+compared the working tree with published baseline
+`78c88fb901c202e3c2e49b6de300d1ce2369e00b`. Both editor revisions used the
+exact candidate cleanup policy source. All 32 checks passed and the report is
+marked `releaseEligible: true`.
 
-The final implementation (including the label guard and shared resource key) was measured with seven alternating processes per side/scenario against accepted published baseline `78c88fb`, on the same machine, SDK and workloads. The performance gate **failed** themed update allocations. No budget or baseline was changed.
-
-| Scenario | Mount time | Update time | Mount allocations | Update allocations |
+| Scenario | Mount time | Update time | Mount bytes | Update bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Full list | +0.77% | +0.95% | −0.25% | −2.59% |
-| Virtualized | −0.32% | −0.37% | +0.16% | +0.92% |
-| Themed full list | −3.54% | +9.87% | −2.08% | **+7.81% — failed 6% budget** |
+| Full list | +0.51% | -33.47% | -1.01% | -25.97% |
+| Virtualized | +1.07% | -0.04% | -1.61% | -5.12% |
+| Themed full list | -2.75% | -60.08% | -2.72% | -57.10% |
+| Layout editors | +1.89% | -2.08% | +0.13% | -3.29% |
 
-Component builds and mount/unmount counts matched in every scenario. Themed updates took 13,003.72 ms versus 11,836.06 ms and allocated 1,174,129,528 versus 1,089,052,272 UI-thread bytes. The initial and final comparisons use different reference revisions, so they do not isolate the optimization's contribution. The final result does not establish a useful speedup from the label guard; it did not bring allocations within budget. App builds/tests were paused throughout measurement.
+Component build, mount, and unmount work matched in every scenario.
 
-[Final evidence](performance.json). Raw runs: `artifacts/performance/button-content-final`. Both comparisons were made from an uncommitted candidate; the final source accompanies this report, while the initial candidate omitted the redundant-label guard and allocated its resource key per presenter.
+## Consumer comparison
 
-Local package `0.1.0-alpha.2-local.3` is for migration integration testing only. Public NuGet publication remains blocked by this performance result. The package smoke check now covers a native file-tab label and interactive close button under the framework theme, in addition to state updates and retained native interop. See the local feed manifest for actual package verification and hashes. The framework source docs/reactivity-performance-investigation.md records a separate possible optimization; it is not implemented in these binaries.
+Fifteen measured pairs per scenario compared `0.1.0-alpha.3-local.1` with
+`0.1.0-alpha.3-local.2`. Both snapshots used the exact candidate policy source.
+All 28 startup, mount, update, allocation, and process checks passed. The app
+Release build completed with zero warnings and all 189 tests passed.
 
-Toolbar restoration (September 23, 2026): the missing application-menu primitive is covered by a stable WPF Menu through WpfUI.Native and reported to the framework task. The workflow toolbar and saved pickers remain declarative. No package bytes or provenance changed; existing performance limitations still apply.
-Consumer toolbar validation: ToolbarRestore build and all seven FrameworkMigrationTests passed using existing restored dependencies (--no-restore); regenerated populated-workspace captures were visually inspected. This is offscreen WPF rendering, not a live keyboard/accessibility audit.
+| Scenario | Startup | Mount | Update | Process |
+| --- | ---: | ---: | ---: | ---: |
+| Window | -1.96% | +4.37% | -1.37% | -0.80% |
+| Splitter | +1.22% | +5.19% | -2.61% | -0.10% |
+| Full tree | -0.97% | -1.60% | +1.53% | +0.05% |
+| Virtualized tree | -0.06% | -0.91% | -2.02% | -1.56% |
+
+## Release status and rollback
+
+The technical editor-performance blocker is cleared. Public publication still
+requires committing the framework source and running the complete release
+workflow from that immutable revision. Do not publish packages built from this
+dirty tree.
+
+Rollback metadata for `0.1.0-alpha.3-local.1` is under `history/local.4`; the
+older exact packages remain beside this candidate.

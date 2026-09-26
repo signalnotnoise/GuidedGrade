@@ -1,30 +1,29 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using Lab_Feedback_WPF.Services;
+using UI_Framework.Wpf;
 
 namespace Lab_Feedback_WPF;
 
 public sealed class App : Application
 {
-    private ApplicationComCleanupPolicy? cleanupPolicy;
-    internal bool ExperimentalCleanupEnabled => cleanupPolicy is not null;
+    private WpfComCleanupPolicy? cleanupPolicy;
+    internal bool CleanupEnabled => cleanupPolicy is not null;
     internal int CleanupFailureCount => cleanupPolicy?.FailureCount ?? 0;
 
     [STAThread]
     public static void Main(string[] args)
     {
         var application = new App { ShutdownMode = ShutdownMode.OnMainWindowClose };
-        application.ConfigureExperimentalCleanup(args);
+        application.ConfigureCleanup();
         application.Run(new MainWindow());
     }
 
-    internal void ConfigureExperimentalCleanup(string[] args)
+    internal void ConfigureCleanup()
     {
         Dispatcher.VerifyAccess();
-        if (!args.Contains("--experimental-com-cleanup", StringComparer.Ordinal)) return;
         if (cleanupPolicy is not null) throw new InvalidOperationException("Cleanup policy already installed.");
-        cleanupPolicy = new ApplicationComCleanupPolicy(Dispatcher, reportFailure: ReportCleanupFailure);
+        cleanupPolicy = new WpfComCleanupPolicy(Dispatcher, ReportCleanupFailure);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -40,7 +39,7 @@ public sealed class App : Application
     private static void ReportCleanupFailure(Exception error)
     {
         // Never open a modal dialog or throw from a COM cleanup callback.
-        var message = $"{DateTimeOffset.UtcNow:O} Experimental COM cleanup failed: {error}";
+        var message = $"{DateTimeOffset.UtcNow:O} Application COM cleanup failed: {error}";
         Trace.WriteLine(message);
         try
         {

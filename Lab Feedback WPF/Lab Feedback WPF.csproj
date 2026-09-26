@@ -17,7 +17,7 @@
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
-    <PackageReference Include="SignalNotNoise.UI.Wpf" Version="0.1.0-alpha.2-local.3" />
+    <PackageReference Include="SignalNotNoise.UI.Wpf" Version="[0.1.0-alpha.3-local.2]" />
   </ItemGroup>
 
   <ItemGroup>
