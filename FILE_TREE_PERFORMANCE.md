@@ -24,4 +24,4 @@ The full app suite passed 188 tests. FileTreeVirtualizationTests covers bounded 
 
 Simply enabling virtualization lost the selected row's visual state; binding IsSelected to the model fixed it. Restoring that selection could reopen the active file and reset the caret; the active-path guard fixed that separately. Neither failing candidate is the delivered behavior.
 
-No framework package version or package bytes changed. SignalNotNoise.UI.Wpf remains pinned to 0.1.0-alpha.2-local.3. This is an application control optimization, not public NuGet release clearance or a resolution of the framework's separate text-services benchmark stall.
+The file-tree benchmark itself did not change framework package bytes and used SignalNotNoise.UI.Wpf 0.1.0-alpha.2-local.3; the application now pins 0.1.0-alpha.3-local.2 for the separately validated cleanup integration. These file-tree results demonstrate an application control optimization, not public NuGet release clearance. See vendor/ui-framework/VALIDATION.md for the later editor-stall validation and remaining manual acceptance checks.

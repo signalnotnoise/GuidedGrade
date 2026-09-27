@@ -16,6 +16,12 @@ namespace Lab_Feedback_WPF.Services
     /// </summary>
     public class OllamaService
     {
+        // Process-owned transport, shared by grading, settings checks and console turns.
+        private static readonly HttpClient SharedClient = new(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            UseCookies = false
+        }) { Timeout = TimeSpan.FromMinutes(15) };
         private readonly string _baseUrl;
         private readonly string _model;
         private readonly HttpClient _httpClient;
@@ -29,10 +35,7 @@ namespace Lab_Feedback_WPF.Services
         {
             _baseUrl = baseUrl.TrimEnd('/');
             _model = model;
-            _httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromMinutes(15) // Large models on CPU can take time
-            };
+            _httpClient = SharedClient;
         }
 
         /// <summary>
@@ -116,7 +119,7 @@ namespace Lab_Feedback_WPF.Services
         {
             try
             {
-                var response = await _httpClient.GetAsync($"{_baseUrl}/api/tags");
+                using var response = await _httpClient.GetAsync($"{_baseUrl}/api/tags");
                 if (!response.IsSuccessStatusCode)
                     return false;
 

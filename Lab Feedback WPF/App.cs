@@ -12,11 +12,11 @@ public sealed class App : Application
     internal int CleanupFailureCount => cleanupPolicy?.FailureCount ?? 0;
 
     [STAThread]
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
         var application = new App { ShutdownMode = ShutdownMode.OnMainWindowClose };
         application.ConfigureCleanup();
-        application.Run(new MainWindow());
+        return application.Run(new MainWindow());
     }
 
     internal void ConfigureCleanup()

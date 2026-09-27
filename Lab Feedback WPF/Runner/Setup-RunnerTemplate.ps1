@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory=$true)][string]$IsoPath,
     [string]$TemplateDirectory = 'C:\ProgramData\LabFeedbackWPF\Template',
     [string]$VmName = 'LabFeedback-Template',
-    [string]$CredentialPath = 'C:\Users\iotero\AppData\Local\LabFeedbackWPF\runner-guest.xml'
+    [string]$CredentialPath = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'LabFeedbackWPF\runner-guest.xml')
 )
 $ErrorActionPreference = 'Stop'
 Import-Module Hyper-V
@@ -47,6 +47,7 @@ if ($freeMemory -ge 6GB) {
     VMName = $vm.Name
     VMId = $vm.Id
     Disk = $diskPath
+    CredentialPath = [IO.Path]::GetFullPath($CredentialPath)
     Started = $started
     NextStep = $(if ($started) { 'Install Windows, then provision build tools before sealing the template.' }
                  else { 'VM created but not started. Free at least 6 GB of RAM, then start it to install Windows.' })

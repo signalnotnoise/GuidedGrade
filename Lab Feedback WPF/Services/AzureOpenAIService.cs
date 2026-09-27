@@ -9,18 +9,29 @@ namespace Lab_Feedback_WPF.Services
 {
     public class AzureOpenAIService
     {
+        // Process-owned transport; service instances retain only request configuration.
+        private static readonly HttpClient SharedClient = new(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            UseCookies = false
+        });
         private readonly string _endpoint;
         private readonly string _apiKey;
         private readonly string _deploymentName;
         private readonly HttpClient _httpClient;
 
         public AzureOpenAIService(string endpoint, string apiKey, string deploymentName)
+            : this(SharedClient, endpoint, apiKey, deploymentName)
+        {
+        }
+
+        // The caller owns an injected client; credentials always stay on individual requests.
+        internal AzureOpenAIService(HttpClient client, string endpoint, string apiKey, string deploymentName)
         {
             _endpoint = endpoint.TrimEnd('/');
             _apiKey = apiKey;
             _deploymentName = deploymentName;
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("api-key", _apiKey);
+            _httpClient = client;
         }
 
         public async Task<string> AnalyzeCodeAsync(
@@ -75,7 +86,9 @@ namespace Lab_Feedback_WPF.Services
                 var url = $"{_endpoint}/openai/deployments/{_deploymentName}/chat/completions?api-version=2024-02-15-preview";
                 Debug.WriteLine($"Request URL: {url}");
 
-                using var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                request.Headers.Add("api-key", _apiKey);
+                using var response = await _httpClient.SendAsync(request, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {

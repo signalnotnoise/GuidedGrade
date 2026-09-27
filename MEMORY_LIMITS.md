@@ -71,3 +71,7 @@ Overall reviews now retain one current overall card per reviewed file in the com
 plus the existing appended submission draft. Multi-file overall reports are copied to each checked
 file; no report-size or cache-eviction budget is introduced. Pending jobs capture file paths and
 review-generation numbers so cleared files cannot be repopulated by those jobs.
+
+## Provider HTTP transport ownership
+
+Azure and Ollama each retain one process-lifetime HTTP client, shared across service instances and request paths. They do not create a connection pool per console turn or grading request. Connections have a five-minute pooled lifetime; cookie storage is disabled. Azure credentials remain on each request, not shared default headers. Requests/responses are disposed after use, including Ollama availability checks. Injected test clients are caller-owned. This bounds the number of client pools, not total response size or model memory.

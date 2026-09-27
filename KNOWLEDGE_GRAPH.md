@@ -1,6 +1,6 @@
 # Lab Feedback dependency knowledge graph
 
-Latest affected-path source review: September 26, 2026 (packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: September 26, 2026 (PR review fixes: process exit-code propagation, shared provider HTTP ownership, runner credential defaults and benchmark provenance). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
 
 Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
@@ -12,6 +12,7 @@ flowchart LR
     Startup -->|creates packaged owner before controls| Cleanup[WpfComCleanupPolicy]
     Cleanup -->|ContextIdle / OnExit after window disposal| Drain[CLR COM cleanup]
     Cleanup -->|failures persist across retries| Diagnostics[Local diagnostics log / nonzero exit]
+    Startup -->|returns Application.Run exit code| Exit[OS process status]
     Shell --> Views[Framework views and state]
     Views --> Actions[Toolbar / pickers / file tabs / navigation / status]
     Shell --> Adapter[Native sizing adapters]
@@ -199,6 +200,8 @@ flowchart TD
     Agent -->|requests validated JSON action| Route
     Route -->|selected provider| Ollama
     Route -->|selected provider| Azure
+    Azure -->|request-local API key and URL| AzureHttp[Process-owned Azure HttpClient]
+    Ollama -->|request-local URL and model| OllamaHttp[Process-owned Ollama HttpClient]
     Settings -.->|configures| Grade
     Settings -.->|configures| Route
     Grade -->|returns| Feedback
@@ -218,7 +221,7 @@ flowchart TD
 | `SectionGradingService` | Sanitizes source, builds a rubric-based prompt, calls the selected provider and parses `SectionFeedback`. |
 | `StudentDataSanitizer` | Redacts student identifiers, emails and personal paths; supplies anonymous display names. |
 | `LlmCompletionService` | Routes console-agent completion requests using `LLMSettings`. Section grading calls provider services directly. |
-| `OllamaService` / `AzureOpenAIService` | HTTP adapters for model analysis/completion. Model memory is outside the WPF output budgets. |
+| `OllamaService` / `AzureOpenAIService` | HTTP adapters with one process-lifetime client per provider, reused across grading, settings checks and console turns. Pooled connections have a five-minute lifetime; cookies are disabled. Azure API keys are request-local. Injected test clients remain caller-owned. Model memory is outside the WPF output budgets. |
 | `CommentPersistenceService` | Stores feedback keyed to files/sections, including review state, in `section-comments.db`. |
 | `AssignmentPersistenceService` | Stores course/assignment requirements and rubric definitions in SQLite. |
 | `InlineCommentLayer` | Positions feedback alongside AvalonEdit lines and relays review events. |
@@ -494,3 +497,7 @@ the policy is not installed by ViewHost. Failures are logged and counted across
 recovery. Real typing, IME, and screen-reader validation remain pending; see
 [the acceptance checklist](COM_CLEANUP_POLICY.md). The exact framework package
 pin is `[0.1.0-alpha.3-local.2]`.
+
+### Runner setup credential location (source reviewed September 26, 2026)
+
+`Setup-RunnerTemplate.ps1` defaults guest credentials to the executing user's local app-data directory under `LabFeedbackWPF\runner-guest.xml`, accepts an explicit `CredentialPath`, and reports the full path in `setup-status.json`. `New-RunnerAnswerMedia.ps1` exports the credentials for the executing Windows account; setup and runtime should use that same account.
