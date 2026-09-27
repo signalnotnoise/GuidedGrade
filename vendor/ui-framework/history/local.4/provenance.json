@@ -1,0 +1,56 @@
+{
+  "version": "0.1.0-alpha.3-local.1",
+  "sourceRevision": "2db7a9a6cdde0fa52c458a9206219348f4ae0bcd",
+  "purpose": "Local integration only; public NuGet publication remains paused pending the normal editor late-update investigation",
+  "testsPassed": 98,
+  "visualAssertionsPassed": 15,
+  "stressAssertionsPassed": 21,
+  "packageSmokePassed": true,
+  "consumerComparison": {
+    "consumerRevision": "3c5aea06eaac8b7f2587691c13b748c29c7a0c58",
+    "consumerDirty": true,
+    "baselineVersion": "0.1.0-alpha.2-local.3",
+    "candidateVersion": "0.1.0-alpha.3-local.1",
+    "samples": 15,
+    "warmupPairsPerScenario": 1,
+    "sdk": "10.0.401",
+    "passed": true,
+    "checksPassed": 28,
+    "checksTotal": 28
+  },
+  "publicReleaseEligible": false,
+  "publicationBlocker": "Three ordinary-cleanup editor diagnostic runs completed in 29.19-30.21 seconds and showed late-update stalls: step 40 reached 0.87-5.07 seconds and step 50 reached 14.12-18.05 seconds.",
+  "editorDiagnostic": {
+    "mode": "normal",
+    "diagnosticOnly": true,
+    "rows": 1000,
+    "operations": 50,
+    "textWrites": 10000,
+    "runtime": "10.0.12",
+    "totalMilliseconds": [
+      29854.1989,
+      29185.0074,
+      30213.323
+    ],
+    "step40Milliseconds": [
+      5070.8112,
+      2010.5823,
+      865.3621
+    ],
+    "step50Milliseconds": [
+      18048.1843,
+      14117.9928,
+      16410.9615
+    ]
+  },
+  "files": [
+    {
+      "sha256": "B338FD1FFD03529F07B2D8F70A37B6477A43240EFFB7C8F1A657F805C02D5A7E",
+      "name": "SignalNotNoise.UI.0.1.0-alpha.3-local.1.nupkg"
+    },
+    {
+      "sha256": "0FC3B2CEB0BFBD55EF83C2EADF6FEE4B0693BF7D411F61D21613B4354580E127",
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.3-local.1.nupkg"
+    }
+  ]
+}

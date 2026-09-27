@@ -61,3 +61,6 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Preserve raw benchmark output, including its terminal blank line.
+vendor/ui-framework/performance/**/*.log -text whitespace=cr-at-eol,-blank-at-eof

@@ -361,3 +361,12 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Published disposable runner binaries
+artifacts/runner/
+
+# Reproducible UI-framework feed is source input; temporary builds/captures are not.
+artifacts/
+!vendor/ui-framework/*.nupkg
+
+!vendor/ui-framework/performance/**/*.log

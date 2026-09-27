@@ -15,12 +15,22 @@
 
   <ItemGroup>
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
-    <PackageReference Include="WPF-UI" Version="4.2.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <PackageReference Include="SignalNotNoise.UI.Wpf" Version="[0.1.0-alpha.3-local.2]" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resources\Html.xshd" />
     <Resource Include="Resources\Monokai.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lab Feedback WPF.Tests" />
+    <ProjectReference Include="..\Lab Feedback Runner\Lab Feedback Runner.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <None Update="Runner\*.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

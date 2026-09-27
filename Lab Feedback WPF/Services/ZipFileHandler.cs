@@ -40,17 +40,13 @@ namespace Lab_Feedback_WPF.Services
             if (zipFiles.Length == 0)
                 return true;
 
-            var progressDialog = existingDialog ?? new ExtractionProgressDialog
+            var progressDialog = existingDialog?.IsVisible == true ? existingDialog : new ExtractionProgressDialog
             {
                 Owner = Application.Current.MainWindow
             };
 
             if (!progressDialog.IsVisible)
             {
-                progressDialog = new ExtractionProgressDialog
-                {
-                    Owner = Application.Current.MainWindow
-                };
                 progressDialog.Show();
             }
 
@@ -58,6 +54,7 @@ namespace Lab_Feedback_WPF.Services
             var operationId = Guid.NewGuid().ToString();
             var folderName = Path.GetFileName(folderPath) ?? folderPath;
             var operation = progressDialog.AddOperation(operationId, folderName, zipFiles.Length);
+            var failed = false;
 
             try
             {
@@ -85,19 +82,28 @@ namespace Lab_Feedback_WPF.Services
                     }
                     catch (Exception ex)
                     {
+                        failed = true;
                         progressDialog.UpdateOperation(operationId, i + 1,
                             $"Error: {ex.Message}");
                         await Task.Delay(1000);
                     }
                 }
 
-                progressDialog.CompleteOperation(operationId);
-                return true;
+                if (failed)
+                    progressDialog.FailOperation(operationId, "Some archives could not be extracted and have been retained.");
+                else
+                    progressDialog.CompleteOperation(operationId);
+                return !failed;
             }
             catch (Exception ex)
             {
                 progressDialog.FailOperation(operationId, ex.Message);
                 return false;
+            }
+            finally
+            {
+                // Cancellation may close the dialog before the worker unwinds.
+                operation.Dispose();
             }
         }
 
@@ -105,7 +111,7 @@ namespace Lab_Feedback_WPF.Services
         /// Asynchronously extracts all entries from a ZIP archive to the specified folder, overwriting existing files
         /// as needed.
         /// </summary>
-        /// <remarks>Entries that cannot be accessed due to insufficient permissions are skipped.
+        /// <remarks>Unsafe paths and extraction failures are reported to the caller.
         /// Directory entries in the archive are created as needed. If an entry already exists in the destination, it
         /// will be overwritten.</remarks>
         /// <param name="zipFile">The path to the ZIP file to extract. Must refer to a valid ZIP archive file.</param>
@@ -113,47 +119,58 @@ namespace Lab_Feedback_WPF.Services
         /// subdirectories will be created if they do not exist.</param>
         /// <param name="cancellationToken">A cancellation token that can be used to cancel the extraction operation.</param>
         /// <returns>A task that represents the asynchronous extraction operation.</returns>
-        private static async Task ExtractSingleZipFileAsync(string zipFile, string folderPath,
+        internal static async Task ExtractSingleZipFileAsync(string zipFile, string folderPath,
             CancellationToken cancellationToken)
         {
             await Task.Run(() =>
             {
-                try
+                using var archive = ZipFile.OpenRead(zipFile);
+                // Validate the entire archive before writing even its first entry.
+                var entries = archive.Entries.Select(entry =>
+                    (Entry: entry, Destination: GetSafeDestination(folderPath, entry.FullName))).ToList();
+                foreach (var (entry, destinationPath) in entries)
                 {
-                    using var archive = ZipFile.OpenRead(zipFile);
-                    foreach (var entry in archive.Entries)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    RejectReparsePoints(destinationPath);
+                    if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
+                        Directory.CreateDirectory(destinationPath);
+                    else
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        var destinationPath = Path.Combine(folderPath, entry.FullName);
-
-                        try
-                        {
-                            if (entry.Name == "")
-                            {
-                                Directory.CreateDirectory(destinationPath);
-                            }
-                            else
-                            {
-                                var parentDir = Path.GetDirectoryName(destinationPath);
-                                if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
-                                    Directory.CreateDirectory(parentDir);
-
-                                entry.ExtractToFile(destinationPath, overwrite: true);
-                            }
-                        }
-                        catch (UnauthorizedAccessException)
-                        {
-                            // Skip files we can't access
-                        }
+                        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                        entry.ExtractToFile(destinationPath, overwrite: true);
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    // Cancellation was requested; allow graceful exit
-                    throw;
-                }
             }, cancellationToken);
+        }
+
+        private static string GetSafeDestination(string folderPath, string entryName)
+        {
+            var parts = entryName.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            if (Path.IsPathRooted(entryName) || parts.Length == 0 || parts.Any(part =>
+                    part is "." or ".." || part.TrimEnd(' ', '.') != part ||
+                    part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
+                throw new InvalidDataException($"Unsafe archive entry: {entryName}");
+
+            var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folderPath)) + Path.DirectorySeparatorChar;
+            var destination = Path.GetFullPath(Path.Combine(root, entryName));
+            if (!destination.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Archive entry escapes the destination: {entryName}");
+            RejectReparsePoints(destination);
+            return destination;
+        }
+
+        private static void RejectReparsePoints(string path)
+        {
+            for (string? current = path; current != null; current = Path.GetDirectoryName(current))
+            {
+                try
+                {
+                    if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                        throw new InvalidDataException("Archive extraction cannot traverse symbolic links or junctions.");
+                }
+                catch (FileNotFoundException) { }
+                catch (DirectoryNotFoundException) { }
+            }
         }
     }
 }
