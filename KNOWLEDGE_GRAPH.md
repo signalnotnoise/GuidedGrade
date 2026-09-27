@@ -1,6 +1,6 @@
-# Lab Feedback dependency knowledge graph
+# GuidedGrade dependency knowledge graph
 
-Latest affected-path source review: September 26, 2026 (PR review fixes: process exit-code propagation, shared provider HTTP ownership, runner credential defaults and benchmark provenance). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: September 26, 2026 (GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
 
 Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
@@ -117,7 +117,7 @@ The guest worker compiles shared execution sources directly; it does not load th
 | `InteractiveProcessSession` | Starts child processes, pumps redirected or ConPTY I/O, waits for idle, writes input and disposes native/process resources. |
 | `IInteractiveConsoleSession` | Allows the console agent to use the local session and Hyper-V proxy through the same API. |
 | `HyperVRunner` | Validates configuration, packages input archives and drives the bridge protocol; exposes guest status/output to the agent. |
-| `Lab Feedback Runner/Program.cs` | Handles build/start/poll/input/close/kill JSON commands in the worker process. |
+| `GuidedGrade.Runner/Program.cs` | Handles build/start/poll/input/close/kill JSON commands in the worker process. |
 | `ConsoleDriverAgent` | Alternates observing output and asking the model for the next input; tracks findings, bounded turns and runner termination. |
 | `ConsoleScreen` | Maintains a bounded readable projection of cursor-positioned terminal output for the agent; separates current screen/cursor context from history. See [console interaction](CONSOLE_INTERACTION.md). |
 | `ConsoleInputPolicy` | Converts displayed menu labels to keys and validates single integers when the matching C++ input-read source provides evidence; failed validation requests one model correction. |
@@ -212,6 +212,9 @@ flowchart TD
     Overlay -->|approve, reject, regenerate events| UI
     UI -->|loads and saves feedback| Comments
     UI -->|loads and saves assignment definitions| Assignment
+    DataPaths["AppDataPaths · GuidedGrade roaming/local roots"] --> Comments
+    DataPaths --> Assignment
+    Legacy["Previous product data directory"] -->|move missing data on first access| DataPaths
 ```
 
 | Component | Responsibility |
@@ -222,6 +225,7 @@ flowchart TD
 | `StudentDataSanitizer` | Redacts student identifiers, emails and personal paths; supplies anonymous display names. |
 | `LlmCompletionService` | Routes console-agent completion requests using `LLMSettings`. Section grading calls provider services directly. |
 | `OllamaService` / `AzureOpenAIService` | HTTP adapters with one process-lifetime client per provider, reused across grading, settings checks and console turns. Pooled connections have a five-minute lifetime; cookies are disabled. Azure API keys are request-local. Injected test clients remain caller-owned. Model memory is outside the WPF output budgets. |
+| `AppDataPaths` | Owns `%APPDATA%/GuidedGrade` and `%LOCALAPPDATA%/GuidedGrade`; moves the previous product directory on first access and preserves conflicts when both locations exist. |
 | `CommentPersistenceService` | Stores feedback keyed to files/sections, including review state, in `section-comments.db`. |
 | `AssignmentPersistenceService` | Stores course/assignment requirements and rubric definitions in SQLite. |
 | `InlineCommentLayer` | Positions feedback alongside AvalonEdit lines and relays review events. |
@@ -285,9 +289,9 @@ flowchart TD
 
 | Boundary | Connected components and purpose |
 | --- | --- |
-| `Lab Feedback WPF.csproj` | Windows .NET 10 app. Uses pinned SignalNotNoise.UI.Wpf local packages for declarative surfaces, native WPF islands/AvalonEdit for specialized controls, Microsoft.Data.Sqlite/SQLitePCLRaw for persistence. |
-| `Lab Feedback Runner.csproj` | Separate worker executable. Compiles shared builder, detector, process/session, dependency, PE-header and bounded-output sources. |
-| `Lab Feedback WPF.Tests.csproj` | MSTest service, queue, output, WPF presenter and worker integration tests. |
+| `GuidedGrade.csproj` | Windows .NET 10 app. Uses pinned SignalNotNoise.UI.Wpf local packages for declarative surfaces, native WPF islands/AvalonEdit for specialized controls, Microsoft.Data.Sqlite/SQLitePCLRaw for persistence. |
+| `GuidedGrade.Runner.csproj` | Separate worker executable. Compiles shared builder, detector, process/session, dependency, PE-header and bounded-output sources. |
+| `GuidedGrade.Tests.csproj` | MSTest service, queue, output, WPF presenter and worker integration tests. |
 | `HyperVBridge.ps1` | VM lifecycle, archive transfer and JSON request relay to guest worker. |
 | `HyperVWatchdog.ps1` | Stops the exact owned VM if its bridge disappears or its lifetime expires. |
 | `Inspect-RunnerHost.ps1` | Host diagnostics including virtualization and available memory. |
@@ -370,13 +374,15 @@ Ollama reads HTTP error bodies before throwing. A server error explicitly mentio
 
 ### Pinned workspace panels (September 17, 2026)
 
-`MainWindow.Panels.cs` applies per-user Comments and Job queue visibility from `WorkspacePanelPreferences`, stored in `%APPDATA%/LabFeedbackWPF/workspace-panels.json`. Both default to visible; missing or unreadable settings fall back to defaults. Settings saves visibility independently of folder violation configuration. The right rail stays visible when content collapses; Comments, Job queue, and Rubric select dedicated tab content. Workspace navigation no longer replaces `sidePanelContent.Child`. Hidden queue visibility also hides its status-bar shortcut, without cancelling jobs. Hidden comments still collect draft updates. Inline comments are clipped to the editor viewport.
+`MainWindow.Panels.cs` applies per-user Comments and Job queue visibility from `WorkspacePanelPreferences`, stored in `%APPDATA%/GuidedGrade/workspace-panels.json`. Both default to visible; missing or unreadable settings fall back to defaults. Settings saves visibility independently of folder violation configuration. The right rail stays visible when content collapses; Comments, Job queue, and Rubric select dedicated tab content. Workspace navigation no longer replaces `sidePanelContent.Child`. Hidden queue visibility also hides its status-bar shortcut, without cancelling jobs. Hidden comments still collect draft updates. Inline comments are clipped to the editor viewport.
+
+`AppDataPaths` owns the renamed roaming and local product directories. If only the previous product directory exists, it is moved atomically to `GuidedGrade`; when both exist, missing files are moved recursively while conflicts remain in the previous location and are reported through `Trace`. `LLMSettings` rewrites saved guest credential and worker paths rooted under the previous local directory when their migrated destinations exist. SQLite databases, LLM settings, workspace panel preferences, test reports, runner workspaces and cleanup diagnostics all resolve through this shared owner.
 
 ### File actions and execution preference (source reviewed September 20, 2026)
 
 The file-tree context menu always exposes Open in File Explorer and Refresh. Explorer selects files and opens directories; solution-only Programming tools contains Build, Build and Run, Run, and AI testing. Settings saves Local/VM and disables repeated local prompts in `LLMSettings`; LLM Settings exposes the same environment and an optional per-operation prompt checkbox. Existing settings retain their prior prompting behavior until saved. The explicit Test with AI locally command still requests one-time consent.
 
-Run resolves existing output without invoking a compiler. The guest worker supports a `resolve` command in addition to `build`; both prepare the subsequent `start` command. VM runs use output already present in the uploaded submission. Disposable VM builds are not copied back to the host or retained for subsequent VM actions. Manual VM runs retain the existing bounded output-capture behavior and do not provide an interactive desktop. Local manual builds write to the selected submission, with dotnet solution fallback output under `bin/LabFeedback`; AI tests still stage copies.
+Run resolves existing output without invoking a compiler. The guest worker supports a `resolve` command in addition to `build`; both prepare the subsequent `start` command. VM runs use output already present in the uploaded submission. Disposable VM builds are not copied back to the host or retained for subsequent VM actions. Manual VM runs retain the existing bounded output-capture behavior and do not provide an interactive desktop. Local manual builds write to the selected submission, with dotnet solution fallback output under `bin/GuidedGrade`; AI tests still stage copies.
 
 ### Explicit feedback scope (source reviewed September 20, 2026)
 

@@ -88,7 +88,7 @@ Ollama needs to be running as a background service. It usually starts automatica
 systemctl start ollama
 ```
 
-### 4. Use it in Lab Feedback WPF
+### 4. Use it in GuidedGrade
 1. Open a student folder
 2. Check files to analyze (☑)
 3. Right-click → "Analyze Selected Files with LLM"

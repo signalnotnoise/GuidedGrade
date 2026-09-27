@@ -2,7 +2,7 @@
 
 ## Application integration follow-up — September 23, 2026
 
-The Lab Feedback shell now uses declarative toolbars, pickers, keyed file tabs, panel actions
+The GuidedGrade shell now uses declarative toolbars, pickers, keyed file tabs, panel actions
 and status with C# startup and code-built native resources. No application XAML remains.
 The pinned API still lacks vertical fill/docking/splitters, horizontal scroll, tree/context-menu,
 progress and tooltip primitives; focused native adapters retain these behaviors. These gaps
