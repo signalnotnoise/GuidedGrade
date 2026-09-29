@@ -9,8 +9,12 @@ Dispatcher operation completion coalesces cleanup requests at ContextIdle.
 `MainWindow.Closed` disposes shell, panel, grading, and terminal owners before
 `App.OnExit` drains cleanup and detaches its hook. Cleanup failures remain counted
 after recovery, are recorded in
-`%LOCALAPPDATA%\Lab Feedback WPF\Diagnostics\com-cleanup.log`, and cause a
+`%LOCALAPPDATA%\GuidedGrade\Diagnostics\com-cleanup.log`, and cause a
 nonzero exit code. Logging does not open a modal dialog from a cleanup callback.
+Before the renamed diagnostics path is used, `AppDataPaths` migrates both local
+legacy roots: `LabFeedbackWPF` and `Lab Feedback WPF`. The spaced root contains
+the old `Diagnostics/com-cleanup.log`. Existing GuidedGrade files take precedence;
+conflicting legacy logs remain in their original locations and are traced.
 
 Construction disables CLR eager COM-wrapper cleanup for the application STA.
 That setting cannot be reversed during the thread's lifetime. Input methods and

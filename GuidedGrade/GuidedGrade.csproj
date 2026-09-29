@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>GuidedGrade</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\Html.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <PackageReference Include="SignalNotNoise.UI.Wpf" Version="[0.1.0-alpha.3-local.2]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Html.xshd" />
+    <Resource Include="Resources\Monokai.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuidedGrade.Tests" />
+    <ProjectReference Include="..\GuidedGrade.Runner\GuidedGrade.Runner.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <None Update="Runner\*.ps1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

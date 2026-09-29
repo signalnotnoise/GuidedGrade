@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="Lab Feedback Runner/Lab Feedback Runner.csproj" />
-  <Project Path="Lab Feedback WPF/Lab Feedback WPF.csproj" />
-  <Project Path="Lab Feedback WPF.Tests/Lab Feedback WPF.Tests.csproj" />
-</Solution>

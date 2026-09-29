@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GuidedGrade.Runner/GuidedGrade.Runner.csproj" />
+  <Project Path="GuidedGrade/GuidedGrade.csproj" />
+  <Project Path="GuidedGrade.Tests/GuidedGrade.Tests.csproj" />
+</Solution>

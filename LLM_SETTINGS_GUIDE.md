@@ -49,8 +49,14 @@ Choose between:
 
 Settings are saved to:
 ```
-%APPDATA%\LabFeedbackWPF\llm-settings.json
+%APPDATA%\GuidedGrade\llm-settings.json
 ```
+
+The first launch after the product rename migrates the previous settings directory
+to `%APPDATA%\GuidedGrade`. Existing files in the new directory take precedence
+if both locations are present. Saved guest credential and published runner paths
+under the previous `%LOCALAPPDATA%` product directory are rewritten to their
+migrated `GuidedGrade` locations when those destinations exist.
 
 Secure storage for:
 - ✅ Provider choice

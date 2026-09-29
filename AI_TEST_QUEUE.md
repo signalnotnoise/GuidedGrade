@@ -25,7 +25,7 @@ The same full solution path cannot be added again while it is running or waiting
 
 Each request captures its solution path, student identifiers, search folder, checked file paths, assignment requirements, rubric and LLM/execution settings. Waiting requests do not preload source content or start a VM. Files are read when the request runs: keep the submission files in place and avoid editing them while queued.
 
-The terminal shows the current test. Reports are saved as uniquely named text files under `%LOCALAPPDATA%\LabFeedbackWPF\TestReports`; the terminal prints the saved path. Completion does not open a modal report dialog. These reports contain submission paths and may contain source or console output; manage them like other local grading records. Old reports are not automatically deleted.
+The terminal shows the current test. Reports are saved as uniquely named text files under `%LOCALAPPDATA%\GuidedGrade\TestReports`; the terminal prints the saved path. The first local-data access after the product rename moves the previous product directory to `%LOCALAPPDATA%\GuidedGrade` when the new directory does not already exist. Completion does not open a modal report dialog. These reports contain submission paths and may contain source or console output; manage them like other local grading records. Old reports are not automatically deleted.
 
 After execution, checked files are graded with the captured assignment and settings. Execution disposal and this grading finish before the next request starts. A failed request is reported in the terminal/debug output and does not stop the queue. Local execution still requires the existing confirmation when its turn starts; declining skips that request.
 
@@ -41,7 +41,7 @@ Serial execution avoids overlapping AI-test VMs (the default VM allocation is 40
 
 ## Verification
 
-Run `dotnet test "Lab Feedback WPF.Tests/Lab Feedback WPF.Tests.csproj" --filter FullyQualifiedName~AiTestQueueTests|FullyQualifiedName~LlmJobQueueTests`.
+Run `dotnet test "GuidedGrade.Tests/GuidedGrade.Tests.csproj" --filter FullyQualifiedName~AiTestQueueTests|FullyQualifiedName~LlmJobQueueTests`.
 
 Tests cover FIFO execution, waiting for asynchronous cleanup, case-insensitive duplicate rejection, capacity, recovery after failure and retrying a completed key. For UI verification, queue two different solutions, navigate to another student, and verify the original submissions and captured rubric are used. Double-click one solution and check that it runs once. Confirm reports appear in the report directory and the next request proceeds without dismissing a completion dialog.
 

@@ -24,14 +24,14 @@ Limits are **characters**, not file bytes or total process memory. WPF formattin
 - `ProcessRunner.CaptureOutputAsync` reads with a 4,096-character scratch buffer and continues draining both pipes after the retention limit. Process cleanup also kills the child on caller cancellation or stdin failure.
 - `BoundedConsoleProgress.cs` receives producer updates without posting dispatcher work per chunk. It bounds both text and object count, preserves output categories, and ignores producers after disposal.
 - `RuntimeTerminalPresenter.cs` drains that mailbox on the UI thread. It bounds the document, disables undo, resets between jobs and stops its timer when the window closes. Each job gets a new mailbox, so late output from a previous job is ignored.
-- `Lab Feedback Runner.csproj` compiles the same buffer and limit sources into the guest worker. The JSON protocol preserves truncation notices. **Republish the runner and point execution settings at the updated publish folder** to apply the changes inside Hyper-V; an older published worker does not gain the changes from rebuilding the desktop app alone.
+- `GuidedGrade.Runner.csproj` compiles the same buffer and limit sources into the guest worker. The JSON protocol preserves truncation notices. **Republish the runner and point execution settings at the updated publish folder** to apply the changes inside Hyper-V; an older published worker does not gain the changes from rebuilding the desktop app alone.
 
 ## Verification
 
 The regression tests exercise a generated 20-million-character stream with an allocation ceiling, simultaneous flooded build pipes, redirected/ConPTY floods followed by interactive input, continuous activity after buffer saturation, ring-buffer cursor rollover, mailbox chunk limits, and real WPF document/undo behavior on an STA thread. Runner-protocol tests build and interact with a temporary console application in normal and flooded-output modes without LLM credentials.
 
 ```powershell
-dotnet test "Lab Feedback WPF.Tests/Lab Feedback WPF.Tests.csproj" --filter "FullyQualifiedName~OutputMemoryTests|FullyQualifiedName~RuntimeTerminalPresenterTests|FullyQualifiedName~InteractiveProcessSessionTests|FullyQualifiedName~ProcessRunnerTests|FullyQualifiedName~ConsoleDriverAgentTests|FullyQualifiedName~AiTestQueueTests|FullyQualifiedName~RunnerWorkerTests"
+dotnet test "GuidedGrade.Tests/GuidedGrade.Tests.csproj" --filter "FullyQualifiedName~OutputMemoryTests|FullyQualifiedName~RuntimeTerminalPresenterTests|FullyQualifiedName~InteractiveProcessSessionTests|FullyQualifiedName~ProcessRunnerTests|FullyQualifiedName~ConsoleDriverAgentTests|FullyQualifiedName~AiTestQueueTests|FullyQualifiedName~RunnerWorkerTests"
 ```
 
 The worker-protocol tests run the worker locally; they do not validate a real Hyper-V guest deployment or live model calls.

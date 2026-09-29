@@ -51,7 +51,7 @@ the application does not change Windows features or elevate itself automatically
 5. Publish the guest worker from this repository:
 
    ```powershell
-   dotnet publish 'Lab Feedback Runner/Lab Feedback Runner.csproj' -c Release -r win-x64 --self-contained true -o 'artifacts/runner'
+   dotnet publish 'GuidedGrade.Runner/GuidedGrade.Runner.csproj' -c Release -r win-x64 --self-contained true -o 'artifacts/runner'
    ```
 
    A framework-dependent build also works if the matching .NET 10 runtime is
@@ -61,7 +61,7 @@ the application does not change Windows features or elevate itself automatically
 
 ## Operation and cleanup
 
-The app creates a fresh differencing disk and a uniquely named `LabFeedback-*` VM
+The app creates a fresh differencing disk and a uniquely named `GuidedGrade-*` VM
 for each operation. It removes all network adapters, allocates two virtual CPUs
 with a CPU cap, and communicates through PowerShell Direct. It copies only a
 submission archive and worker archive into the guest. No host folder is mapped.
@@ -79,8 +79,12 @@ VM if its bridge dies or after a 15-minute hard lifetime. This watchdog is outsi
 the guest, so student code cannot disable it through ordinary guest permissions.
 The template is not reset or deleted. Graceful cleanup removes the run directory;
 after interruption, VM disk files may remain under
-`%LOCALAPPDATA%\LabFeedbackWPF\Runners`. Remove those only after confirming their
+`%LOCALAPPDATA%\GuidedGrade\Runners`. Remove those only after confirming their
 disposable VM is gone and the VHDX is detached. No existing user VM is targeted.
+The first local-data access after the product rename moves the previous product
+directory into `%LOCALAPPDATA%\GuidedGrade` when that destination is absent.
+Saved guest credential and worker paths under that previous directory follow
+their migrated files so existing Hyper-V execution settings remain valid.
 
 Runner input is capped at 1 GB/20,000 files per archive, guest protocol responses
 at 1 MB, and reported output at 64,000 characters per stream. These limits are

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GuidedGrade.Runner</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../GuidedGrade/Services/OutputLimits.cs" Link="Services/OutputLimits.cs" />
+    <Compile Include="../GuidedGrade/Services/BoundedTextBuffer.cs" Link="Services/BoundedTextBuffer.cs" />
+    <Compile Include="../GuidedGrade/Services/SubmissionBuilder.cs" Link="Services/SubmissionBuilder.cs" />
+    <Compile Include="../GuidedGrade/Services/ProcessRunner.cs" Link="Services/ProcessRunner.cs" />
+    <Compile Include="../GuidedGrade/Services/RunnableSubmissionDetector.cs" Link="Services/RunnableSubmissionDetector.cs" />
+    <Compile Include="../GuidedGrade/Services/NativeDependencyStager.cs" Link="Services/NativeDependencyStager.cs" />
+    <Compile Include="../GuidedGrade/Services/InteractiveProcessSession.cs" Link="Services/InteractiveProcessSession.cs" />
+    <Compile Include="../GuidedGrade/Services/IInteractiveConsoleSession.cs" Link="Services/IInteractiveConsoleSession.cs" />
+    <Compile Include="../GuidedGrade/Services/PEHeaderReader.cs" Link="Services/PEHeaderReader.cs" />
+  </ItemGroup>
+</Project>
