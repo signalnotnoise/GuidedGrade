@@ -7,6 +7,12 @@ internal static class AppDataPaths
 {
     internal const string ProductDirectoryName = "GuidedGrade";
     internal const string LegacyProductDirectoryName = "LabFeedbackWPF";
+    internal const string LegacyDiagnosticsDirectoryName = "Lab Feedback WPF";
+
+    // Keep the original data directory first so conflicts between legacy roots
+    // have a stable winner. Existing GuidedGrade files always take precedence.
+    private static readonly string[] LegacyDirectoryNames =
+        [LegacyProductDirectoryName, LegacyDiagnosticsDirectoryName];
 
     private static readonly object MigrationLock = new();
 
@@ -50,17 +56,19 @@ internal static class AppDataPaths
         lock (MigrationLock)
         {
             var current = Path.Combine(root, ProductDirectoryName);
-            var legacy = Path.Combine(root, LegacyProductDirectoryName);
-
-            if (!Directory.Exists(current) && Directory.Exists(legacy))
+            foreach (var directoryName in LegacyDirectoryNames)
             {
-                Directory.Move(legacy, current);
-                return current;
+                var legacy = Path.Combine(root, directoryName);
+                if (!Directory.Exists(legacy))
+                    continue;
+
+                if (!Directory.Exists(current))
+                    Directory.Move(legacy, current);
+                else
+                    MergeLegacyDirectory(legacy, current);
             }
 
             Directory.CreateDirectory(current);
-            if (Directory.Exists(legacy))
-                MergeLegacyDirectory(legacy, current);
 
             return current;
         }

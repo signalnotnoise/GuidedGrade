@@ -1,6 +1,6 @@
 # GuidedGrade dependency knowledge graph
 
-Latest affected-path source review: September 26, 2026 (GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: September 29, 2026 (PR #2 review: both legacy data roots, diagnostics conflict preservation and runner credential default; GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
 
 Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
@@ -214,7 +214,7 @@ flowchart TD
     UI -->|loads and saves assignment definitions| Assignment
     DataPaths["AppDataPaths · GuidedGrade roaming/local roots"] --> Comments
     DataPaths --> Assignment
-    Legacy["Previous product data directory"] -->|move missing data on first access| DataPaths
+    Legacy["LabFeedbackWPF and Lab Feedback WPF legacy directories"] -->|move missing data on access| DataPaths
 ```
 
 | Component | Responsibility |
@@ -225,7 +225,7 @@ flowchart TD
 | `StudentDataSanitizer` | Redacts student identifiers, emails and personal paths; supplies anonymous display names. |
 | `LlmCompletionService` | Routes console-agent completion requests using `LLMSettings`. Section grading calls provider services directly. |
 | `OllamaService` / `AzureOpenAIService` | HTTP adapters with one process-lifetime client per provider, reused across grading, settings checks and console turns. Pooled connections have a five-minute lifetime; cookies are disabled. Azure API keys are request-local. Injected test clients remain caller-owned. Model memory is outside the WPF output budgets. |
-| `AppDataPaths` | Owns `%APPDATA%/GuidedGrade` and `%LOCALAPPDATA%/GuidedGrade`; moves the previous product directory on first access and preserves conflicts when both locations exist. |
+| `AppDataPaths` | Owns `%APPDATA%/GuidedGrade` and `%LOCALAPPDATA%/GuidedGrade`; migrates both legacy product directories on access and preserves conflicting files in their original locations. |
 | `CommentPersistenceService` | Stores feedback keyed to files/sections, including review state, in `section-comments.db`. |
 | `AssignmentPersistenceService` | Stores course/assignment requirements and rubric definitions in SQLite. |
 | `InlineCommentLayer` | Positions feedback alongside AvalonEdit lines and relays review events. |
@@ -376,7 +376,7 @@ Ollama reads HTTP error bodies before throwing. A server error explicitly mentio
 
 `MainWindow.Panels.cs` applies per-user Comments and Job queue visibility from `WorkspacePanelPreferences`, stored in `%APPDATA%/GuidedGrade/workspace-panels.json`. Both default to visible; missing or unreadable settings fall back to defaults. Settings saves visibility independently of folder violation configuration. The right rail stays visible when content collapses; Comments, Job queue, and Rubric select dedicated tab content. Workspace navigation no longer replaces `sidePanelContent.Child`. Hidden queue visibility also hides its status-bar shortcut, without cancelling jobs. Hidden comments still collect draft updates. Inline comments are clipped to the editor viewport.
 
-`AppDataPaths` owns the renamed roaming and local product directories. If only the previous product directory exists, it is moved atomically to `GuidedGrade`; when both exist, missing files are moved recursively while conflicts remain in the previous location and are reported through `Trace`. `LLMSettings` rewrites saved guest credential and worker paths rooted under the previous local directory when their migrated destinations exist. SQLite databases, LLM settings, workspace panel preferences, test reports, runner workspaces and cleanup diagnostics all resolve through this shared owner.
+`AppDataPaths` owns the renamed roaming and local product directories. On access it checks `LabFeedbackWPF` first, then `Lab Feedback WPF` (the former COM-cleanup diagnostics root). Each legacy directory is moved to `GuidedGrade` when the destination is absent; otherwise missing files are moved recursively while conflicts remain in their original location and are reported through `Trace`. Existing GuidedGrade files take precedence, followed by files from `LabFeedbackWPF`; repeated access preserves retained conflicts. `LLMSettings` rewrites saved guest credential and worker paths rooted under the previous `LabFeedbackWPF` local directory when their migrated destinations exist. SQLite databases, LLM settings, workspace panel preferences, test reports, runner workspaces and cleanup diagnostics all resolve through this shared owner.
 
 ### File actions and execution preference (source reviewed September 20, 2026)
 
@@ -504,6 +504,6 @@ recovery. Real typing, IME, and screen-reader validation remain pending; see
 [the acceptance checklist](COM_CLEANUP_POLICY.md). The exact framework package
 pin is `[0.1.0-alpha.3-local.2]`.
 
-### Runner setup credential location (source reviewed September 26, 2026)
+### Runner setup credential location (source reviewed September 29, 2026)
 
-`Setup-RunnerTemplate.ps1` defaults guest credentials to the executing user's local app-data directory under `LabFeedbackWPF\runner-guest.xml`, accepts an explicit `CredentialPath`, and reports the full path in `setup-status.json`. `New-RunnerAnswerMedia.ps1` exports the credentials for the executing Windows account; setup and runtime should use that same account.
+`Setup-RunnerTemplate.ps1` defaults guest credentials to the executing user's local app-data directory under `GuidedGrade\runner-guest.xml`, accepts an explicit `CredentialPath`, and reports the full path in `setup-status.json`. `New-RunnerAnswerMedia.ps1` exports the credentials for the executing Windows account; setup and runtime should use that same account.

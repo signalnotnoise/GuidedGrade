@@ -88,6 +88,88 @@ public class AppDataPathsTests
         }
     }
 
+    [DataTestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public void SpacedLegacyDiagnosticsMigrateWithOtherProductDirectories(bool hasLegacyData, bool hasCurrentData)
+    {
+        var root = CreateRoot();
+        try
+        {
+            var legacy = Path.Combine(root, AppDataPaths.LegacyProductDirectoryName);
+            var diagnosticsRoot = Path.Combine(root, AppDataPaths.LegacyDiagnosticsDirectoryName);
+            var current = Path.Combine(root, AppDataPaths.ProductDirectoryName);
+            Directory.CreateDirectory(Path.Combine(diagnosticsRoot, "Diagnostics"));
+            File.WriteAllText(Path.Combine(diagnosticsRoot, "Diagnostics", "com-cleanup.log"), "old diagnostic");
+            if (hasLegacyData)
+            {
+                Directory.CreateDirectory(legacy);
+                File.WriteAllText(Path.Combine(legacy, "llm-settings.json"), "settings");
+            }
+            if (hasCurrentData)
+            {
+                Directory.CreateDirectory(current);
+                File.WriteAllText(Path.Combine(current, "assignments.db"), "current data");
+            }
+
+            Assert.AreEqual(current, AppDataPaths.EnsureProductDirectory(root));
+            Assert.AreEqual(current, AppDataPaths.EnsureProductDirectory(root));
+
+            Assert.AreEqual("old diagnostic", File.ReadAllText(Path.Combine(current, "Diagnostics", "com-cleanup.log")));
+            Assert.IsFalse(Directory.Exists(diagnosticsRoot));
+            Assert.IsFalse(Directory.Exists(legacy));
+            if (hasLegacyData)
+                Assert.AreEqual("settings", File.ReadAllText(Path.Combine(current, "llm-settings.json")));
+            if (hasCurrentData)
+                Assert.AreEqual("current data", File.ReadAllText(Path.Combine(current, "assignments.db")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ConflictingDiagnosticsRemainInLegacyDirectories(bool hasCurrentLog)
+    {
+        var root = CreateRoot();
+        try
+        {
+            var legacy = Path.Combine(root, AppDataPaths.LegacyProductDirectoryName, "Diagnostics");
+            var spacedLegacy = Path.Combine(root, AppDataPaths.LegacyDiagnosticsDirectoryName, "Diagnostics");
+            var current = Path.Combine(root, AppDataPaths.ProductDirectoryName, "Diagnostics");
+            Directory.CreateDirectory(legacy);
+            Directory.CreateDirectory(spacedLegacy);
+            File.WriteAllText(Path.Combine(legacy, "com-cleanup.log"), "unspaced log");
+            File.WriteAllText(Path.Combine(spacedLegacy, "com-cleanup.log"), "spaced log");
+            File.WriteAllText(Path.Combine(spacedLegacy, "older.log"), "older log");
+            if (hasCurrentLog)
+            {
+                Directory.CreateDirectory(current);
+                File.WriteAllText(Path.Combine(current, "com-cleanup.log"), "current log");
+            }
+
+            AppDataPaths.EnsureProductDirectory(root);
+            AppDataPaths.EnsureProductDirectory(root);
+
+            Assert.AreEqual(hasCurrentLog ? "current log" : "unspaced log",
+                File.ReadAllText(Path.Combine(current, "com-cleanup.log")));
+            Assert.AreEqual("spaced log", File.ReadAllText(Path.Combine(spacedLegacy, "com-cleanup.log")));
+            Assert.AreEqual("older log", File.ReadAllText(Path.Combine(current, "older.log")));
+            Assert.IsFalse(File.Exists(Path.Combine(spacedLegacy, "older.log")));
+            if (hasCurrentLog)
+                Assert.AreEqual("unspaced log", File.ReadAllText(Path.Combine(legacy, "com-cleanup.log")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "GuidedGrade-AppDataPaths-" + Guid.NewGuid().ToString("N"));
