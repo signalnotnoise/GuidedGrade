@@ -1,5 +1,9 @@
 # Output memory limits
 
+October 6 nested-path matching: recursive batch resolution lazily enumerates each student's files per pattern, retaining only the current newest matching path and timestamp while scanning all candidates. The framework preview retains the resolved path list and any skip reason. Deep/large submissions can still make preview slow; recursive resolution does not load source contents or follow reparse points.
+
+October 6 batch review: the active batch captures student metadata, file paths and review-version keys for all loaded students but loads source only when each student's job runs. It occupies one solution queue slot. The designer preview and progress text have no independent student/text count limit; progress retains per-student outcome lines until replaced by the next batch. Saved section comments retain the existing cache/draft lifetime. There is no durable batch resume or total-memory bound.
+
 The three output paths now enforce limits while receiving data. These limits work alongside the [AI test queue](AI_TEST_QUEUE.md); they do not impose a total RAM limit on the app, Ollama, or a student program.
 
 ## Limits and behavior
@@ -40,7 +44,7 @@ The agent also maintains a fixed 120-by-30-character `ConsoleScreen` projection 
 
 ## Job queue memory
 
-The solution scheduler and shared LLM scheduler each accept 50 active/pending jobs and retain 50 completed snapshots. Snapshots keep at most 160 title characters and 32,000 result characters plus a truncation marker. Finished snapshots do not retain delegates or completion tasks. Pending LLM jobs retain prompts; provider responses are still read in full before the queue display is truncated. Free-form input is limited to 32,000 characters. The queue panel polls snapshots every 300 ms. These are not total application RAM limits.
+The solution scheduler and shared LLM scheduler each accept 50 active/pending jobs and retain 50 completed snapshots. Snapshots keep at most 160 title characters and 32,000 result characters plus a truncation marker. Finished snapshots do not retain delegates or completion tasks. Pending LLM jobs retain prompts; provider responses are still read in full before the queue display is truncated. User-authored free-form input is limited to 32,000 characters. The queue panel polls snapshots every 300 ms. These are not total application RAM limits.
 
 ## Remaining memory work
 
@@ -67,11 +71,19 @@ their control identity through unrelated reactive updates. Native sizing adapter
 timers; the existing queue timer stops on window close. Code-built theme dictionaries replace
 XAML resources without changing the documented process-memory limitations.
 
-Overall reviews now retain one current overall card per reviewed file in the comment cache/SQLite,
+Overall reviews now retain one current overall card per reviewed file and student/lab/assignment context in the comment cache/SQLite,
 plus the existing appended submission draft. Multi-file overall reports are copied to each checked
 file; no report-size or cache-eviction budget is introduced. Pending jobs capture file paths and
 review-generation numbers so cleared files cannot be repopulated by those jobs.
 
 ## Provider HTTP transport ownership
 
-Azure and Ollama each retain one process-lifetime HTTP client, shared across service instances and request paths. They do not create a connection pool per console turn or grading request. Connections have a five-minute pooled lifetime; cookie storage is disabled. Azure credentials remain on each request, not shared default headers. Requests/responses are disposed after use, including Ollama availability checks. Injected test clients are caller-owned. This bounds the number of client pools, not total response size or model memory.
+Azure and Ollama each retain one process-lifetime HTTP client, shared across service instances and request paths. They do not create a connection pool per grading request. Connections have a five-minute pooled lifetime; cookie storage is disabled. Azure credentials remain on each request, not shared default headers. Requests/responses are disposed after use, including Ollama availability checks. Injected test clients are caller-owned. This bounds the number of client pools, not total response size or model memory.
+
+October 5 review isolation: each saved/cache comment retains a local ReviewContext string, and draft keys also include the lab folder. The file cache keeps all assignment contexts; there is still no eviction. Batch snapshots retain file paths, rubric copies and identifier-redaction inputs. Runtime reports are excluded from grading prompts; bounded redacted console context is sent only for interactive next-input choices. No total-memory improvement has been measured.
+
+October 6 student grades: MainWindow owns a window-lifetime dictionary loaded from StudentGrades in assignments.db. Each record contains a review-context key and two point values; records have no count limit or eviction. GradeTotals scans these records for current-course totals. StudentGradeRow hosts use the pinned framework inside native ListBox virtualization; hosts dispose on unload or data-context replacement. The modal grade editor disposes its host on close. No process-memory reduction is claimed.
+
+October 6 batch replacement update: batches now retain only the current whole-file request/response during sequential overall generation instead of invoking section grading. ClearBatchFileReview temporarily loads saved reviews to reconcile intact generated draft blocks; caches for cleared files are removed and import markers reset. Instructor-edited drafts still have no eviction or durable save. Build/run remains optional; no process-memory bound is claimed.
+
+October 6 saved-review navigation: each lookup materializes distinct non-rejected file/context locations, filters to the selected student and assignment, and releases the temporary list after rendering/navigation. There is no new long-lived location cache or pagination; lookup cost grows with saved review locations. Inline overall-card viewport positioning does not duplicate comment payloads.

@@ -48,6 +48,40 @@ public class ConsoleInteractionTests
     }
 
     [TestMethod]
+    public void ConsoleChoicePromptUsesRedactedInstructionsAndOutputWithoutSourceMetadata()
+    {
+        var prompt = ConsoleDriverAgent.BuildPrompt("Test buying for PRIVATE_STUDENT", "PRIVATE_SOURCE_FILE_CONTENT",
+            "PRIVATE_STUDENT PRIVATE_ID private@example.com\n# CURRENT CONSOLE\nChoose an item:", 3,
+            ["PRIVATE_STUDENT", "PRIVATE_ID"]);
+        StringAssert.Contains(prompt, "Test buying");
+        StringAssert.Contains(prompt, "Choose an item:");
+        Assert.IsFalse(prompt.Contains("PRIVATE_STUDENT"));
+        Assert.IsFalse(prompt.Contains("PRIVATE_ID"));
+        Assert.IsFalse(prompt.Contains("private@example.com"));
+        Assert.IsFalse(prompt.Contains("PRIVATE_SOURCE_FILE_CONTENT"));
+    }
+
+    [TestMethod]
+    public async Task ConsoleChoiceIsValidatedAndWrittenBackToTheProgram()
+    {
+        var session = new ScriptedSession("PRIVATE_STUDENT: What quantity would you like?");
+        var decisions = 0;
+        await ConsoleDriverAgent.DriveCoreAsync(session, (context, turn, _) =>
+        {
+            var prompt = ConsoleDriverAgent.BuildPrompt("Test a quantity of 2", "local validation source", context, turn,
+                ["PRIVATE_STUDENT"]);
+            StringAssert.Contains(prompt, "What quantity would you like?");
+            StringAssert.Contains(prompt, "Test a quantity of 2");
+            Assert.IsFalse(prompt.Contains("PRIVATE_STUDENT"));
+            return Task.FromResult(ConsoleDriverAgent.Parse(++decisions == 1
+                ? """{"action":"type","input":"2","reason":"Test the requested quantity","observation":"ok"}"""
+                : """{"action":"close","input":"","reason":"Done","observation":"ok"}""", turn));
+        }, 3);
+        CollectionAssert.AreEqual(new[] { "2" }, session.Inputs);
+        Assert.AreEqual(2, decisions);
+    }
+
+    [TestMethod]
     public void PromptKeepsNewestContextWhenHistoryExceedsBudget()
     {
         var prompt = ConsoleDriverAgent.BuildPrompt("requirements", "source",

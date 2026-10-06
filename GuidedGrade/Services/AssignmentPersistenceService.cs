@@ -8,6 +8,7 @@ namespace GuidedGrade.Services
     public sealed class AssignmentPersistenceService
     {
         private readonly string _databasePath;
+        internal string DatabasePath => _databasePath;
 
         public AssignmentPersistenceService()
         {

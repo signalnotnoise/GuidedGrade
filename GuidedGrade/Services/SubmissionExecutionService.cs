@@ -126,7 +126,8 @@ namespace GuidedGrade.Services
                 requirements,
                 plannerSource,
                 progress,
-                cancellationToken);
+                cancellationToken,
+                identifiers);
 
             sb.AppendLine($"Testing time budget expired: {drive.TimedOut} | Stopped by runner: {drive.StoppedByRunner} | Crash: {drive.Crashed} | Infinite loop: {drive.InfiniteLoop} | Exit: {NativeExitCodes.Describe(drive.ExitCode)}");
             if (!string.IsNullOrWhiteSpace(drive.Error))

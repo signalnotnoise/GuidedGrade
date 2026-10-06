@@ -25,6 +25,14 @@ public partial class MainWindow
         var selected = rows.FirstOrDefault(row => row.Key == _selectedQueueKey.Value);
         return Scroll(VStack(
             Text("Job queue").FontSize(20),
+            Button("Design batch review", DesignBatchReview),
+            Button("Open selected student's saved review", () =>
+            {
+                if (!OpenSavedReviewForSelectedStudent())
+                    MessageBox.Show(this, "Select the student and the assignment used for the batch. No saved review file was found for the current selection.", "Saved reviews");
+                else WorkspaceFeedback_Click(this, new());
+            }),
+            TextEditor(new Binding<string>(() => _batchProgress.Value, _ => { })).Height(100).IsReadOnly(true).UndoLimit(0).AccessibilityLabel("Batch progress"),
             Text("Assignments run before general AI jobs. Active requests finish or cancel before the next starts.").FontSize(13),
             TextEditor(_freeFormPrompt).Height(80).MaxLength(32000).AccessibilityLabel("Task for AI provider"),
             HStack(Button("Queue task", () => QueueFreeFormJob_Click(this, new())).IsEnabled(!string.IsNullOrWhiteSpace(_freeFormPrompt.Value)),

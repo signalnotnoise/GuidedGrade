@@ -45,6 +45,8 @@ namespace GuidedGrade
         {
             _assignmentPersistenceService = assignments;
             _commentPersistenceService = comments;
+            _gradePersistence = new GradePersistenceService(assignments.DatabasePath);
+            _studentGrades = _gradePersistence.LoadAll();
             InitializeFrameworkShell();
             InitializeJobQueuePanel();
             ApplyPanelPreferences();
@@ -103,7 +105,7 @@ namespace GuidedGrade
             if (assignment == null)
                 return;
 
-            _currentAssignment = assignment;
+            SetReviewAssignment(assignment);
             CloseSidePanel();
             MessageBox.Show($"Loaded assignment '{assignment.Title}' for course '{assignment.Course}'.",
                 "Saved Assignment Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -157,34 +159,28 @@ namespace GuidedGrade
             };
         }
 
-        private async Task<bool> GradeFileSectionsAsync(string filePath, bool clearComments = true, string? capturedTarget = null, GradingAssignment? capturedAssignment = null)
+        private async Task<bool> GradeFileSectionsAsync(string filePath, string draftTarget,
+            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot,
+            LLMSettings settings, long reviewVersion)
         {
-            var reviewVersion = _reviewGeneration.Capture(filePath);
-            var draftTarget = capturedTarget ?? CurrentFeedbackKey();
-            var assignment = capturedAssignment ?? _currentAssignment;
-            if (assignment == null || assignment.Rubric.Count == 0)
+            if (assignment.Rubric.Count == 0)
                 return false;
 
+            var relatedFiles = RelatedFileResolver.FindRelatedFiles(filePath, checkedPaths, searchRoot);
             var fileText = await File.ReadAllTextAsync(filePath);
             var sections = ExtractCodeSections(fileText, Path.GetFileNameWithoutExtension(filePath));
 
             if (sections.Count == 0)
                 return false;
 
-            if (clearComments)
-            {
-                _commentLayer?.ClearComments();
-            }
-
-            var gradingService = new Services.SectionGradingService(assignment);
-            var relatedFiles = GetRelatedFilesForGrading(filePath);
+            var gradingService = new Services.SectionGradingService(assignment, settings);
             foreach (var section in sections)
             {
                 var feedback = await gradingService.AnalyzeSectionAsync(
                     section.Name,
                     section.Code,
                     assignment.Rubric,
-                    GetStudentIdentifiers(filePath),
+                    identifiers,
                     relatedFiles);
 
                 if (!_reviewGeneration.IsCurrent(filePath, reviewVersion)) return false;
@@ -197,7 +193,7 @@ namespace GuidedGrade
 
             PersistCommentsForFile(filePath);
 
-            if (sections.Count > 0)
+            if (sections.Count > 0 && draftTarget == CurrentFeedbackKey() && IsSelectedFile(filePath))
             {
                 codeEditor.ScrollToLine(Math.Max(1, sections[0].StartLine));
             }
@@ -209,15 +205,23 @@ namespace GuidedGrade
             if (checkedFiles.Count == 0)
                 return;
 
-            var target = CurrentFeedbackKey();
-            var assignment = _currentAssignment;
+            var target = CurrentFeedbackKey(checkedFiles[0].FullPath);
+            EnsureSingleReviewContext(checkedFiles.Select(file => file.FullPath), target);
+            var assignment = ReviewContext.Snapshot(_currentAssignment);
+            if (assignment == null) return;
+            var settings = LLMSettings.Load();
+            if (!ConfirmGrading(settings, $"Grade sections in {checkedFiles.Count} checked file(s)?")) return;
+            var checkedPaths = checkedFiles.Select(file => file.FullPath).ToArray();
+            var searchRoot = ReviewContext.SubmissionRoot(checkedPaths[0], (listBoxStudents.SelectedItem as Student)?.Folder);
+            var inputs = checkedPaths.Select(path => (Path: path, Identifiers: GetStudentIdentifiers(path).ToArray(),
+                Version: _reviewGeneration.Capture(path))).ToArray();
             _commentLayer?.ClearComments();
 
             var skipped = new List<string>();
-            foreach (var file in checkedFiles)
+            foreach (var file in inputs)
             {
-                if (!await GradeFileSectionsAsync(file.FullPath, clearComments: false, capturedTarget: target, capturedAssignment: assignment))
-                    skipped.Add(file.Name);
+                if (!await GradeFileSectionsAsync(file.Path, target, assignment, file.Identifiers, checkedPaths, searchRoot, settings, file.Version))
+                    skipped.Add(Path.GetFileName(file.Path));
             }
             var message = $"Section comments completed for {checkedFiles.Count - skipped.Count} file(s).";
             if (skipped.Count > 0)
@@ -349,7 +353,6 @@ namespace GuidedGrade
         {
             try
             {
-                var feedbackTarget = CurrentFeedbackKey();
                 // Collect all checked files from the tree
                 var checkedFiles = GetCheckedFiles(fileTreeView.Items).Where(file => !file.IsSolution).ToList();
 
@@ -361,12 +364,16 @@ namespace GuidedGrade
                 }
 
                 var settings = Models.LLMSettings.Load();
+                if (!ConfirmGrading(settings, $"Generate overall feedback for {checkedFiles.Count} checked file(s)?")) return;
 
 
+                var feedbackTarget = CurrentFeedbackKey(checkedFiles[0].FullPath);
+                EnsureSingleReviewContext(checkedFiles.Select(file => file.FullPath), feedbackTarget);
                 var reviewFiles = CaptureOverallReviewFiles(checkedFiles.Select(file => file.FullPath));
 
                 // Capture requirements and rubric before file reads or provider calls can yield.
-                var instructions = OverallFeedbackPrompt.BuildInstructions(_currentAssignment, settings.RequirementsTemplate);
+                var identifiers = checkedFiles.SelectMany(file => GetStudentIdentifiers(file.FullPath)).Distinct().ToArray();
+                var instructions = OverallFeedbackPrompt.BuildInstructions(_currentAssignment, settings.RequirementsTemplate, identifiers);
 
                 var codeFiles = new List<Services.OllamaService.CodeFile>();
                 foreach (var file in checkedFiles)
@@ -374,7 +381,6 @@ namespace GuidedGrade
                     try
                     {
                         var content = await File.ReadAllTextAsync(file.FullPath);
-                        var identifiers = GetStudentIdentifiers(file.FullPath);
                         codeFiles.Add(new Services.OllamaService.CodeFile
                         {
                             Name = Services.StudentDataSanitizer.AnonymousFileName(codeFiles.Count + 1, Path.GetExtension(file.Name)),
@@ -445,16 +451,6 @@ namespace GuidedGrade
                             return;
                         }
 
-                        MessageBox.Show(
-                            $"Analyzing {checkedFiles.Count} file(s) with Ollama {settings.SelectedModel}...\n\n" +
-                            "?? This may take 30-120 seconds\n" +
-                            "? First run loads model into RAM\n" +
-                            "?? Subsequent runs are faster\n\n" +
-                            "Click OK to start (runs in background).",
-                            "Analysis Starting",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-
                         feedback = await ollamaService.AnalyzeCodeAsync(codeFiles, requirements, wrapPrompt: false, jobTitle: "Overall feedback");
                         break;
                 }
@@ -477,9 +473,9 @@ namespace GuidedGrade
 
             if (setupWindow.ShowDialog() == true)
             {
-                _currentAssignment = setupWindow.Assignment;
+                SetReviewAssignment(setupWindow.Assignment);
                 CloseSidePanel();
-                MessageBox.Show($"Assignment '{_currentAssignment.Title}' configured with {_currentAssignment.Rubric.Count} rubric items.",
+                MessageBox.Show($"Assignment '{setupWindow.Assignment.Title}' configured with {setupWindow.Assignment.Rubric.Count} rubric items.",
                     "Assignment Setup", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -533,12 +529,12 @@ namespace GuidedGrade
                 return;
             }
 
-            MessageBox.Show($"Analyzing '{sectionName}'...\n\nThis may take 30-120 seconds.",
-                "Analysis Started", MessageBoxButton.OK, MessageBoxImage.Information);
+            var settings = LLMSettings.Load();
+            if (!ConfirmGrading(settings, $"Grade '{sectionName}'?")) return;
 
             try
             {
-                var gradingService = new Services.SectionGradingService(_currentAssignment);
+                var gradingService = new Services.SectionGradingService(_currentAssignment, settings);
                 var currentPath = _selectedTabButton?.Tag as string;
                 var reviewVersion = _reviewGeneration.Capture(currentPath);
                 var feedback = await gradingService.AnalyzeSectionAsync(
@@ -559,7 +555,8 @@ namespace GuidedGrade
 
                 if (draftTarget == CurrentFeedbackKey() && currentPath != null && IsSelectedFile(currentPath))
                     _commentLayer?.AddComment(feedback, startLine, endLine);
-                codeEditor.ScrollToLine(Math.Max(1, startLine));
+                if (draftTarget == CurrentFeedbackKey() && currentPath != null && IsSelectedFile(currentPath))
+                    codeEditor.ScrollToLine(Math.Max(1, startLine));
             }
             catch (Exception)
             {
@@ -575,6 +572,7 @@ namespace GuidedGrade
             {
                 TrackCommentForFile(filePath, feedback, publishToDraft: false);
                 PersistCommentsForFile(filePath);
+                RestoreApprovedFeedback(filePath, new[] { feedback });
             }
         }
 
@@ -588,11 +586,13 @@ namespace GuidedGrade
                 return;
             }
 
+            var settings = LLMSettings.Load();
+            if (!ConfirmGrading(settings, "Regenerate this section's feedback?")) return;
             try
             {
                 var filePath = _selectedTabButton?.Tag as string;
                 var sectionCode = GetSectionText(feedback);
-                var gradingService = new Services.SectionGradingService(_currentAssignment);
+                var gradingService = new Services.SectionGradingService(_currentAssignment, settings);
                 var reviewVersion = _reviewGeneration.Capture(filePath);
                 var regenerated = await gradingService.AnalyzeSectionAsync(
                     feedback.SectionName,
@@ -629,6 +629,7 @@ namespace GuidedGrade
             if (_fileComments.TryGetValue(filePath, out var comments))
             {
                 comments.RemoveAll(c =>
+                    c.ReviewContext == feedback.ReviewContext &&
                     string.Equals(c.SectionName, feedback.SectionName, StringComparison.OrdinalIgnoreCase) &&
                     c.StartLine == feedback.StartLine &&
                     c.EndLine == feedback.EndLine);
@@ -650,7 +651,7 @@ namespace GuidedGrade
 
             var path = (string)btn.Tag!;
             codeEditor.Text = File.ReadAllText(path);
-            LoadCommentsForFile(path);
+            RefreshReviewSelection();
             SetEmptyState(false);
             UpdateViolationsStatus();
         }
@@ -676,7 +677,7 @@ namespace GuidedGrade
             if (!_fileComments.TryGetValue(filePath, out var comments))
                 return;
 
-            foreach (var comment in comments.Where(c => c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
+            foreach (var comment in comments.Where(c => MatchesCurrentReview(c) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
             {
                 _commentLayer?.AddComment(comment, comment.StartLine, comment.EndLine);
             }
@@ -685,7 +686,7 @@ namespace GuidedGrade
         private IReadOnlyList<string> GetStudentIdentifiers(string? filePath)
         {
             return Services.StudentDataSanitizer.GetIdentifiers(
-                _gradingView.CurrentStudent,
+                listBoxStudents.SelectedItem as Student,
                 filePath,
                 _openedDirectoryPath);
         }
@@ -709,13 +710,17 @@ namespace GuidedGrade
             return Services.RelatedFileResolver.FindRelatedFiles(
                 filePath,
                 extraPaths,
-                _gradingView.CurrentStudent?.Folder);
+                ReviewContext.SubmissionRoot(filePath, (listBoxStudents.SelectedItem as Student)?.Folder));
         }
 
         private Services.SubmissionExecutionService CreateExecutionService()
             => new Services.SubmissionExecutionService(confirmLocal: warning =>
                 MessageBox.Show(this, warning, "Run student code locally?",
                     MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+
+        private bool ConfirmGrading(LLMSettings settings, string message) =>
+            GradingConfirmation.IsAuthorized(settings, () => MessageBox.Show(this,
+                message, "Start grading", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
         private async Task<string?> GetRuntimeExecutionReportAsync(
             string? filePath,
             bool forceExecution = false,
@@ -770,11 +775,13 @@ namespace GuidedGrade
 
             if (!_fileComments.TryGetValue(filePath, out var comments))
             {
-                comments = new List<Models.SectionFeedback>();
+                comments = _commentPersistenceService.LoadComments(filePath);
                 _fileComments[filePath] = comments;
             }
 
+            if (publishToDraft) feedback.ReviewContext = draftTarget ?? CurrentFeedbackKey(filePath);
             var existingIndex = comments.FindIndex(c =>
+                c.ReviewContext == feedback.ReviewContext && c.IsOverallReview == feedback.IsOverallReview &&
                 string.Equals(c.SectionName, feedback.SectionName, StringComparison.OrdinalIgnoreCase) &&
                 c.StartLine == feedback.StartLine &&
                 c.EndLine == feedback.EndLine);
@@ -804,10 +811,8 @@ namespace GuidedGrade
             {
                 _commentPersistenceService.SaveComments(filePath, comments);
             }
-            else
-            {
-                _commentPersistenceService.DeleteComments(filePath);
-            }
+            // An absent cache entry means this file was never loaded, not that
+            // its persisted reviews should be deleted. Clear review is explicit.
         }
 
         // --- Folder / Student Loading -----------------------------------------
@@ -840,8 +845,9 @@ namespace GuidedGrade
 
         private void ListBoxStudents_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            ClearFileTabs();
             if (listBoxStudents.SelectedItem is not Student student) return;
-
+            CloseSidePanel();
             var path = student.Folder;
             if (path == null) return;
 
@@ -849,6 +855,7 @@ namespace GuidedGrade
 
             // Populate tree view with selected student's directory structure
             PopulateTreeView(path);
+            OpenSavedReviewForSelectedStudent();
         }
 
         private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
@@ -899,6 +906,7 @@ namespace GuidedGrade
             codeEditor.Text = string.Empty;
             _violationHighlighter.Clear();
             _gradingView.Clear();
+            RefreshGradeSelection();
             SetEmptyState(true);
         }
 
@@ -1216,12 +1224,11 @@ namespace GuidedGrade
             if ((sender as System.Windows.Controls.MenuItem)?.CommandParameter as string == "local")
             {
                 settings.ExecutionMode = SubmissionExecutionMode.Local;
-                settings.ConfirmLocalExecution = true;
             }
-            var searchRoot = _gradingView.CurrentStudent?.Folder ?? _openedDirectoryPath;
+            var searchRoot = ReviewContext.SubmissionRoot(solutionPath, (listBoxStudents.SelectedItem as Student)?.Folder);
             var identifiers = GetStudentIdentifiers(solutionPath).ToArray();
             var checkedPaths = GetCheckedFiles(fileTreeView.Items)
-                .Where(file => !file.IsSolution).Select(file => file.FullPath).ToArray();
+                .Where(file => !file.IsSolution && searchRoot != null && ReviewContext.Contains(searchRoot, file.FullPath)).Select(file => file.FullPath).ToArray();
             var assignment = _currentAssignment == null ? null : new GradingAssignment
             {
                 Course = _currentAssignment.Course,
@@ -1229,7 +1236,9 @@ namespace GuidedGrade
                 Requirements = _currentAssignment.Requirements,
                 Rubric = _currentAssignment.Rubric.Select(r => new RubricItem(r.Name, r.MaxPoints)).ToList()
             };
-            var draftTarget = CurrentFeedbackKey();
+            var draftTarget = CurrentFeedbackKey(solutionPath);
+            if (assignment?.Rubric.Count > 0 && checkedPaths.Length > 0 &&
+                !ConfirmGrading(settings, $"Test the solution and grade {checkedPaths.Length} checked file(s)?")) return;
             var requirements = assignment?.Requirements ?? settings.RequirementsTemplate;
             // Capture metadata only; load source and create the VM when the job starts.
             if (!_aiTestQueue.TryEnqueue(solutionPath, async cancellationToken =>
@@ -1290,12 +1299,15 @@ namespace GuidedGrade
         }
 
         private async Task GradeFileWithRuntimeReportAsync(string filePath, string runtimeReport,
-            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot, LLMSettings settings, string draftTarget, CancellationToken cancellationToken = default)
+            GradingAssignment assignment, string[] identifiers, string[] checkedPaths, string? searchRoot, LLMSettings settings, string draftTarget, CancellationToken cancellationToken = default,
+            bool? batchApprove = null, long? capturedReviewVersion = null)
         {
             if (assignment == null || assignment.Rubric.Count == 0)
                 return;
 
-            var reviewVersion = _reviewGeneration.Capture(filePath);
+            var reviewVersion = capturedReviewVersion ?? _reviewGeneration.Capture(filePath);
+            if (!_reviewGeneration.IsCurrent(filePath, reviewVersion))
+                throw new InvalidOperationException("Review was cleared after this job was queued.");
             var fileText = await File.ReadAllTextAsync(filePath);
             var sections = ExtractCodeSections(fileText, Path.GetFileNameWithoutExtension(filePath));
             if (sections.Count == 0)
@@ -1321,12 +1333,16 @@ namespace GuidedGrade
                     relatedFiles,
                     runtimeReport, cancellationToken);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!_reviewGeneration.IsCurrent(filePath, reviewVersion)) return;
                 feedback.StartLine = section.StartLine;
                 feedback.EndLine = section.EndLine;
-                TrackCommentForFile(filePath, feedback, draftTarget);
+                feedback.ReviewContext = draftTarget;
+                if (batchApprove == true) feedback.ReviewStatus = FeedbackReviewStatus.Approved;
+                TrackCommentForFile(filePath, feedback, draftTarget, publishToDraft: batchApprove != false);
+                PersistCommentsForFile(filePath);
                 if (draftTarget == CurrentFeedbackKey() && IsSelectedFile(filePath))
-                    _commentLayer?.AddComment(feedback, section.StartLine, section.EndLine);
+                    RenderCommentsForFile(filePath);
             }
 
             PersistCommentsForFile(filePath);
@@ -1488,6 +1504,7 @@ namespace GuidedGrade
                 _violationHighlighter.Clear();
                 SetEmptyState(true);
             }
+            RefreshGradeSelection();
         }
 
         // --- Status Bar -------------------------------------------------------

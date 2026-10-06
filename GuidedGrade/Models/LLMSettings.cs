@@ -32,6 +32,11 @@ namespace GuidedGrade.Models
         public bool ExecuteStudentSubmissions { get; set; } = false;
         public SubmissionExecutionMode ExecutionMode { get; set; } = SubmissionExecutionMode.HyperV;
         public bool ConfirmLocalExecution { get; set; } = true;
+        public bool ConfirmGrading { get; set; } = true;
+        public int ConsoleModelWaitSeconds { get; set; } = 30;
+        [JsonIgnore]
+        public TimeSpan ConsoleModelWaitTimeout => TimeSpan.FromSeconds(
+            ConsoleModelWaitSeconds is >= 1 and <= 90 ? ConsoleModelWaitSeconds : 30);
         public string RunnerBaseDisk { get; set; } = "";
         public string RunnerCredentialFile { get; set; } = "";
         public string RunnerWorkerFolder { get; set; } = "";

@@ -156,14 +156,14 @@ namespace GuidedGrade.Services
             var sb = new StringBuilder();
 
             sb.AppendLine("# ASSIGNMENT REQUIREMENTS");
-            sb.AppendLine(requirements);
+            sb.AppendLine(StudentDataSanitizer.Sanitize(requirements));
             sb.AppendLine();
 
             sb.AppendLine("# SUBMITTED CODE");
             var index = 1;
             foreach (var file in files)
             {
-                sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(file.Name, index: index)} ===");
+                sb.AppendLine($"=== {"file-" + index} ===");
                 sb.AppendLine(StudentDataSanitizer.Sanitize(file.Content));
                 sb.AppendLine();
                 index++;

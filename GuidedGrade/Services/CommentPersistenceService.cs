@@ -39,10 +39,22 @@ namespace GuidedGrade.Services
             ";
             command.ExecuteNonQuery();
 
+            using (var contextColumns = connection.CreateCommand())
+            {
+                contextColumns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('SectionComments') WHERE name = 'ReviewContext';";
+                if (Convert.ToInt64(contextColumns.ExecuteScalar()) == 0)
+                {
+                    using var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE SectionComments ADD COLUMN ReviewContext TEXT NOT NULL DEFAULT '';";
+                    alter.ExecuteNonQuery();
+                }
+            }
+
             using var indexCommand = connection.CreateCommand();
             indexCommand.CommandText = @"
-                CREATE UNIQUE INDEX IF NOT EXISTS IX_SectionComments_FilePath_SectionName_StartLine_EndLine
-                ON SectionComments(FilePath, SectionName, StartLine, EndLine);
+                DROP INDEX IF EXISTS IX_SectionComments_FilePath_SectionName_StartLine_EndLine;
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_SectionComments_Context_File_Section_Lines
+                ON SectionComments(FilePath, ReviewContext, SectionName, StartLine, EndLine);
             ";
             indexCommand.ExecuteNonQuery();
 
@@ -103,7 +115,7 @@ namespace GuidedGrade.Services
             using (var deleteCommand = connection.CreateCommand())
             {
                 deleteCommand.Transaction = transaction;
-                deleteCommand.CommandText = "DELETE FROM SectionComments WHERE FilePath = @filePath";
+                deleteCommand.CommandText = "DELETE FROM SectionComments WHERE FilePath = @filePath COLLATE NOCASE";
                 deleteCommand.Parameters.AddWithValue("@filePath", filePath);
                 deleteCommand.ExecuteNonQuery();
             }
@@ -123,7 +135,7 @@ namespace GuidedGrade.Services
                         Issues,
                         SuggestedCode,
                         Explanation,
-                        ReviewStatus, IsOverallReview)
+                        ReviewStatus, IsOverallReview, ReviewContext)
                     VALUES (
                         @filePath,
                         @sectionName,
@@ -134,7 +146,7 @@ namespace GuidedGrade.Services
                         @issues,
                         @suggestedCode,
                         @explanation,
-                        @reviewStatus, @isOverallReview);
+                        @reviewStatus, @isOverallReview, @reviewContext);
                 ";
 
                 insertCommand.Parameters.AddWithValue("@filePath", filePath);
@@ -148,6 +160,7 @@ namespace GuidedGrade.Services
                 insertCommand.Parameters.AddWithValue("@explanation", comment.Explanation ?? string.Empty);
                 insertCommand.Parameters.AddWithValue("@reviewStatus", comment.ReviewStatus.ToString());
                 insertCommand.Parameters.AddWithValue("@isOverallReview", comment.IsOverallReview ? 1 : 0);
+                insertCommand.Parameters.AddWithValue("@reviewContext", comment.ReviewContext);
 
                 insertCommand.ExecuteNonQuery();
             }
@@ -167,9 +180,9 @@ namespace GuidedGrade.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus, IsOverallReview
+                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus, IsOverallReview, ReviewContext
                 FROM SectionComments
-                WHERE FilePath = @filePath
+                WHERE FilePath = @filePath COLLATE NOCASE
                 ORDER BY StartLine, EndLine;
             ";
             command.Parameters.AddWithValue("@filePath", filePath);
@@ -188,11 +201,24 @@ namespace GuidedGrade.Services
                     SuggestedCode = reader.GetString(6),
                     Explanation = reader.GetString(7),
                     ReviewStatus = ParseReviewStatus(reader.GetString(8)),
-                    IsOverallReview = reader.GetInt64(9) != 0
+                    IsOverallReview = reader.GetInt64(9) != 0,
+                    ReviewContext = reader.GetString(10)
                 });
             }
 
             return result;
+        }
+
+        internal List<(string FilePath, string Context)> GetReviewedFiles()
+        {
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT FilePath, ReviewContext FROM SectionComments WHERE ReviewStatus <> 'Rejected' GROUP BY FilePath, ReviewContext ORDER BY MAX(CreatedUtc) DESC, FilePath";
+            using var reader = command.ExecuteReader();
+            var files = new List<(string, string)>();
+            while (reader.Read()) files.Add((reader.GetString(0), reader.GetString(1)));
+            return files;
         }
 
         public void DeleteComments(string filePath)

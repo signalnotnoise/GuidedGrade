@@ -46,6 +46,8 @@ namespace GuidedGrade.Windows
             txtRequirements.Value = _settings.RequirementsTemplate;
             chkExecuteSubmissions.Value = _settings.ExecuteStudentSubmissions;
             chkConfirmLocalExecution.Value = _settings.ConfirmLocalExecution;
+            chkConfirmGrading.Value = _settings.ConfirmGrading;
+            txtConsoleModelWait.Value = ((int)_settings.ConsoleModelWaitTimeout.TotalSeconds).ToString();
             cmbExecutionMode.Value = _settings.ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
             txtRunnerBaseDisk.Value = _settings.RunnerBaseDisk;
             txtRunnerCredentialFile.Value = _settings.RunnerCredentialFile;
@@ -73,6 +75,8 @@ namespace GuidedGrade.Windows
         private readonly State<int> cmbExecutionMode = new(0);
         private readonly State<bool> chkExecuteSubmissions = new(false);
         private readonly State<bool> chkConfirmLocalExecution = new(true);
+        private readonly State<bool> chkConfirmGrading = new(true);
+        private readonly State<string> txtConsoleModelWait = new("30");
         private readonly StateList<string> _models = new();
         private View BuildView()
         {
@@ -99,6 +103,10 @@ namespace GuidedGrade.Windows
                 Text("AI Provider settings").FontSize(22),
                 Picker(new[] { "Ollama", "Azure OpenAI", "OpenAI (not yet available)" }, _provider).AccessibilityLabel("AI provider"), fields,
                 Text("Default assignment requirements"), TextEditor(txtRequirements).Height(140).AccessibilityLabel("Default requirements"),
+                Toggle("Ask before grading", chkConfirmGrading),
+                Text("Console model wait timeout (1–90 seconds)"),
+                TextField(txtConsoleModelWait).AccessibilityLabel("Console model wait timeout"),
+                Text("Default: 30 seconds per model decision. The overall console test remains limited to 90 seconds.").FontSize(13),
                 Toggle("Build and run student programs during analysis", chkExecuteSubmissions),
                 Text("Execution environment"), Picker(new[] { "VM (Hyper-V)", "Local computer" }, cmbExecutionMode).AccessibilityLabel("Execution environment"),
                 Toggle("Ask before each local build or run", chkConfirmLocalExecution),
@@ -252,6 +260,10 @@ namespace GuidedGrade.Windows
                 _settings.ExecuteStudentSubmissions = chkExecuteSubmissions.Value == true;
                 if (!int.TryParse(txtRunnerMemory.Value, out var memory) || memory is < 2048 or > 16384)
                     throw new InvalidOperationException("VM memory must be between 2048 and 16384 MB.");
+                if (!int.TryParse(txtConsoleModelWait.Value, out var waitSeconds) || waitSeconds is < 1 or > 90)
+                    throw new InvalidOperationException("Console model wait timeout must be between 1 and 90 seconds.");
+                _settings.ConsoleModelWaitSeconds = waitSeconds;
+                _settings.ConfirmGrading = chkConfirmGrading.Value;
                 _settings.ConfirmLocalExecution = chkConfirmLocalExecution.Value == true;
                 _settings.ExecutionMode = cmbExecutionMode.Value == 1 ? SubmissionExecutionMode.Local : SubmissionExecutionMode.HyperV;
                 _settings.RunnerBaseDisk = txtRunnerBaseDisk.Value.Trim();

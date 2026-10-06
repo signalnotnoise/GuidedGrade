@@ -4,11 +4,18 @@ namespace GuidedGrade;
 
 public partial class MainWindow
 {
+    private void EnsureSingleReviewContext(IEnumerable<string> paths, string target)
+    {
+        if (paths.Any(path => CurrentFeedbackKey(path) != target))
+            throw new InvalidOperationException("The checked files span multiple lab folders. Check files from one lab at a time before queuing a review.");
+    }
+
     internal (string Path, long Version)[] CaptureOverallReviewFiles(IEnumerable<string> paths) =>
         paths.Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => (path, _reviewGeneration.Capture(path))).ToArray();
 
-    internal void CompleteOverallFileReview((string Path, long Version)[] targets, string draftTarget, string text)
+    internal void CompleteOverallFileReview((string Path, long Version)[] targets, string draftTarget, string text,
+        bool approve = false, bool publishToDraft = true)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var saved = false;
@@ -18,6 +25,8 @@ public partial class MainWindow
             var review = new SectionFeedback
             {
                 IsOverallReview = true,
+                ReviewStatus = approve ? FeedbackReviewStatus.Approved : FeedbackReviewStatus.Pending,
+                ReviewContext = draftTarget,
                 SectionName = targets.Length == 1 ? "Overall file review" : $"Overall review of {targets.Length} checked files",
                 StartLine = 1, EndLine = 1,
                 Explanation = targets.Length == 1 ? text : "Combined feedback for the checked files; this is not an individual file score.\n\n" + text
@@ -25,14 +34,15 @@ public partial class MainWindow
             // A checked file need not have been opened. Preserve its existing saved section reviews.
             var comments = _fileComments.TryGetValue(target.Path, out var cached)
                 ? cached.ToList() : _commentPersistenceService.LoadComments(target.Path);
-            comments.RemoveAll(comment => comment.IsOverallReview);
+            comments.RemoveAll(comment => comment.IsOverallReview && comment.ReviewContext == draftTarget);
             comments.Add(review);
             _commentPersistenceService.SaveComments(target.Path, comments);
             _fileComments[target.Path] = comments;
-            MarkFeedbackImported(target.Path, review, draftTarget);
+            if (publishToDraft) MarkFeedbackImported(target.Path, review, draftTarget);
             RenderCommentsForFile(target.Path);
             saved = true;
         }
-        if (saved) PresentGeneratedFeedback(draftTarget, text);
+        if (saved) _savedReviewRevision.Value++;
+        if (saved && publishToDraft) PresentGeneratedFeedback(draftTarget, text);
     }
 }

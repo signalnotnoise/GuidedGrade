@@ -30,7 +30,10 @@ namespace GuidedGrade.Windows
             Violations = _configService.LoadViolations(openedDirectoryPath);
             FilePatterns = new List<string>(_configService.FilePatterns);
 
-            _execution.Value = LLMSettings.Load().ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
+            var settings = LLMSettings.Load();
+            _execution.Value = settings.ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
+            _confirmLocal.Value = settings.ConfirmLocalExecution;
+            _confirmGrading.Value = settings.ConfirmGrading;
             var panels = WorkspacePanelPreferences.Load();
             _comments.Value = panels.ShowComments;
             _queue.Value = panels.ShowQueue;
@@ -50,6 +53,8 @@ namespace GuidedGrade.Windows
         private readonly State<int> _violationIndex = new(-1);
         private readonly State<int> _patternIndex = new(-1);
         private readonly State<int> _execution = new(0);
+        private readonly State<bool> _confirmLocal = new(true);
+        private readonly State<bool> _confirmGrading = new(true);
         private readonly State<bool> _comments = new(true);
         private readonly State<bool> _queue = new(true);
         private readonly State<int> _revision = new(0);
@@ -68,7 +73,9 @@ namespace GuidedGrade.Windows
                 HStack(Button("Remove selected", () => btnRemovePattern_Click(this, new())).IsEnabled(_patternIndex.Value >= 0),
                     Button("Reset patterns", () => btnResetPatterns_Click(this, new()))).Spacing(8),
                 Text("Build and run on"), Picker(new[] { "VM (Hyper-V)", "Local computer" }, _execution).AccessibilityLabel("Execution environment"),
-                Text("Local code uses your Windows permissions without repeated prompts. Configure the VM in AI Provider settings.").FontSize(13),
+                Toggle("Ask before each local build or run", _confirmLocal),
+                Toggle("Ask before grading", _confirmGrading),
+                Text("Local code uses your Windows permissions. Configure model timeouts and the VM in AI Provider settings.").FontSize(13),
                 Toggle("Show Comments", _comments), Toggle("Show Job queue", _queue),
                 Text("Hiding a tab keeps feedback and running jobs.").FontSize(13),
                 HStack(Button("Save", () => btnSave_Click(this, new())).ButtonStyle(ButtonStyleKind.Primary),
@@ -159,7 +166,8 @@ namespace GuidedGrade.Windows
             {
                 var execution = LLMSettings.Load();
                 execution.ExecutionMode = _execution.Value == 1 ? SubmissionExecutionMode.Local : SubmissionExecutionMode.HyperV;
-                execution.ConfirmLocalExecution = false;
+                execution.ConfirmLocalExecution = _confirmLocal.Value;
+                execution.ConfirmGrading = _confirmGrading.Value;
                 execution.Save();
                 new WorkspacePanelPreferences { ShowComments = _comments.Value == true, ShowQueue = _queue.Value == true }.Save();
             }

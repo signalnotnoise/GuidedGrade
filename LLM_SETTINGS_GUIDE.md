@@ -205,3 +205,9 @@ You can now:
 - ✅ No more hardcoded credentials!
 
 **Ready to use!** Configure via Tools → LLM Configuration, then analyze away! 🚀
+
+## Request preferences (October 5, 2026)
+
+Open Settings > AI Provider to configure Console model wait timeout. It accepts whole seconds from 1 to 90 and defaults to 30. It controls each interactive console decision, including waiting in the shared model queue, and is still capped by the remaining overall 90-second test budget. It does not change grading response timeouts.
+
+Ask before each local build or run is respected by Build, Build and Run, Run, Test with AI and Test with AI locally. The explicit local command changes only the environment for that request. Ask before grading controls the start confirmation for overall reviews, section batches, selected sections, regeneration and post-test grading. Both toggles are also available in Settings > Programming Checks. Save to persist them; settings take effect for newly started requests. Old settings default to asking, and invalid saved timeout values fall back to 30 seconds.

@@ -73,6 +73,8 @@ namespace GuidedGrade.Models
     /// </summary>
     public class SectionFeedback
     {
+        // Empty identifies legacy records whose assignment was never recorded.
+        public string ReviewContext { get; set; } = string.Empty;
         public bool IsOverallReview { get; set; }
         public string SectionName { get; set; }
         public int StartLine { get; set; }

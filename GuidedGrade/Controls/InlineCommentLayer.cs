@@ -87,6 +87,10 @@ namespace GuidedGrade.Controls
 
                 var line = _editor.Document.GetLineByNumber(comment.LineNumber);
                 var visualLine = textView.GetVisualLine(line.LineNumber);
+                // Overall reviews describe the whole file, so keep their card
+                // reachable even when the first source line is scrolled away.
+                if (visualLine == null && comment.Feedback.IsOverallReview && textView.VisualLinesValid)
+                    visualLine = textView.VisualLines.FirstOrDefault();
 
                 if (visualLine == null)
                 {
@@ -97,6 +101,7 @@ namespace GuidedGrade.Controls
                 var x = 20.0;
                 var y = visualLine.VisualTop - textView.ScrollOffset.Y + visualLine.Height + 4;
 
+                comment.Visibility = Visibility.Visible;
                 comment.Measure(new Size(maxWidth, double.PositiveInfinity));
                 var width = Math.Min(comment.DesiredSize.Width, maxWidth);
                 var height = Math.Min(comment.DesiredSize.Height, 400);

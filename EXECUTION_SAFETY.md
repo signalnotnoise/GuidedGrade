@@ -10,10 +10,10 @@ Execution. Build, Build and Run, Run, and Test with AI use it. An unavailable VM
 local fallback.
 
 **Local computer** remains available for trusted submissions on smaller machines.
-Saving Local in Settings authorizes local operations without repeated prompts.
-LLM Settings also provides an optional Ask before each local build or run checkbox.
+Both Settings windows expose Ask before each local build or run. Disabling it authorizes
+local operations without repeated prompts; enabling it asks before each local operation.
 Existing settings keep prompting until the preference is saved. The right-click **Test with AI
-locally...** command uses local execution once without changing the saved default.
+locally...** command uses local execution once without changing the saved environment or confirmation preference.
 Build scripts and student programs then have your Windows permissions; staging a
 copy is not isolation. Prefer running the app without administrator privileges for
 local execution.

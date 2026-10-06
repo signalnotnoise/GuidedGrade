@@ -64,7 +64,8 @@ namespace GuidedGrade.Services
             if (additionalPaths != null)
             {
                 foreach (var extra in additionalPaths)
-                    AddIfRelated(extra, primaryFullPath, relatedPaths);
+                    if (resolvedSearchRoot != null && ReviewContext.Contains(resolvedSearchRoot, extra))
+                        AddIfRelated(extra, primaryFullPath, relatedPaths);
             }
 
             AddSameDirectorySources(primaryFullPath, directory, relatedPaths);
@@ -150,7 +151,9 @@ namespace GuidedGrade.Services
             foreach (Match match in QuotedIncludeRegex.Matches(text))
             {
                 var includePath = match.Groups[1].Value.Replace('/', Path.DirectorySeparatorChar);
-                AddIfRelated(Path.Combine(directory, includePath), sourcePath, relatedPaths);
+                var directInclude = Path.GetFullPath(Path.Combine(directory, includePath));
+                if (searchRoot != null && ReviewContext.Contains(searchRoot, directInclude))
+                    AddIfRelated(directInclude, sourcePath, relatedPaths);
 
                 var searchDirectory = !string.IsNullOrWhiteSpace(searchRoot) && Directory.Exists(searchRoot)
                     ? searchRoot
@@ -195,7 +198,7 @@ namespace GuidedGrade.Services
             {
                 var fullRoot = Path.GetFullPath(searchRoot);
                 var fullPrimary = Path.GetFullPath(primaryPath);
-                if (fullPrimary.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+                if (ReviewContext.Contains(fullRoot, fullPrimary))
                     return fullRoot;
             }
             catch

@@ -10,6 +10,33 @@ namespace GuidedGrade;
 
 public partial class MainWindow
 {
+    private readonly State<int> _savedReviewRevision = new(0);
+    private View SavedReviewLinks(Models.Student student)
+    {
+        _ = _savedReviewRevision.Value;
+        return VStack(SavedReviewFilesForSelectedStudent().Select(path => Button("Open review: " + System.IO.Path.GetRelativePath(student.Folder!, path),
+            () => { OpenFileInTab(path); RefreshReviewSelection(); codeEditor.ScrollToHome(); }).Id("saved-" + path)).ToArray()).Spacing(4);
+    }
+    private string[] SavedReviewFilesForSelectedStudent()
+    {
+        if (listBoxStudents.SelectedItem is not Models.Student { Folder: not null } student || _currentAssignment == null) return [];
+        return _commentPersistenceService.GetReviewedFiles()
+            .Where(file => Services.ReviewContext.Contains(student.Folder, file.FilePath) &&
+                Services.ReviewContext.Matches(file.Context, Services.ReviewContext.Key(student.Folder, _currentAssignment, file.FilePath)))
+            .Select(file => file.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Where(System.IO.File.Exists).ToArray();
+    }
+
+    internal bool OpenSavedReviewForSelectedStudent()
+    {
+        var file = SavedReviewFilesForSelectedStudent().FirstOrDefault();
+        if (file == null) return false;
+        OpenFileInTab(file);
+        // Re-selecting an already-open file still refreshes persisted/cache comments.
+        RefreshReviewSelection();
+        codeEditor.ScrollToHome();
+        return true;
+    }
+
     private readonly Dictionary<string, string> _reviewDrafts = new();
     private readonly HashSet<string> _restoredFeedback = new(StringComparer.Ordinal);
     private string FeedbackIdentity(string filePath, Models.SectionFeedback feedback, string? draftTarget = null) =>
@@ -20,9 +47,9 @@ public partial class MainWindow
     private void RestoreApprovedFeedback(string filePath, IEnumerable<Models.SectionFeedback> comments)
     {
         var key = CurrentFeedbackKey();
-        var approved = comments.Where(c => c.ReviewStatus == Models.FeedbackReviewStatus.Approved).ToArray();
-        if (approved.Length == 0 || listBoxStudents.SelectedItem is not Models.Student) return;
-        foreach (var feedback in approved)
+        var saved = comments.Where(c => MatchesCurrentReview(c) && c.ReviewStatus == Models.FeedbackReviewStatus.Approved).ToArray();
+        if (saved.Length == 0 || listBoxStudents.SelectedItem is not Models.Student) return;
+        foreach (var feedback in saved)
         {
             var identity = FeedbackIdentity(filePath, feedback);
             if (!_restoredFeedback.Add(identity)) continue;
@@ -30,6 +57,10 @@ public partial class MainWindow
             var previous = _reviewDrafts.GetValueOrDefault(key, "");
             _reviewDrafts[key] = string.IsNullOrWhiteSpace(previous) ? text : previous + "\n\n---\n\n" + text;
         }
+        // A second file in the same lab shares the existing editor. Refresh its
+        // binding as well as the backing draft, preserving instructor edits.
+        if (_feedbackEditorKey == key && _feedbackEditor != null)
+            _feedbackEditor.Value = _reviewDrafts.GetValueOrDefault(key, "");
         WorkspaceFeedback_Click(this, new RoutedEventArgs());
     }
     private State<string>? _feedbackEditor;
@@ -38,11 +69,27 @@ public partial class MainWindow
     private readonly State<double> _feedbackHeight = new(240);
     private readonly State<bool> _showProgrammingResults = new(false);
     private string? _feedbackEditorKey;
-    private string CurrentFeedbackKey() => System.Text.Json.JsonSerializer.Serialize(new[]
+    internal string CurrentFeedbackKey(string? path = null) => Services.ReviewContext.Key(
+        (listBoxStudents.SelectedItem as Models.Student)?.Folder, _currentAssignment,
+        path ?? _selectedTabButton?.Tag as string);
+
+    private bool MatchesCurrentReview(Models.SectionFeedback feedback) =>
+        Services.ReviewContext.Matches(feedback.ReviewContext, CurrentFeedbackKey()) ||
+        (feedback.ReviewContext.Length == 0 && _currentAssignment == null);
+
+    internal void SetReviewAssignment(Models.GradingAssignment assignment)
     {
-        (listBoxStudents.SelectedItem as Models.Student)?.Folder,
-        _currentAssignment?.Course, _currentAssignment?.Title
-    });
+        _currentAssignment = assignment;
+        RefreshReviewSelection();
+    }
+
+    private void RefreshReviewSelection()
+    {
+        RefreshGradeSelection();
+        if (_selectedTabButton?.Tag is string path) LoadCommentsForFile(path);
+        if (_feedbackEditorKey != null && _feedbackEditorKey != CurrentFeedbackKey())
+            WorkspaceFeedback_Click(this, new RoutedEventArgs());
+    }
 
     private void PresentGeneratedFeedback(string key, string text)
     {
@@ -82,6 +129,7 @@ public partial class MainWindow
     private void WorkspaceFeedback_Click(object sender, RoutedEventArgs e)
     {
         if (!_panelPreferences.ShowComments) return;
+        if (_selectedTabButton == null && OpenSavedReviewForSelectedStudent()) return;
         if (listBoxStudents.SelectedItem is not Models.Student student)
         {
             _feedbackHost?.Dispose(); _feedbackHost = null; _feedbackEditor = null; _feedbackEditorKey = null;
@@ -126,6 +174,7 @@ public partial class MainWindow
         }
         _feedbackHost = ReviewTheme.Host(() => Scroll(VStack(
             Text(student.FullName).FontSize(18), Text(assignmentTitle).FontSize(14),
+            SavedReviewLinks(student),
             Text("Feedback draft - export to keep a copy").FontSize(12),
             TextEditor(draftBinding).Height(_feedbackHeight.Value).UndoLimit(100).AccessibilityLabel("Editable feedback draft"),
             Picker(new[] { "TXT", "Markdown", "HTML" }, format).AccessibilityLabel("Clipboard format"),

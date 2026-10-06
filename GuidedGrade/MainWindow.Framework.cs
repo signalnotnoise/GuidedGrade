@@ -88,7 +88,8 @@ public partial class MainWindow
                 Button("1  Assignment", () => WorkspaceAssignment_Click(this, new())),
                 Button("2  Open submissions", () => OpenFolderMenuItem_Click(this, new())),
                 Button("3  Review with rubric", () => WorkspaceRubric_Click(this, new())),
-                Button("4  Feedback", () => WorkspaceFeedback_Click(this, new()))).Spacing(8)
+                Button("4  Feedback", () => WorkspaceFeedback_Click(this, new())),
+                Button("Batch review", DesignBatchReview)).Spacing(8)
         ).Spacing(8).Padding(12).Background("#202B36")
         ).Spacing(8).Padding(10).Background(ReviewTheme.Tokens.Surface);
 
@@ -122,7 +123,8 @@ public partial class MainWindow
     {
         var items = new List<View>();
         if (_showQueue.Value) items.Add(Button(_queueSummary.Value, () => ShowQueue_Click(this, new())).AccessibilityLabel("Queue status"));
-        items.Add(Text("Builds: " + _buildCount.Value)); items.Add(Text("Score: " + _score.Value));
+        items.Add(Text("Builds: " + _buildCount.Value));
+        items.Add(BuildGradeStatus());
         items.Add(Button("Violations: " + _violationCount.Value, () => SelectToolsPanel(true, true)).Foreground(_violationColor.Value));
         return HStack(items.ToArray()).Spacing(14).Padding(6).Background(ReviewTheme.Tokens.Surface);
     }
@@ -138,7 +140,7 @@ public partial class MainWindow
         navigation.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star), MaxHeight = 300 });
         navigation.RowDefinitions.Add(new() { Height = new(5) });
         navigation.RowDefinitions.Add(new() { Height = new(1, GridUnitType.Star), MinHeight = 150 });
-        var students = FillBelow(ShellHost(() => Text("SUBMISSIONS").FontSize(12).Padding(10)), ShellHost(() => WpfUI.Native(() => listBoxStudents).Id("students")));
+        var students = FillBelow(ShellHost(BuildGradeScope), ShellHost(() => WpfUI.Native(() => listBoxStudents).Id("students")));
         var files = FillBelow(ShellHost(() => Text("SUBMITTED FILES").FontSize(12).Padding(10)), ShellHost(() => WpfUI.Native(() => fileTreeView).Id("files")));
         var split = new GridSplitter { Height = 5, HorizontalAlignment = HorizontalAlignment.Stretch, ResizeDirection = GridResizeDirection.Rows };
         navigation.Children.Add(students); Grid.SetRow(split, 1); navigation.Children.Add(split); Grid.SetRow(files, 2); navigation.Children.Add(files);

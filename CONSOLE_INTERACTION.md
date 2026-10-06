@@ -4,6 +4,8 @@ The September 23 shell conversion uses framework Console/Violations actions and 
 adapter. The same bounded RichTextBox document remains mounted across panel changes; output,
 input routing and cancellation contracts below are unchanged. No XAML-generated shell controls remain.
 
+Source reviewed October 5, 2026. Testing instructions and redacted console output/history are sent for the next input choice. Known student identifiers are captured with the test and removed before truncating the model prompt. The validated reply is written to the running program's input stream, never executed as a shell command. Source code remains available for local input validation but is not sent with console-choice prompts. Grading requests retain their separate criteria-and-source-only boundary; free-form prompts are explicitly user-authored.
+
 The agent now decides from a bounded, readable **current screen**, separately from recent action history. This fixes a failure where inventory redraws filled the beginning of the transcript, the current item prompt was omitted, and fallback `q` inputs were sent until the test timed out.
 
 ## Data flow
@@ -13,7 +15,9 @@ flowchart LR
     Raw["Bounded local or guest output"] --> Screen["ConsoleScreen: cursor, erase and text state"]
     Screen --> Context["Current screen and cursor context"]
     History["Latest 2,000 history characters"] --> Context
-    Context --> Model["Model JSON action"]
+    Context --> Redact["Remove known student identifiers"]
+    Instructions[Testing instructions] --> Redact
+    Redact --> Model["Model JSON action"]
     Model --> Validate["Validate action and single input line"]
     Validate -->|type| Input["Normalize Enter and send"]
     Validate -->|wait| Poll["Poll again without typing"]
@@ -26,7 +30,7 @@ flowchart LR
 - Replies must contain an explicit JSON action. `type` requires an explicit string input (or `stdin` alias); trailing line endings are removed and embedded control characters/multiple lines are rejected. An explicit empty string can represent Enter. Plain prose, malformed JSON and unsupported actions never become keystrokes.
 - `wait` performs another observation without typing. `close` closes redirected stdin and ends interaction. Invalid replies or invalid input receive one correction attempt against the same screen before anything is written. If that also fails, the session stops as **inconclusive**. Explicit `stop` actions and failed model calls stop without retry. There is no fallback `q`, number or other guessed input. Runner termination does not become a student crash deduction.
 - `ConsoleInputPolicy` converts an exact displayed menu label such as `1) Buy` into just its key (`1`), and validates options against the nearby menu. Item names remain text when the active prompt is not a menu. For a visible prompt whose C++ source shows `getline(cin, variable)` followed by `stoi(variable)`, it requires one integer rather than a space-separated batch. This is conservative source matching, not general type inference across every supported language.
-- `ConsoleSourceContext` selects excerpts around input reads/conversions, including helpers near the end of the supplied source, instead of only its first 4,000 characters. The execution service resolves included companion headers from source files even when no files were checked in the UI. Source comments are identified as task data in the model instructions.
+- Input-reading source stays local for validation. The console-choice prompt contains testing instructions and bounded redacted screen/history context; no source excerpts or file-routing metadata are attached. ConsoleSourceContext remains a tested utility without a production prompt caller.
 - A repeated question after a successfully sent answer does not count as a repeated-output failure. This allows loops that collect several scores. Continuous-output, turn and time budgets remain in place.
 - ConPTY input uses carriage return for Enter, including when the model originally returned an LF-terminated string. Write failures are surfaced instead of swallowed.
 - The 90-second agent budget now cancels pending decisions. Ollama requests receive that cancellation token too. Caller cancellation kills the running session and propagates to the caller.
@@ -39,7 +43,7 @@ Rebuild/restart the desktop app for the host-side agent changes. Republish the g
 Console decisions send an explicit JSON schema in Ollama's format field and use temperature 0. The schema requires action, input, reason, and observation; actions are limited to type, wait, close, and stop. Existing parsing, single-line checks, menu/source validation, and the bounded correction retry remain in place: valid JSON does not prove a correct decision. Ordinary feedback requests remain free text. Azure requests retain their existing prompt-based format. Unsupported Ollama schema requests stop inconclusively rather than silently falling back. Request-contract tests use a fake HTTP handler; live model quality must be evaluated separately.
 
 
-Each model attempt has a 30-second deadline within the existing 90-second interaction budget. Live terminal status reports waiting, returned actions, correction retries, and cleanup. A model timeout cancels the request and stops the student process immediately; the report marks it inconclusive, separately from an overall session timeout. Slow cold starts can reach this limit. A stalled-provider regression verifies cancellation and cleanup even when the provider ignores cancellation.
+Each model attempt uses the saved Console model wait timeout from AI Provider settings (1–90 seconds, default 30) within the existing 90-second interaction budget. Invalid values in manually edited settings fall back to 30 seconds. Live terminal status reports waiting, returned actions, correction retries, and cleanup. A model timeout cancels the request and stops the student process immediately; the report marks it inconclusive, separately from an overall session timeout. Slow cold starts can reach this limit. A stalled-provider regression verifies cancellation and cleanup even when the provider ignores cancellation.
 
 
 The console agent also receives a separate history of the last 12 successfully sent inputs so screen redraws cannot erase its action history. Its prompt requests varied relevant paths and a normal displayed exit within the turn budget. This improves planning context but does not guarantee coverage or correct model choices.

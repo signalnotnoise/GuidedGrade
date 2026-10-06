@@ -18,7 +18,7 @@ public partial class MainWindow
         ShowLineNumbers = true, Background = Brush("#1B1E23"), Foreground = Brush("#F8F8F2")
     };
     internal readonly TreeView fileTreeView = new() { BorderThickness = new(0) };
-    internal readonly ListBox listBoxStudents = new() { BorderThickness = new(0), DisplayMemberPath = "FullName" };
+    internal readonly ListBox listBoxStudents = new() { BorderThickness = new(0) };
     internal readonly RichTextBox runtimeTerminalRichTextBox = new()
     {
         Background = Brush("#0C0C0C"), Foreground = Brush("#CCCCCC"), FontFamily = new("Consolas"),
@@ -44,6 +44,10 @@ public partial class MainWindow
     {
         Title = "Assignment Review"; Width = 1200; Height = 800; MinWidth = 1000; MinHeight = 600;
         listBoxStudents.SelectionChanged += ListBoxStudents_SelectionChanged;
+        var studentRow = new FrameworkElementFactory(typeof(StudentGradeRow));
+        studentRow.SetValue(StudentGradeRow.PresenterProperty, new Func<Models.Student, UI_Framework.View>(BuildStudentGradeRow));
+        listBoxStudents.ItemTemplate = new DataTemplate { VisualTree = studentRow };
+        listBoxStudents.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         fileTreeView.SelectedItemChanged += FileTreeView_SelectedItemChanged;
         fileTreeView.PreviewMouseRightButtonDown += FileTreeView_PreviewMouseRightButtonDown;
         violationsList.MouseDoubleClick += ViolationsList_MouseDoubleClick;
@@ -106,7 +110,7 @@ public partial class MainWindow
         programming.Items.Add(MenuAction("Build and Run", BuildAndRunSolutionMenuItem_Click));
         programming.Items.Add(MenuAction("Run", RunSolutionMenuItem_Click, "Runs existing output without rebuilding."));
         programming.Items.Add(MenuAction("Test with AI", TestSolutionWithAiMenuItem_Click, "Uses the saved Local or VM execution environment."));
-        var local = MenuAction("Test with AI locally...", TestSolutionWithAiMenuItem_Click, "Runs on this computer after a warning. Use only for trusted submissions.");
+        var local = MenuAction("Test with AI locally...", TestSolutionWithAiMenuItem_Click, "Runs on this computer using your saved local-confirmation preference.");
         local.CommandParameter = "local"; programming.Items.Add(local);
         menu.Items.Add(programming); menu.Items.Add(new Separator());
         menu.Items.Add(MenuAction("Open in File Explorer", OpenTreeItemInExplorer_Click));
