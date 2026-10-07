@@ -2,7 +2,7 @@
   "version": "0.1.0-alpha.3-local.2",
   "sourceRevision": "2db7a9a6cdde0fa52c458a9206219348f4ae0bcd",
   "sourceDirty": true,
-  "purpose": "Immutable local integration with application-owned WPF COM cleanup; corresponding public alpha.3 is published, while this app retains its tested local.2 pin",
+  "purpose": "Local integration candidate with production application-owned WPF COM cleanup; public publication requires committed release validation",
   "frameworkTestsPassed": 101,
   "consumerTestsPassed": 189,
   "visualAssertionsPassed": 15,
@@ -50,7 +50,7 @@
     ]
   },
   "publicReleaseEligible": false,
-  "publicationBlocker": "This immutable local package is retained for the validated app integration. Public 0.1.0-alpha.3 already published from committed source; migrating the app to that version requires separate dependency validation.",
+  "publicationBlocker": "The validated local package was built from an uncommitted working tree. Commit and run the complete release workflow before publication.",
   "files": [
     {
       "sha256": "B4C9D952E14382873677764239D970BF2CBDA0D3AA6C16F273522DA9122BC3AC",
@@ -60,12 +60,5 @@
       "sha256": "05D56830AFD71ADB7228D2139579B629F74D9636F616ED2C3429E18166CB6C4A",
       "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.3-local.2.nupkg"
     }
-  ],
-  "correspondingPublicRelease": {
-    "version": "0.1.0-alpha.3",
-    "sourceRevision": "520173d",
-    "publishedDate": "2026-09-26",
-    "verifiedDate": "2026-10-07",
-    "workflowUrl": "https://github.com/signalnotnoise/ui-framework/actions/runs/36231322862"
-  }
+  ]
 }

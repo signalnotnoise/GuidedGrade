@@ -60,18 +60,10 @@ Release build completed with zero warnings and all 189 tests passed.
 
 ## Release status and rollback
 
-The technical editor-performance blocker is cleared. The corresponding public
-release `0.1.0-alpha.3` was published on September 26, 2026 from committed source
-`520173d` through Publish NuGet run 6:
-https://github.com/signalnotnoise/ui-framework/actions/runs/36231322862
-The framework release record states that visible typing, installed IME,
-screen-reader and repeated open/close acceptance passed before publication.
-Both NuGet package indices were rechecked on October 7, 2026.
-
-This app still pins `[0.1.0-alpha.3-local.2]`. Its package bytes and recorded
-source provenance are unchanged. Moving the app to the public package is a
-separate dependency change requiring restore, app tests and paired comparison;
-publication alone does not establish that this app has migrated.
+The technical editor-performance blocker is cleared. Public publication still
+requires committing the framework source and running the complete release
+workflow from that immutable revision. Do not publish packages built from this
+dirty tree.
 
 Rollback metadata for `0.1.0-alpha.3-local.1` is under `history/local.4`; the
 older exact packages remain beside this candidate.
