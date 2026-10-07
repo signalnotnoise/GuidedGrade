@@ -37,6 +37,10 @@ namespace GuidedGrade.Services
                     RubricJson TEXT NOT NULL,
                     UpdatedUtc TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                 );
+                CREATE TABLE IF NOT EXISTS CourseFolderSettings (
+                    Course TEXT PRIMARY KEY COLLATE NOCASE,
+                    UseFolderNames INTEGER NOT NULL DEFAULT 0
+                );
             ";
             command.ExecuteNonQuery();
 
@@ -46,6 +50,29 @@ namespace GuidedGrade.Services
                 ON SavedAssignments(Course, Title);
             ";
             uniqueCommand.ExecuteNonQuery();
+        }
+
+        public bool UseFolderNames(string? course)
+        {
+            if (string.IsNullOrWhiteSpace(course)) return false;
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _databasePath }.ToString());
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT UseFolderNames FROM CourseFolderSettings WHERE Course = @course";
+            command.Parameters.AddWithValue("@course", course.Trim());
+            return command.ExecuteScalar() is long value && value != 0;
+        }
+
+        public void SaveFolderNames(string course, bool enabled)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(course);
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _databasePath }.ToString());
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO CourseFolderSettings (Course, UseFolderNames) VALUES (@course, @enabled) ON CONFLICT(Course) DO UPDATE SET UseFolderNames = excluded.UseFolderNames";
+            command.Parameters.AddWithValue("@course", course.Trim());
+            command.Parameters.AddWithValue("@enabled", enabled ? 1 : 0);
+            command.ExecuteNonQuery();
         }
 
         public void SaveAssignment(GradingAssignment assignment)

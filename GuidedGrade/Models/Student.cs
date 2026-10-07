@@ -14,7 +14,7 @@ namespace GuidedGrade.Models
 
         public string? Folder { get; }
 
-        public string FullName => LastName + ", " + FirstName;
+        public string FullName => string.IsNullOrEmpty(LastName) ? FirstName : LastName + ", " + FirstName;
 
         public Student(string firstName, string lastName, string idNumber, string? folder)
         {
@@ -44,7 +44,7 @@ namespace GuidedGrade.Models
             Folder = studentFolder;
         }
 
-        public static List<Student> GetStudentsFromFolders(string path)
+        public static List<Student> GetStudentsFromFolders(string path, bool useFolderNames = false)
         {
             List<Student> folders = new();
 
@@ -52,14 +52,16 @@ namespace GuidedGrade.Models
             {
                 if (Directory.Exists(path))
                 {
-                    string?[] subFolders = Directory.GetDirectories(path);
+                    string[] subFolders = Directory.GetDirectories(path);
 
 
                     foreach (var subFolder in subFolders)
                     {
                         try
                         {
-                            folders.Add(new Student(path, subFolder));
+                            folders.Add(useFolderNames
+                                ? new Student(Path.GetFileName(subFolder), "", "", subFolder)
+                                : new Student(path, subFolder));
                         }
                         catch (ArgumentException ex)
                         {

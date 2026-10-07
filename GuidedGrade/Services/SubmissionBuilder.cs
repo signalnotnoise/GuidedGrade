@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace GuidedGrade.Services
 {
@@ -152,7 +153,10 @@ namespace GuidedGrade.Services
             // Double the trailing backslash for Windows argument parsing before a quote.
             var outDir = RunnableSubmissionDetector.GetNativeOutDir(projectDir, platform)
                 .Replace('/', '\\').TrimEnd('\\') + "\\\\";
-            string command = $"{args} /p:Platform={platform} /p:OutDir=\"{outDir}\" /p:IntDir=\"{outDir}\" /m";
+            // Preserve each project's intermediate directory. A global IntDir
+            // merges compiler PDB/object files across projects. Serialize project
+            // builds as submitted projects may themselves share output locations.
+            string command = $"{args} /p:Platform={platform} /p:OutDir=\"{outDir}\" /m:1";
             return command;
         }
 
@@ -189,12 +193,30 @@ namespace GuidedGrade.Services
             var project = submission.Kind == SubmissionKind.CppProject
                 ? submission.EntryPath
                 : submission.Kind == SubmissionKind.VisualStudioSolution
-                    ? RunnableSubmissionDetector.FindPrimaryVcxproj(submission.RootDirectory,
+                    ? FindSolutionProjectForProgram(submission.EntryPath, program)
+                        ?? RunnableSubmissionDetector.FindPrimaryVcxproj(submission.RootDirectory,
                         Path.GetFileNameWithoutExtension(program))
                     : null;
             return project != null
                 ? Path.GetDirectoryName(project) ?? submission.RootDirectory
                 : Path.GetDirectoryName(program) ?? submission.RootDirectory;
+        }
+
+        private static string? FindSolutionProjectForProgram(string solution, string program)
+        {
+            if (!solution.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) || !File.Exists(solution)) return null;
+            var root = Path.GetDirectoryName(solution)!;
+            var executableName = Path.GetFileNameWithoutExtension(program);
+            // A solution display name can match the executable while differing
+            // from the vcxproj filename (e.g. Lab1 -> CaveMatchingGame).
+            foreach (var line in File.ReadLines(solution))
+            {
+                var match = Regex.Match(line, "^\\s*Project\\(\"[^\"]+\"\\)\\s*=\\s*\"([^\"]+)\",\\s*\"([^\"]+\\.vcxproj)\"", RegexOptions.IgnoreCase);
+                if (!match.Success || !string.Equals(match.Groups[1].Value, executableName, StringComparison.OrdinalIgnoreCase)) continue;
+                var project = Path.GetFullPath(Path.Combine(root, match.Groups[2].Value));
+                if (File.Exists(project)) return project;
+            }
+            return null;
         }
 
         private async Task<BuildResult> BuildPythonAsync(RunnableSubmission submission, CancellationToken cancellationToken)
@@ -284,7 +306,7 @@ namespace GuidedGrade.Services
             {
                 var build = await _runProcess(
                     msbuild,
-                    $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /m /v:minimal",
+                    $"\"{submission.EntryPath}\" /t:Rebuild /p:Configuration=Debug /m:1 /v:minimal",
                     submission.RootDirectory,
                     null,
                     BuildTimeout,
@@ -401,6 +423,12 @@ namespace GuidedGrade.Services
         private static string Combine(ProcessRunResult result)
         {
             var sb = new StringBuilder();
+            var output = result.StandardOutput + result.StandardError;
+            if (output.Contains("LNK1104", StringComparison.OrdinalIgnoreCase) &&
+                output.Contains(".exe", StringComparison.OrdinalIgnoreCase))
+                sb.AppendLine("The linker could not open an executable. Close the previously launched submission's terminal/game window (or end that submission in Task Manager), then rebuild. A running executable or its loaded DLLs can also block post-build copies. If no copy is running, check the reported path's permissions and file locks.");
+            if ((result.StandardOutput + result.StandardError).Contains("C1041", StringComparison.OrdinalIgnoreCase))
+                sb.AppendLine("Compiler PDB access failed (C1041). This is a build-file locking/configuration issue, not evidence of a source-code defect. Close other builds/debuggers using this submission and retry. If it persists in a synced folder, build a local copy outside OneDrive. Ensure projects use separate intermediate directories and enable /FS in C/C++ > Command Line > Additional Options.");
             if (result.TimedOut)
                 sb.AppendLine("Build stopped after the time limit. A build step may be waiting for input; build commands must run unattended. A timeout alone is not evidence of a student-code defect.");
             if (result.StandardOutput.Contains("(F = file, D = directory)", StringComparison.OrdinalIgnoreCase))

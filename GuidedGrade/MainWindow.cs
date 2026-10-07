@@ -92,6 +92,7 @@ namespace GuidedGrade
             _courseIndex.Value = index;
             if (index < 0 || index >= _courses.Count) return;
             LoadSavedAssignmentsForCourse(_courses[index]);
+            ReloadSubmissionFolders();
         }
 
         private void SelectAssignment(int index)
@@ -474,6 +475,7 @@ namespace GuidedGrade
             if (setupWindow.ShowDialog() == true)
             {
                 SetReviewAssignment(setupWindow.Assignment);
+                ReloadSubmissionFolders();
                 CloseSidePanel();
                 MessageBox.Show($"Assignment '{setupWindow.Assignment.Title}' configured with {setupWindow.Assignment.Rubric.Count} rubric items.",
                     "Assignment Setup", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -829,8 +831,16 @@ namespace GuidedGrade
 
             Debug.WriteLine($"Loading students from: {_openedDirectoryPath}");
 
-            // Populate students list
-            var students = Student.GetStudentsFromFolders(_openedDirectoryPath);
+            ReloadSubmissionFolders();
+        }
+
+        private void ReloadSubmissionFolders()
+        {
+            if (string.IsNullOrWhiteSpace(_openedDirectoryPath)) return;
+            var selectedFolder = (listBoxStudents.SelectedItem as Student)?.Folder;
+            ClearFileTabs();
+            var students = Student.GetStudentsFromFolders(_openedDirectoryPath,
+                _assignmentPersistenceService.UseFolderNames(_currentAssignment?.Course));
             listBoxStudents.Items.Clear();
 
             foreach (var student in students)
@@ -841,6 +851,8 @@ namespace GuidedGrade
 
             // Clear tree view until a student is selected
             fileTreeView.Items.Clear();
+            listBoxStudents.SelectedItem = students.FirstOrDefault(student =>
+                string.Equals(student.Folder, selectedFolder, StringComparison.OrdinalIgnoreCase));
         }
 
         private void ListBoxStudents_SelectionChanged(object sender, SelectionChangedEventArgs e)

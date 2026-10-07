@@ -1,6 +1,6 @@
 # GuidedGrade dependency knowledge graph
 
-Latest affected-path source review: October 6, 2026 (persistent student grades, active assignment/lab badges and current-course running totals; configurable console model wait and local/grading confirmations; queued-review student/lab/assignment isolation; criteria-and-source-only grading payloads; console-choice prompts and user-authored free-form tasks; PR #2 review: both legacy data roots, diagnostics conflict preservation and runner credential default; GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: October 7, 2026 (persistent student grades, active assignment/lab badges and current-course running totals; configurable console model wait and local/grading confirmations; queued-review student/lab/assignment isolation; criteria-and-source-only grading payloads; console-choice prompts and user-authored free-form tasks; PR #2 review: both legacy data roots, diagnostics conflict preservation and runner credential default; GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; default discovery skips malformed entries; per-course folder-name mode lists all immediate folders, and missing Ollama content retains the existing no-response fallback.
 
 Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
@@ -318,7 +318,7 @@ flowchart TD
 | `SectionGradingDialog` | Selects rubric items for a section. |
 | `ExtractionProgressDialog` | Framework operation cards with native progress bars; cancellation on close; worker-owned token sources. Sources: `Views/ExtractionProgressDialog.cs`, `Views/ExtractionOperation.cs`. |
 | `GradingView` | Declarative score, deduction and remarks view in `Views/GradingView.cs`; native HTML editors and sliders retain specialized editing behavior. Produces feedback HTML. |
-| `Student` | Student identity and folder, with folder discovery/parsing. Validates the Last_First-ID folder format; discovery skips invalid folders and continues loading valid students, logging validation failures to Debug. |
+| `Student` | Student identity and folder, with folder discovery/parsing. Defaults to Last_First-ID parsing, skipping invalid folders. Per-course folder-name mode instead lists every immediate directory by its literal name with no fabricated ID. |
 | `Assignment` | Submission assignment folder discovery and consolidation. Distinct from the rubric definition below. |
 | `GradingAssignment` / `RubricItem` | Course, requirements, rubric criteria, points and grading totals. |
 | `SectionFeedback` / `FeedbackReviewStatus` | Per-section findings, suggested code/score and pending/approved/rejected state. |
@@ -581,3 +581,34 @@ October 6 batch replacement source review (supersedes the earlier section-based 
 October 6 batch-display source review: CommentPersistenceService.GetReviewedFiles reads non-rejected file/context locations in saved-time order. MainWindow.Workspace filters them to the selected student's folder and exact assignment/lab context, skips missing files, and opens the most recent matching file on student selection or a Comments request without an active file. Saved-file links refresh after overall results; Job queue exposes the same navigation. Batch completion refreshes the selected review without changing assignments. InlineCommentLayer makes restored cards visible before measuring; overall-file cards use the first visible source line when their line-one anchor is off-screen. Section cards remain line-anchored. Read-only inspection confirmed recent real batch records were present and approved; no user review database writes were performed during diagnosis.
 
 October 6 latest-submission source review: BatchReviewPlan.Resolve now chooses the greatest file modification timestamp (UTC) across all recursive matches; equal timestamps use ordinal case-insensitive path order. Preview displays each chosen path and its UTC modification time. Recursive entry-point resolution stays within the selected review lab. Exact paths are unchanged; multiple review patterns still must resolve within one lab. The captured preview paths are not reselected when execution starts.
+
+October 7 class-folder source review: AssignmentSetupWindow saves the class-wide folder-name toggle through AssignmentPersistenceService into CourseFolderSettings in assignments.db (case-insensitive course key). Missing settings, including PG1 and DSA, default to strict student naming. MainWindow reloads an open folder list on class selection and saved setup, retaining selection by path where possible. No change to review/grade keys or lab-root semantics.
+
+```mermaid
+flowchart LR
+    Setup[Assignment setup class toggle] --> Store[CourseFolderSettings in assignments.db]
+    Store --> Reload[MainWindow.ReloadSubmissionFolders]
+    Reload --> Discover[Student.GetStudentsFromFolders]
+    Discover --> Strict[Default Last_First-ID parsing]
+    Discover --> Names[Optional immediate folder names]
+```
+
+October 7 native PDB collision review: SubmissionBuilder no longer passes a solution-wide IntDir override. Native solution builds retain each project's intermediate paths and use /m:1; direct C++ project builds also use /m:1. Existing OutDir handling remains for unattended post-build copies. C1041 diagnostics explain file locking, separate intermediates, /FS and retrying outside synchronized folders. External locks and project-defined conflicting directories can still fail; no student project files are rewritten.
+
+```mermaid
+flowchart LR
+    NativeBuild[SubmissionBuilder native MSBuild] --> Serial[One MSBuild worker /m:1]
+    Serial --> Intermediate[Project-defined intermediate directories]
+    NativeBuild --> Failure[C1041 actionable diagnostic]
+```
+
+October 7 native launch-directory fix: ResolveWorkingDirectory first maps the launched executable name to a matching .sln project display name and its existing .vcxproj path before the filename heuristic. This handles Lab1.exe from CaveMatchingGame.vcxproj even when the solution output directory points under Practice. Direct project launches still use their project folder. Manual Run reports the full executable and working-directory paths. This fixes relative source/asset lookup for mapped projects; it does not establish that student initialization or graphics loops are correct.
+
+```mermaid
+flowchart LR
+    Exe[Executable basename] --> Alias[Matching solution project display name]
+    Alias --> Project[Project path from solution]
+    Project --> Working[Native process working directory]
+```
+
+October 7 build diagnostic review: SubmissionBuilder.Combine adds actionable prior-process/file-lock guidance for executable LNK1104 errors; it preserves failure status and never terminates external programs.

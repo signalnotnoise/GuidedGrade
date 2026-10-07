@@ -11,6 +11,12 @@ public sealed class AssignmentSetupWindow : ReviewWindow
 {
     private readonly AssignmentPersistenceService _persistence;
     private readonly State<string> _course = new("General");
+    private readonly State<bool> _useFolderNames = new(false);
+    private void SetCourse(string course)
+    {
+        _course.Value = course;
+        _useFolderNames.Value = _persistence.UseFolderNames(string.IsNullOrWhiteSpace(course) ? "General" : course);
+    }
     private readonly State<string> _title = new("");
     private readonly State<string> _requirements = new("");
     private readonly StateList<RubricEditorRow> _rows = new();
@@ -24,6 +30,7 @@ public sealed class AssignmentSetupWindow : ReviewWindow
     internal AssignmentSetupWindow(AssignmentPersistenceService persistence, GradingAssignment? initial = null)
     {
         _persistence = persistence;
+        SetCourse("General");
         Title = "Assignment setup"; Width = 800; Height = 820; MinWidth = 520; MinHeight = 420;
         foreach (var course in _persistence.GetCourseNames()) _courses.Add(course);
         if (initial != null) Load(initial);
@@ -34,9 +41,11 @@ public sealed class AssignmentSetupWindow : ReviewWindow
 
     private View BuildView() => Scroll(VStack(
         Text("Assignment and rubric").FontSize(22),
-        Text("Course"), TextField(_course).AccessibilityLabel("Course name"),
+        Text("Course"), TextField(new Binding<string>(() => _course.Value, SetCourse)).AccessibilityLabel("Course name"),
         Picker(_courses.ToArray(), new Binding<int>(() => _courses.ToList().IndexOf(_course.Value), index =>
-        { if (index >= 0 && index < _courses.Count) _course.Value = _courses[index]; })).AccessibilityLabel("Saved courses"),
+        { if (index >= 0 && index < _courses.Count) SetCourse(_courses[index]); })).AccessibilityLabel("Saved courses"),
+        Toggle("Use folder names for this class", _useFolderNames).AccessibilityLabel("Use folder names for this class"),
+        Text("On: list every immediate folder by its name, including repositories. Off: require Last_First-ID student folders. Applies to all assignments in this class."),
         Button("Find saved assignments", FindSaved),
         Picker(_saved.Select(item => item.Title).ToArray(), _savedIndex).AccessibilityLabel("Saved assignments"),
         Button("Load selected assignment", () => Load(_saved[_savedIndex.Value])).IsEnabled(_savedIndex.Value >= 0 && _savedIndex.Value < _saved.Count),
@@ -70,7 +79,7 @@ public sealed class AssignmentSetupWindow : ReviewWindow
 
     private void Load(GradingAssignment assignment)
     {
-        _course.Value = assignment.Course; _title.Value = assignment.Title; _requirements.Value = assignment.Requirements;
+        SetCourse(assignment.Course); _title.Value = assignment.Title; _requirements.Value = assignment.Requirements;
         _rows.Clear();
         foreach (var item in assignment.Rubric) _rows.Add(new RubricEditorRow(item.Name, item.MaxPoints));
     }
@@ -100,7 +109,7 @@ public sealed class AssignmentSetupWindow : ReviewWindow
             Course = string.IsNullOrWhiteSpace(_course.Value) ? "General" : _course.Value.Trim(),
             Title = _title.Value.Trim(), Requirements = _requirements.Value, Rubric = items
         };
-        try { _persistence.SaveAssignment(assignment); Assignment = assignment; DialogResult = true; }
+        try { _persistence.SaveAssignment(assignment); _persistence.SaveFolderNames(assignment.Course, _useFolderNames.Value); Assignment = assignment; DialogResult = true; }
         catch (Exception ex) { MessageBox.Show(this, "Could not save the assignment: " + ex.Message, "Assignment setup"); }
     }
 }

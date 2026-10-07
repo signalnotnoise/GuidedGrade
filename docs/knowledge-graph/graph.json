@@ -120,13 +120,13 @@
       "id": "EXECUTION_SAFETY.md",
       "label": "EXECUTION_SAFETY.md",
       "group": "root",
-      "sha256": "bb703bb29bd714de5df5867b14996f65605a63e904b1016ded7e0483592f1054"
+      "sha256": "aeef724cb328227443fc34ec13a426c48490a099941ede1ea9b838f8210dc588"
     },
     {
       "id": "FEEDBACK_WORKSPACE.md",
       "label": "FEEDBACK_WORKSPACE.md",
       "group": "root",
-      "sha256": "b3ca757c00c1750318e2de5b49d010cba8a1e59e8b6df43518da851141071fb6"
+      "sha256": "848888a4c7d0fae3be5e89f68688c32bf6708b813d6051651161a7bca9c6b4af"
     },
     {
       "id": "FILE_TREE_PERFORMANCE.md",
@@ -282,7 +282,7 @@
       "id": "GuidedGrade.Tests/Services/NativeBuildHandlingTests.cs",
       "label": "NativeBuildHandlingTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "af690c0689ead056176505782a31538dd2710fbca86336509ec823be8a371021"
+      "sha256": "ee402a90110a439a1756e49dd0f5e41db471a30a86160cf6b1247f3bad8b157e"
     },
     {
       "id": "GuidedGrade.Tests/Services/NativeDependencyStagerTests.cs",
@@ -366,7 +366,7 @@
       "id": "GuidedGrade.Tests/Services/StudentFolderTests.cs",
       "label": "StudentFolderTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "3b278c4f6506852b0787ba6ad72f87f9a0e416c7f16610f771786bcd20e28bcb"
+      "sha256": "0a7a9a42536fdab3839ad13383c9aadcc4901977ca2a52c5d32edaa53905e2da"
     },
     {
       "id": "GuidedGrade.Tests/Services/SubmissionExecutionServiceTests.cs",
@@ -486,7 +486,7 @@
       "id": "GuidedGrade/MainWindow.cs",
       "label": "MainWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "71a7c697806ab60a003afdf57c85b75d5226df1b848679943a2f19a52a5a09d0"
+      "sha256": "49e3fbef4dcd885a673e1972ff105c7d9fa60c536bcff4201dd2c4012a6f3dd7"
     },
     {
       "id": "GuidedGrade/Models/Assignment.cs",
@@ -534,7 +534,7 @@
       "id": "GuidedGrade/Models/Student.cs",
       "label": "Student.cs",
       "group": "GuidedGrade",
-      "sha256": "5bbaad0ad7596d04e2ae8fee84bcb148ef8103c653a20d254d0b771a0645cd86"
+      "sha256": "d94fd21c31aa30f0712b2f3d922459a198296a286be0021ad104ecbf3938ca89"
     },
     {
       "id": "GuidedGrade/Models/Violation.cs",
@@ -660,7 +660,7 @@
       "id": "GuidedGrade/Services/AssignmentPersistenceService.cs",
       "label": "AssignmentPersistenceService.cs",
       "group": "GuidedGrade",
-      "sha256": "7157b7d7807e5d1b3c647a449390d41b19243b787fc94833c273adaab3973450"
+      "sha256": "8954e98c59af1286d5891c6992fff8a76557dbb21a6331b1f87e45922e98f93d"
     },
     {
       "id": "GuidedGrade/Services/AzureOpenAIService.cs",
@@ -882,7 +882,7 @@
       "id": "GuidedGrade/Services/SubmissionBuilder.cs",
       "label": "SubmissionBuilder.cs",
       "group": "GuidedGrade",
-      "sha256": "b414d1f082306f397dbffa41c88b8d923ea9954c562adf6f26efad05f57ab75d"
+      "sha256": "475c3bff405fba0ea2ab79e7bcc0ecb00107029a52fcc1e809cb3c0582f7f93b"
     },
     {
       "id": "GuidedGrade/Services/SubmissionExecutionPolicy.cs",
@@ -894,7 +894,7 @@
       "id": "GuidedGrade/Services/SubmissionExecutionService.cs",
       "label": "SubmissionExecutionService.cs",
       "group": "GuidedGrade",
-      "sha256": "9103efb8de790145b16ee1bbd3422b58204efbf67a440a56b66e1475afad2da5"
+      "sha256": "c122956debf2fcd4204ce3a21742b97d773174a8375dcc9ba9395623022affd6"
     },
     {
       "id": "GuidedGrade/Services/ViolationHighlighter.cs",
@@ -948,7 +948,7 @@
       "id": "GuidedGrade/Windows/AssignmentSetupWindow.cs",
       "label": "AssignmentSetupWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "5ddb8c042f59e9c8c6b8000b9c5433f592c221f06cc661037e445ffae7654028"
+      "sha256": "07f3716ae0c9209b85aab37549713e9b8d960a745472adc777c3a060aa4d7c95"
     },
     {
       "id": "GuidedGrade/Windows/LLMSettingsWindow.cs",
@@ -978,7 +978,7 @@
       "id": "KNOWLEDGE_GRAPH.md",
       "label": "KNOWLEDGE_GRAPH.md",
       "group": "root",
-      "sha256": "0686e194c33f3fa33711554bed00e970d3ae2f335f4a11fcabeec76df583f31f"
+      "sha256": "a3d566a48d9ed800d803d2b92cccc3c769b4f00a22c869d941f9d8af95be3100"
     },
     {
       "id": "LLM_SETTINGS_GUIDE.md",

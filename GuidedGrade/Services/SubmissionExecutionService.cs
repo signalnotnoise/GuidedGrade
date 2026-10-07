@@ -230,7 +230,7 @@ namespace GuidedGrade.Services
                     startInfo,
                     NativeDependencyStager.GetDllDirectories(submission.RootDirectory, build.CommandFileName));
                 Process.Start(startInfo);
-                return $"Started {Path.GetFileName(build.CommandFileName)}.";
+                return $"Started {Path.GetFileName(build.CommandFileName)}.\nProgram: {build.CommandFileName}\nWorking directory: {build.WorkingDirectory}";
             }
             catch (Exception ex)
             {

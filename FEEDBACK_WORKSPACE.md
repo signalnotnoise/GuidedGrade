@@ -1,5 +1,15 @@
 # Feedback workspace
 
+Class folder discovery (October 7, 2026): Assignment setup includes "Use folder
+names for this class". It defaults off for every class, including PG1 and DSA,
+retaining Last_First-ID parsing. Enabled classes list all immediate subfolders
+using their literal names and blank student IDs. The preference is saved per
+case-insensitive course name in assignments.db's CourseFolderSettings table and
+shared by all assignments in that class. Saving setup or switching classes reloads
+an already-open folder list, preserving the selected folder when it remains present.
+Folder paths still identify feedback/grades; this setting does not rename files
+or change lab scoping.
+
 Reviewed October 6, 2026.
 
 ## Student grades
