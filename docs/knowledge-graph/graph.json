@@ -1524,13 +1524,25 @@
       "id": "vendor/ui-framework/README.md",
       "label": "README.md",
       "group": "vendor",
-      "sha256": "d2f278d46d06c300480bf8630d1933a79e0b3b5864cc31e71891c6bd9d1d06cc"
+      "sha256": "9ad773d8a3011069ffa41b37cff1efb4d1b84a7da8e94a900abfa26cd9bfa254"
     },
     {
       "id": "vendor/ui-framework/VALIDATION.md",
       "label": "VALIDATION.md",
       "group": "vendor",
-      "sha256": "88c516778f54b30cae667efe2eb93e58727ce529d427f515725d481896577acb"
+      "sha256": "d1e381db8b4ed044bda71382aa540d99fb0a209ae4d0939b3303859fc6780759"
+    },
+    {
+      "id": "vendor/ui-framework/history/2026-10-07-publication-audit/README.md",
+      "label": "README.md",
+      "group": "vendor",
+      "sha256": "d2f278d46d06c300480bf8630d1933a79e0b3b5864cc31e71891c6bd9d1d06cc"
+    },
+    {
+      "id": "vendor/ui-framework/history/2026-10-07-publication-audit/VALIDATION.md",
+      "label": "VALIDATION.md",
+      "group": "vendor",
+      "sha256": "3974d1f0433d630d307c64b2103f9b1557c5d59932cbb25e6580356246fe0adc"
     },
     {
       "id": "vendor/ui-framework/history/local.2/PERFORMANCE-FOLLOWUP.md",
@@ -3105,6 +3117,16 @@
     {
       "source": "group:vendor",
       "target": "vendor/ui-framework/VALIDATION.md",
+      "kind": "contains"
+    },
+    {
+      "source": "group:vendor",
+      "target": "vendor/ui-framework/history/2026-10-07-publication-audit/README.md",
+      "kind": "contains"
+    },
+    {
+      "source": "group:vendor",
+      "target": "vendor/ui-framework/history/2026-10-07-publication-audit/VALIDATION.md",
       "kind": "contains"
     },
     {
