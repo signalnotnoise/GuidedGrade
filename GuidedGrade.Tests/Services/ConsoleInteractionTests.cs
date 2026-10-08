@@ -6,6 +6,137 @@ namespace GuidedGrade.Tests.Services;
 [TestClass]
 public class ConsoleInteractionTests
 {
+    [DataTestMethod]
+    [DataRow("spacebar", 32)]
+    [DataRow("Escape", 27)]
+    [DataRow("ArrowUp", 38)]
+    public void PhysicalKeyNamesFromConsoleAreAcceptedAsExplicitKeyActions(string name, int code)
+    {
+        var action = ConsoleDriverAgent.Parse("{\"action\":\"key\",\"input\":\"" + name + "\"}", 1);
+        Assert.IsFalse(action.InvalidReply);
+        Assert.IsTrue(WindowInputAction.TryParse(action.Action, action.Input, out var key));
+        Assert.AreEqual((ushort)code, key!.VirtualKey);
+        Assert.IsTrue(ConsoleDriverAgent.Parse("{\"action\":\"key\",\"input\":\"ALT+TAB\"}", 1).InvalidReply);
+    }
+
+    [TestMethod]
+    public async Task EarlyEscapeRetriesWithoutSendingExitAndDoesNotCreditOldPassOutput()
+    {
+        var session = new ScriptedSession("Game Controls\nMove: WASD, arrow keys\nSelect: spacebar\nExit: ESC key\nGetIndex test PASSES!", "", "", "", "") { SupportsWindowInput = true };
+        var calls = 0;
+        await ConsoleDriverAgent.DriveCoreAsync(session, (context, _, _) =>
+        {
+            var key = new[] { "SPACE", "ESC", "W", "D", "ESC" }[calls++];
+            if (calls == 2) StringAssert.Contains(context, "Existing PASS messages predate");
+            if (calls == 3) StringAssert.Contains(context, "No ESC event was sent");
+            return Task.FromResult(new ConsoleAgentAction { Action = "key", Input = key,
+                Coverage = [new() { Path = "Required game interaction", Status = calls >= 5 ? "tested" : "untested", Evidence = calls >= 5 ? "Test fixture confirms outcome" : "Not yet observed" }] });
+        }, 5);
+        CollectionAssert.AreEqual(new ushort[] { 0x20, 0x57, 0x44, 0x1B }, session.WindowEvents.Select(e => e.VirtualKey).ToArray());
+        Assert.AreEqual(5, calls);
+    }
+
+    [TestMethod]
+    public void ParserDiagnosticsDistinguishEmptyMalformedAndInvalidWindowInput()
+    {
+        StringAssert.Contains(ConsoleDriverAgent.Parse("", 1).Reason, "empty response");
+        StringAssert.Contains(ConsoleDriverAgent.Parse("not JSON", 1).Reason, "no complete JSON object");
+        StringAssert.Contains(ConsoleDriverAgent.Parse("{bad}", 1).Reason, "malformed JSON");
+        StringAssert.Contains(ConsoleDriverAgent.Parse("{\"action\":\"key\",\"input\":\"ALT+TAB\"}", 1).Reason, "invalid input");
+    }
+
+    [TestMethod]
+    public async Task MissingSourceGradingRefusalRetriesAsRuntimeOperatorWithoutSendingSource()
+    {
+        var session = new ScriptedSession("Game Controls\nExit: ESC key") { SupportsWindowInput = true };
+        var calls = 0;
+        await ConsoleDriverAgent.DriveCoreAsync(session, (context, _, _) =>
+        {
+            calls++;
+            if (calls == 1) return Task.FromResult(new ConsoleAgentAction { Action = "stop", Reason = "No student code or submission files were provided for grading. Cannot perform evaluation." });
+            StringAssert.Contains(context, "This is runtime operation, not grading");
+            return Task.FromResult(new ConsoleAgentAction { Action = "key", Input = "ESC" });
+        }, 2);
+        Assert.AreEqual(2, calls);
+        Assert.AreEqual((ushort)0x1B, session.WindowEvents.Single().VirtualKey);
+        Assert.AreEqual(0, session.Inputs.Count);
+        var prompt = ConsoleDriverAgent.BuildPrompt("Act as an expert C++ instructor. Provide Final Grade and Feedback.", "SECRET SOURCE", "Game Controls", 1);
+        Assert.IsFalse(prompt.Contains("SECRET SOURCE"));
+        StringAssert.Contains(prompt, "runtime expectations only");
+        StringAssert.Contains(ConsoleDriverAgent.OperatorSystemPrompt, "Source files are intentionally not supplied");
+        Assert.IsFalse(ConsoleDriverAgent.IsGradingRefusal(new() { Action = "stop", Reason = "Window focus could not be established." }));
+    }
+
+    [TestMethod]
+    public async Task ModelDrivesWindowKeyEventsWithoutWritingKeyNamesToConsole()
+    {
+        var session = new ScriptedSession("Game Controls\nMove: WASD, arrow keys\nSelect: spacebar\nExit: ESC key\nGetIndex test PASSES!", "", "", "", "") { SupportsWindowInput = true };
+        var decisions = 0;
+        var result = await ConsoleDriverAgent.DriveCoreAsync(session, (context, _, _) =>
+        {
+            StringAssert.Contains(context, "Window events available");
+            var key = new[] { "W", "D", "SPACE", "ESC" }[Math.Min(decisions++, 3)];
+            return Task.FromResult(ConsoleDriverAgent.Parse("{\"action\":\"key\",\"input\":\"" + key + "\",\"reason\":\"Exercise displayed controls\",\"observation\":\"ok\",\"coverage\":[{\"path\":\"Game controls\",\"status\":\"tested\",\"evidence\":\"Fixture outcome\"}]}", 1));
+        }, 4);
+        Assert.AreEqual(4, decisions);
+        Assert.AreEqual(0, session.Inputs.Count);
+        CollectionAssert.AreEqual(new ushort[] { 0x57, 0x44, 0x20, 0x1B }, session.WindowEvents.Select(e => e.VirtualKey).ToArray());
+        Assert.IsFalse(result.Findings.Any(f => f.Contains("Console input cannot operate")));
+    }
+
+    [TestMethod]
+    public void WindowActionsRejectSystemShortcutsAndInvalidCoordinates()
+    {
+        Assert.IsTrue(WindowInputAction.TryParse("key", "SPACE", out var key));
+        Assert.AreEqual((ushort)0x20, key!.VirtualKey);
+        Assert.IsFalse(WindowInputAction.TryParse("key", "ALT+TAB", out _));
+        Assert.IsFalse(WindowInputAction.TryParse("key", "WIN", out _));
+        Assert.IsTrue(WindowInputAction.TryParse("key", "spacebar", out _));
+        Assert.IsTrue(WindowInputAction.TryParse("click", "left 0.5 0.25", out var click));
+        Assert.AreEqual(0.5, click!.X);
+        Assert.IsFalse(WindowInputAction.TryParse("click", "left -1 0.5", out _));
+        Assert.IsFalse(WindowInputAction.TryParse("click", "left NaN 0.5", out _));
+        var prompt = ConsoleDriverAgent.BuildPrompt("test instructions", "PRIVATE SOURCE MUST NOT BE SENT", "console output", 1);
+        Assert.IsFalse(prompt.Contains("PRIVATE SOURCE MUST NOT BE SENT"));
+        StringAssert.Contains(prompt, "action=key");
+    }
+
+    [TestMethod]
+    public async Task RecordedGameControlsStopBeforeCallingModelOrTypingGuessedChoices()
+    {
+        var session = new ScriptedSession("\u001b[32mGame Controls\u001b[0m\nMove: WASD, arrow keys\nSelect: spacebar\nExit: ESC key\nReset: r (after the game is over)\nIndex test PASSES!");
+        var decisions = 0;
+        var result = await ConsoleDriverAgent.DriveCoreAsync(session, (_, _, _) =>
+        {
+            decisions++;
+            return Task.FromResult(new ConsoleAgentAction { Action = "type", Input = "2" });
+        }, 3);
+        Assert.AreEqual(0, decisions);
+        Assert.AreEqual(0, session.Inputs.Count);
+        Assert.IsTrue(result.Findings.Any(finding => finding.Contains("Console input cannot operate")));
+        Assert.IsFalse(result.InfiniteLoop);
+    }
+
+    [TestMethod]
+    public void NewItemQuestionIsNotValidatedAgainstOldMenuNumbers()
+    {
+        Assert.IsTrue(ConsoleInputPolicy.TryResolve("Health Potion",
+            "1) Buy\n2) Sell\n3) Leave\nWhich item would you like to buy?", out var input, out _));
+        Assert.AreEqual("Health Potion", input);
+        Assert.IsFalse(ConsoleInputPolicy.TryResolve("Health Potion",
+            "1) Buy\n2) Sell\n3) Leave\nChoose an option:", out _, out _));
+    }
+
+    [TestMethod]
+    public void ConsoleInstructionsAloneAreNotMistakenForWindowControls()
+    {
+        Assert.IsFalse(ConsoleInputPolicy.RequiresWindowControls("Enter a name:\n"));
+        Assert.IsFalse(ConsoleInputPolicy.RequiresWindowControls("Press spacebar to continue"));
+        Assert.IsFalse(ConsoleInputPolicy.RequiresWindowControls("1) Buy\n2) Sell\n3) Exit\nChoice:"));
+        var prompt = ConsoleDriverAgent.BuildPrompt("test", "source", "Exit: ESC key", 1);
+        StringAssert.Contains(prompt, "Never assume options are implicitly numbered");
+    }
+
     [TestMethod]
     public void ScreenReconstructsRedrawAndSplitControlSequences()
     {
@@ -361,6 +492,15 @@ public class ConsoleInteractionTests
     {
         private int _poll;
         public bool Flowing { get; init; }
+        public bool SupportsWindowInput { get; init; }
+        public List<WindowInputAction> WindowEvents { get; } = new();
+        public Task SendWindowInputAsync(WindowInputAction action, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            WindowEvents.Add(action);
+            if (action.VirtualKey == 0x1B) HasExited = true;
+            return Task.CompletedTask;
+        }
         public List<string> Inputs { get; } = new();
         public bool Started => true;
         public string? Error => null;

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using System.Xml.Linq;
 
 namespace GuidedGrade.Services
 {
@@ -24,7 +25,7 @@ namespace GuidedGrade.Services
             ".csproj", ".fsproj", ".vbproj", ".props", ".targets", ".filters"
         };
 
-        public static string Stage(string sourceDirectory, string destinationRoot = DefaultRoot)
+        public static string Stage(string sourceDirectory, string destinationRoot = DefaultRoot, bool preserveBinaryLibraries = false)
         {
             if (string.IsNullOrWhiteSpace(sourceDirectory) || !Directory.Exists(sourceDirectory))
                 throw new DirectoryNotFoundException($"Submission directory was not found: {sourceDirectory}");
@@ -50,11 +51,30 @@ namespace GuidedGrade.Services
                 // are left alone in case another run still holds them open.
                 RemoveDestination(destination);
                 Directory.CreateDirectory(destination);
-                CopyDirectory(source, destination);
+                CopyDirectory(source, destination, preserveBinaryLibraries);
                 RewriteOriginalPaths(source, destination);
             }
 
             return destination;
+        }
+
+        internal static string StageWithSharedDependencies(string sourceDirectory, string destinationRoot = DefaultRoot)
+        {
+            var source = Path.GetFullPath(sourceDirectory);
+            var parent = Path.GetDirectoryName(source);
+            var shared = parent == null ? null : Path.Combine(parent, "Shared");
+            var referenced = shared != null && Directory.Exists(shared) &&
+                Directory.EnumerateFiles(source, "*.vcxproj", SearchOption.AllDirectories).Any(project =>
+                    XDocument.Load(project).Descendants().Where(element => element.Name.LocalName == "Import")
+                    .Select(element => (string?)element.Attribute("Project"))
+                    .Where(path => !string.IsNullOrWhiteSpace(path) && !path.Contains('$') && !Path.IsPathRooted(path))
+                    .Any(path => ReviewContext.Contains(shared, Path.GetFullPath(Path.Combine(Path.GetDirectoryName(project)!, path!)))));
+            if (!referenced) return Stage(source, destinationRoot);
+            // Each run owns its Week1/Shared pair; no other repository folders
+            // are copied and dependencies cannot be mixed between students.
+            var runRoot = Path.Combine(destinationRoot, "run-" + Guid.NewGuid().ToString("N"));
+            Stage(shared!, runRoot, preserveBinaryLibraries: true);
+            return Stage(source, runRoot);
         }
 
         public static string RemapPath(string originalPath, string originalRoot, string stagedRoot)
@@ -124,11 +144,11 @@ namespace GuidedGrade.Services
             }
         }
 
-        private static void CopyDirectory(string source, string destination)
+        private static void CopyDirectory(string source, string destination, bool preserveBinaryLibraries)
         {
             foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
             {
-                if (ShouldSkip(directory, source))
+                if (ShouldSkip(directory, source, preserveBinaryLibraries))
                     continue;
 
                 Directory.CreateDirectory(RemapPath(directory, source, destination));
@@ -136,7 +156,7 @@ namespace GuidedGrade.Services
 
             foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
             {
-                if (ShouldSkip(file, source))
+                if (ShouldSkip(file, source, preserveBinaryLibraries))
                     continue;
 
                 var target = RemapPath(file, source, destination);
@@ -182,11 +202,13 @@ namespace GuidedGrade.Services
                 .Replace(originalRoot.Replace('/', '\\'), stagedRoot.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool ShouldSkip(string path, string sourceRoot)
+        private static bool ShouldSkip(string path, string sourceRoot, bool preserveBinaryLibraries)
         {
             var relative = Path.GetFullPath(path).Substring(Path.GetFullPath(sourceRoot).Length);
             var parts = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (parts.Any(part => SkipDirectoryNames.Contains(part)))
+            var library = preserveBinaryLibraries && File.Exists(path) &&
+                (Path.GetExtension(path).Equals(".dll", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(path).Equals(".lib", StringComparison.OrdinalIgnoreCase));
+            if (parts.Any(part => SkipDirectoryNames.Contains(part) && !(library && part.Equals("bin", StringComparison.OrdinalIgnoreCase))))
                 return true;
 
             return File.Exists(path) && SkipFileExtensions.Contains(Path.GetExtension(path));

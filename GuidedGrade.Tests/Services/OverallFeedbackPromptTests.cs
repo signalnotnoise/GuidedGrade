@@ -8,6 +8,21 @@ namespace GuidedGrade.Tests.Services;
 public class OverallFeedbackPromptTests
 {
     [TestMethod]
+    public void BriefFeedbackLimitsWholeReviewRatherThanEachRepeatedSection()
+    {
+        var assignment = new GradingAssignment { Requirements = "Implement game", Rubric = [new("Part A", 100)] };
+        assignment.FeedbackOptions.DetailLevel = 2;
+        var prompt = OverallFeedbackPrompt.BuildInstructions(assignment, "");
+        StringAssert.Contains(prompt, "at most 60 words");
+        StringAssert.Contains(prompt, "at most 20 words");
+        StringAssert.Contains(prompt, "No Detailed Review");
+        StringAssert.Contains(prompt, "FINAL OUTPUT LENGTH CHECK");
+        StringAssert.Contains(prompt, "exact configured rubric names");
+        assignment.FeedbackOptions.DetailLevel = 4;
+        Assert.IsFalse(OverallFeedbackPrompt.BuildInstructions(assignment, "").Contains("FINAL OUTPUT LENGTH CHECK"));
+    }
+
+    [TestMethod]
     public void AssignmentUsesItsRequirementsAndRubricForOneCombinedReview()
     {
         var assignment = new GradingAssignment
@@ -29,6 +44,11 @@ public class OverallFeedbackPromptTests
         StringAssert.Contains(prompt, "one total score out of 10");
         StringAssert.Contains(prompt, "void shop() {}");
         StringAssert.Contains(prompt, "void shop();");
+        StringAssert.Contains(prompt, "withhold the final numeric grade");
+        StringAssert.Contains(prompt, "not in Deductions Applied");
+        StringAssert.Contains(prompt, "TODO:// labels");
+        StringAssert.Contains(prompt, "methods named for those sections");
+        StringAssert.Contains(prompt, "alone does not prove completion");
         Assert.IsFalse(prompt.Contains("Unrelated default requirements"));
         Assert.IsFalse(prompt.Contains("Changed selection"));
     }

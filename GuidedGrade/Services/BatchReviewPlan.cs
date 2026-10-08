@@ -10,7 +10,7 @@ internal sealed record BatchReviewItem(Student Student, string? File, string? En
 
 internal static class BatchReviewPlan
 {
-    private static string ValidatePattern(string pattern)
+    internal static string ValidatePattern(string pattern)
     {
         pattern = pattern.Trim().Replace('\\', '/');
         var suffix = pattern.StartsWith("**/", StringComparison.Ordinal) ? pattern[3..] : pattern;
@@ -20,7 +20,7 @@ internal static class BatchReviewPlan
         return pattern;
     }
 
-    private static (string Path, string? Error) Resolve(string folder, string pattern, string missing)
+    internal static (string Path, string? Error) Resolve(string folder, string pattern, string missing)
     {
         var recursive = pattern.StartsWith("**/", StringComparison.Ordinal);
         var suffix = recursive ? pattern[3..] : pattern;
@@ -92,7 +92,7 @@ internal static class BatchReviewPlan
 
     internal static async Task ProcessStudentAsync(BatchReviewItem item, bool buildAndRun,
         Func<string, long> clear, Func<CancellationToken, Task> build,
-        Func<string, long, CancellationToken, Task> review, CancellationToken token)
+        Func<IReadOnlyList<(string Path, long Version)>, CancellationToken, Task> review, CancellationToken token)
     {
         var versions = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in item.Files)
@@ -101,11 +101,8 @@ internal static class BatchReviewPlan
             versions[path] = clear(path);
         }
         if (buildAndRun) { token.ThrowIfCancellationRequested(); await build(token); }
-        foreach (var path in item.Files)
-        {
-            token.ThrowIfCancellationRequested();
-            await review(path, versions[path], token);
-        }
+        token.ThrowIfCancellationRequested();
+        await review(item.Files.Select(path => (path, versions[path])).ToArray(), token);
     }
 
     internal static async Task RunAsync(IReadOnlyList<BatchReviewItem> items,

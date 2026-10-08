@@ -16,6 +16,26 @@ internal static class NativeTheme
     {
         if (element.Resources.MergedDictionaries.Any(dictionary => dictionary.Contains(ResourceMarker))) return;
         element.Resources.MergedDictionaries.Add(CreateResources());
+        var baseStyle = element.TryFindResource(typeof(Button)) as Style;
+        var buttonStyle = new Style(typeof(Button), baseStyle);
+        buttonStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
+        buttonStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        var border = Element<Border>("button-surface");
+        Bind(border, Border.BackgroundProperty, Control.BackgroundProperty);
+        Bind(border, Border.BorderBrushProperty, Control.BorderBrushProperty);
+        Bind(border, Border.BorderThicknessProperty, Control.BorderThicknessProperty);
+        Bind(border, Border.PaddingProperty, Control.PaddingProperty);
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+        var presenter = Presenter("Content");
+        Bind(presenter, FrameworkElement.HorizontalAlignmentProperty, Control.HorizontalContentAlignmentProperty);
+        Bind(presenter, FrameworkElement.VerticalAlignmentProperty, Control.VerticalContentAlignmentProperty);
+        border.AppendChild(presenter);
+        var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        template.Triggers.Add(When(UIElement.IsMouseOverProperty, true, Set(Border.BackgroundProperty, Brush("#344252"), "button-surface")));
+        template.Triggers.Add(When(UIElement.IsKeyboardFocusedProperty, true, Set(Border.BorderBrushProperty, Brush("#80C7FF"), "button-surface")));
+        template.Triggers.Add(When(UIElement.IsEnabledProperty, false, Set(UIElement.OpacityProperty, 0.45)));
+        buttonStyle.Setters.Add(new Setter(Control.TemplateProperty, template));
+        element.Resources[typeof(Button)] = buttonStyle;
     }
 
     private static ResourceDictionary CreateResources()
@@ -154,7 +174,7 @@ internal static class NativeTheme
     {
         var style = new Style(typeof(ScrollBar));
         style.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#1B1E23")));
-        style.Setters.Add(new Setter(FrameworkElement.WidthProperty, 12.0));
+        style.Setters.Add(new Setter(FrameworkElement.WidthProperty, 8.0));
         var border = Element<Border>();
         Bind(border, Border.BackgroundProperty, Control.BackgroundProperty);
         var track = Element<NativeScrollTrack>("PART_Track");
@@ -162,9 +182,13 @@ internal static class NativeTheme
         border.AppendChild(track);
         style.Setters.Add(new Setter(Control.TemplateProperty, new ControlTemplate(typeof(ScrollBar)) { VisualTree = border }));
         style.Triggers.Add(When(ScrollBar.OrientationProperty, Orientation.Horizontal,
-            Set(FrameworkElement.WidthProperty, double.NaN), Set(FrameworkElement.HeightProperty, 12.0)));
+            Set(FrameworkElement.WidthProperty, double.NaN), Set(FrameworkElement.HeightProperty, 8.0)));
         return style;
     }
+
+    internal static readonly DependencyProperty TabSelectedProperty = DependencyProperty.RegisterAttached(
+        "TabSelected", typeof(bool), typeof(NativeTheme), new PropertyMetadata(false));
+    internal static Style NavigationTabStyle() => TabStyle(typeof(Button), TabSelectedProperty, "Content");
 
     private static Style TabStyle(Type controlType, DependencyProperty selectedProperty, string contentSource)
     {
@@ -177,7 +201,10 @@ internal static class NativeTheme
         Bind(border, Border.PaddingProperty, Control.PaddingProperty);
         border.SetValue(Border.BorderThicknessProperty, new Thickness(0, 0, 0, 2));
         border.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
-        border.AppendChild(Presenter(contentSource));
+        var content = Presenter(contentSource);
+        content.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(content);
         var template = new ControlTemplate(controlType) { VisualTree = border };
         template.Triggers.Add(When(selectedProperty, true,
             Set(Border.BorderBrushProperty, Brush("#50B5FF"), "tab"), Set(Control.ForegroundProperty, Brushes.White)));

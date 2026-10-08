@@ -11,6 +11,7 @@ namespace GuidedGrade.Controls;
 public sealed class InlineCommentAdorner : ContentControl, IDisposable
 {
     private readonly SectionFeedback _feedback;
+    private readonly bool _earlierReview;
     private readonly State<bool> _expanded = new(false);
     private readonly State<bool> _approved;
     private readonly ViewHost _host;
@@ -21,8 +22,9 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
     public event EventHandler<SectionFeedback>? RegenerateRequested;
     public event EventHandler<SectionFeedback>? RejectRequested;
 
-    public InlineCommentAdorner(SectionFeedback feedback, int lineNumber)
+    public InlineCommentAdorner(SectionFeedback feedback, int lineNumber, bool earlierReview = false)
     {
+        _earlierReview = earlierReview;
         _feedback = feedback; LineNumber = lineNumber;
         _approved = new(feedback.ReviewStatus == FeedbackReviewStatus.Approved);
         MaxWidth = 480; Margin = new Thickness(8, 2, 8, 2);
@@ -37,6 +39,8 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
             Button($"{(_expanded.Value ? "−" : "+")} {(_approved.Value ? "Approved" : "Review")}: {_feedback.SectionName}{(_feedback.IsOverallReview ? "" : $" · {_feedback.SuggestedScore} pts")}",
                 () => _expanded.Value = !_expanded.Value).ButtonStyle(ButtonStyleKind.Quiet).Id("header")
         };
+        if (_earlierReview)
+            children.Add(Text("Earlier review � assignment not recorded").FontSize(12).Foreground("#FCCF31"));
         if (_expanded.Value)
         {
             if (_feedback.Strengths.Count > 0)
@@ -49,7 +53,7 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
                 ).Spacing(6).Id("code"));
             if (!string.IsNullOrWhiteSpace(_feedback.Explanation))
                 children.Add(VStack(Text("Explanation").Foreground("#CE9178"), Text(_feedback.Explanation)).Spacing(6).Id("explanation"));
-            if (!_approved.Value)
+            if (!_approved.Value && !_earlierReview)
                 children.Add(AdaptiveGrid(100,
                     Button("Approve", () => ApproveRequested?.Invoke(this, _feedback)).ButtonStyle(ButtonStyleKind.Primary),
                     Button("Regenerate", () => RegenerateRequested?.Invoke(this, _feedback)).IsEnabled(!_feedback.IsOverallReview),
@@ -58,7 +62,7 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
         // The editor overlay caps cards at 400px. Scroll long reviews instead of clipping actions.
         var content = _expanded.Value
             ? new[] { children[0], Scroll(VStack(children.Skip(1).ToArray()).Spacing(10)).Height(290).Id("details") }
-            : new[] { children[0] };
+            : children.ToArray();
         return VStack(content).Spacing(8).Padding(6).Background(ReviewTheme.Tokens.Surface).CornerRadius(6);
     }
 

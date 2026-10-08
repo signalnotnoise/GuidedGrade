@@ -22,6 +22,16 @@ internal static class ReviewContext
         catch (JsonException) { return false; }
     }
 
+    internal static bool BelongsToAssignment(string context, GradingAssignment assignment)
+    {
+        try
+        {
+            var parts = JsonSerializer.Deserialize<string?[]>(context);
+            return parts is { Length: 4 } && parts[1] == assignment.Course && parts[2] == assignment.Title;
+        }
+        catch (JsonException) { return false; }
+    }
+
     internal static bool Contains(string root, string path)
     {
         if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(path)) return false;
@@ -54,6 +64,9 @@ internal static class ReviewContext
     internal static GradingAssignment? Snapshot(GradingAssignment? assignment) => assignment == null ? null : new()
     {
         Course = assignment.Course, Title = assignment.Title, Requirements = assignment.Requirements,
-        Rubric = assignment.Rubric.Select(item => new RubricItem(item.Name, item.MaxPoints)).ToList()
+        CourseReviewRules = assignment.CourseReviewRules, ReviewFilePaths = assignment.ReviewFilePaths.ToList(), LogFilePath = assignment.LogFilePath,
+        Rubric = assignment.Rubric.Select(item => new RubricItem(item.Name, item.MaxPoints)).ToList(),
+        Deductions = assignment.Deductions.Select(item => new AssignmentDeduction { Rule = item.Rule, Points = item.Points, RequiresInstructorConfirmation = item.RequiresInstructorConfirmation }).ToList(),
+        FeedbackOptions = JsonSerializer.Deserialize<AssignmentFeedbackOptions>(JsonSerializer.Serialize(assignment.FeedbackOptions))!
     };
 }

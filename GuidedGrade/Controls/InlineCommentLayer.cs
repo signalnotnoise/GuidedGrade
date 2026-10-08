@@ -28,7 +28,7 @@ namespace GuidedGrade.Controls
             _editor.TextArea.TextView.ScrollOffsetChanged += (_, _) => UpdateCommentPositions();
         }
 
-        public void AddComment(SectionFeedback feedback, int startLine, int endLine)
+        public void AddComment(SectionFeedback feedback, int startLine, int endLine, bool earlierReview = false)
         {
             var lineCount = _editor.Document?.LineCount ?? 0;
             var preferredLine = startLine > 0 ? startLine : endLine;
@@ -36,7 +36,7 @@ namespace GuidedGrade.Controls
                 ? Math.Max(1, preferredLine)
                 : Math.Clamp(preferredLine, 1, lineCount);
 
-            var adorner = new InlineCommentAdorner(feedback, anchorLine);
+            var adorner = new InlineCommentAdorner(feedback, anchorLine, earlierReview);
             adorner.ApproveRequested += Adorner_ApproveRequested;
             adorner.RegenerateRequested += Adorner_RegenerateRequested;
             adorner.RejectRequested += Adorner_RejectRequested;

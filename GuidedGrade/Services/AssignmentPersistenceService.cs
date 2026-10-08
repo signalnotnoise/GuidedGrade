@@ -41,6 +41,11 @@ namespace GuidedGrade.Services
                     Course TEXT PRIMARY KEY COLLATE NOCASE,
                     UseFolderNames INTEGER NOT NULL DEFAULT 0
                 );
+                CREATE TABLE IF NOT EXISTS CourseReviewRules (Course TEXT PRIMARY KEY COLLATE NOCASE, Rules TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS AssignmentOptions (
+                    Course TEXT NOT NULL, Title TEXT NOT NULL, OptionsJson TEXT NOT NULL,
+                    PRIMARY KEY (Course, Title)
+                );
             ";
             command.ExecuteNonQuery();
 
@@ -50,6 +55,19 @@ namespace GuidedGrade.Services
                 ON SavedAssignments(Course, Title);
             ";
             uniqueCommand.ExecuteNonQuery();
+        }
+
+        public string LoadCourseReviewRules(string course)
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _databasePath }.ToString()); connection.Open();
+            using var command = connection.CreateCommand(); command.CommandText = "SELECT Rules FROM CourseReviewRules WHERE Course = @course"; command.Parameters.AddWithValue("@course", course.Trim());
+            return command.ExecuteScalar() as string ?? "";
+        }
+        public void SaveCourseReviewRules(string course, string rules)
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _databasePath }.ToString()); connection.Open();
+            using var command = connection.CreateCommand(); command.CommandText = "INSERT INTO CourseReviewRules(Course, Rules) VALUES (@course, @rules) ON CONFLICT(Course) DO UPDATE SET Rules = excluded.Rules";
+            command.Parameters.AddWithValue("@course", course.Trim()); command.Parameters.AddWithValue("@rules", rules); command.ExecuteNonQuery();
         }
 
         public bool UseFolderNames(string? course)
@@ -79,11 +97,19 @@ namespace GuidedGrade.Services
         {
             if (assignment == null)
                 throw new ArgumentNullException(nameof(assignment));
+            if (assignment.Deductions.Any(item => string.IsNullOrWhiteSpace(item.Rule) || !double.IsFinite(item.Points) || item.Points <= 0))
+                throw new ArgumentException("Deduction rules need finite positive penalty points.", nameof(assignment));
 
             if (assignment.Rubric.Any(item => !double.IsFinite(item.MaxPoints) || item.MaxPoints <= 0 || !double.IsFinite(item.EarnedPoints))
                 || !double.IsFinite(assignment.TotalMaxPoints))
                 throw new ArgumentException("Rubric points must be finite and maximum points must be positive.", nameof(assignment));
 
+            foreach (var path in assignment.ReviewFilePaths) BatchReviewPlan.ValidatePattern(path);
+            if (!string.IsNullOrWhiteSpace(assignment.LogFilePath))
+            {
+                BatchReviewPlan.ValidatePattern(assignment.LogFilePath);
+                if (!assignment.LogFilePath.EndsWith(".fslog", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Log path must end in .fslog.");
+            }
             var course = string.IsNullOrWhiteSpace(assignment.Course) ? "General" : assignment.Course.Trim();
             var title = assignment.Title?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(title))
@@ -101,6 +127,9 @@ namespace GuidedGrade.Services
                     Requirements = excluded.Requirements,
                     RubricJson = excluded.RubricJson,
                     UpdatedUtc = excluded.UpdatedUtc;
+                INSERT INTO AssignmentOptions (Course, Title, OptionsJson)
+                VALUES (@course, @title, @optionsJson)
+                ON CONFLICT(Course, Title) DO UPDATE SET OptionsJson = excluded.OptionsJson;
             ";
 
             command.Parameters.AddWithValue("@course", course);
@@ -108,7 +137,11 @@ namespace GuidedGrade.Services
             command.Parameters.AddWithValue("@requirements", assignment.Requirements ?? string.Empty);
             command.Parameters.AddWithValue("@rubricJson", JsonSerializer.Serialize(assignment.Rubric ?? new List<RubricItem>()));
             command.Parameters.AddWithValue("@updatedUtc", DateTime.UtcNow.ToString("O"));
+            command.Parameters.AddWithValue("@optionsJson", JsonSerializer.Serialize(new PersistedOptions(assignment.Deductions, assignment.FeedbackOptions, assignment.ReviewFilePaths, assignment.LogFilePath)));
+            using var transaction = connection.BeginTransaction();
+            command.Transaction = transaction;
             command.ExecuteNonQuery();
+            transaction.Commit();
         }
 
         public List<GradingAssignment> GetAssignmentsByCourse(string course)
@@ -122,7 +155,8 @@ namespace GuidedGrade.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Course, Title, Requirements, RubricJson
+                SELECT Course, Title, Requirements, RubricJson,
+                    (SELECT OptionsJson FROM AssignmentOptions WHERE AssignmentOptions.Course = SavedAssignments.Course AND AssignmentOptions.Title = SavedAssignments.Title)
                 FROM SavedAssignments
                 WHERE LOWER(Course) = LOWER(@course)
                 ORDER BY Title;
@@ -146,7 +180,8 @@ namespace GuidedGrade.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Course, Title, Requirements, RubricJson
+                SELECT Course, Title, Requirements, RubricJson,
+                    (SELECT OptionsJson FROM AssignmentOptions WHERE AssignmentOptions.Course = SavedAssignments.Course AND AssignmentOptions.Title = SavedAssignments.Title)
                 FROM SavedAssignments
                 ORDER BY Course, Title;
             ";
@@ -190,7 +225,8 @@ namespace GuidedGrade.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Course, Title, Requirements, RubricJson
+                SELECT Course, Title, Requirements, RubricJson,
+                    (SELECT OptionsJson FROM AssignmentOptions WHERE AssignmentOptions.Course = SavedAssignments.Course AND AssignmentOptions.Title = SavedAssignments.Title)
                 FROM SavedAssignments
                 WHERE LOWER(Course) = LOWER(@course)
                   AND LOWER(Title) = LOWER(@title);
@@ -202,18 +238,25 @@ namespace GuidedGrade.Services
             return reader.Read() ? MapAssignment(reader) : null;
         }
 
-        private static GradingAssignment MapAssignment(SqliteDataReader reader)
+        private GradingAssignment MapAssignment(SqliteDataReader reader)
         {
             var rubricJson = reader.IsDBNull(3) ? "[]" : reader.GetString(3);
             var rubric = JsonSerializer.Deserialize<List<RubricItem>>(rubricJson) ?? new List<RubricItem>();
 
+            var options = reader.IsDBNull(4) ? null : JsonSerializer.Deserialize<PersistedOptions>(reader.GetString(4));
             return new GradingAssignment
             {
                 Course = reader.GetString(0),
+                CourseReviewRules = LoadCourseReviewRules(reader.GetString(0)),
                 Title = reader.GetString(1),
                 Requirements = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                Rubric = rubric
+                Rubric = rubric,
+                Deductions = options?.Deductions ?? new(),
+                ReviewFilePaths = options?.ReviewFilePaths ?? new(),
+                LogFilePath = options?.LogFilePath ?? "",
+                FeedbackOptions = options?.Feedback ?? new()
             };
         }
+        private sealed record PersistedOptions(List<AssignmentDeduction> Deductions, AssignmentFeedbackOptions Feedback, List<string>? ReviewFilePaths = null, string? LogFilePath = null);
     }
 }

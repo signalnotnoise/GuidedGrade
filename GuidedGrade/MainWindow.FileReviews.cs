@@ -37,7 +37,7 @@ public partial class MainWindow
             comments.RemoveAll(comment => comment.IsOverallReview && comment.ReviewContext == draftTarget);
             comments.Add(review);
             _commentPersistenceService.SaveComments(target.Path, comments);
-            _fileComments[target.Path] = comments;
+            RefreshPersistedComments(target.Path);
             if (publishToDraft) MarkFeedbackImported(target.Path, review, draftTarget);
             RenderCommentsForFile(target.Path);
             saved = true;

@@ -33,7 +33,7 @@ public partial class MainWindow
     internal Window CreateBatchReviewDialog(GradingAssignment assignment, Student[] students)
     {
         var selected = listBoxStudents.SelectedItem as Student;
-        var initialFile = _batchFile;
+        var initialFile = assignment.ReviewFilePaths.Count > 0 ? string.Join("\n", assignment.ReviewFilePaths) : _batchFile;
         if (initialFile.Length == 0 && selected?.Folder != null && _selectedTabButton?.Tag is string path && ReviewContext.Contains(selected.Folder, path))
             initialFile = Path.GetRelativePath(selected.Folder, path);
         var file = new State<string>(initialFile);
@@ -83,7 +83,7 @@ public partial class MainWindow
         var host = ReviewTheme.Host(() => Scroll(VStack(
             Text("Batch student review").FontSize(22),
             Text($"{assignment.Course} · {assignment.Title} · {students.Length} students"),
-            Text("For each student: clear selected file reviews → optionally build/run → overall review each file → next student").FontSize(14),
+            Text("For each student: clear selected file reviews → optionally build/run → one combined review of selected files → next student").FontSize(14),
             Text("Files to comment on, one per line, relative to each student's folder"),
             TextEditor(file).Height(75).AccessibilityLabel("Batch review files"),
             Text("Extra nested folders? Use **/Lab_2_Conversions/Lab 2/StudentWork.h\nFor multiple matches, the most recently modified file is used. Equal dates use alphabetical path order.").FontSize(12),
@@ -145,24 +145,28 @@ public partial class MainWindow
                 Directory.CreateDirectory(reports);
                 await File.WriteAllTextAsync(Path.Combine(reports, $"batch-{Guid.NewGuid():N}.txt"),
                     $"Submission: {item.EntryPoint}\n\n{report}", ct);
-            }, async (path, version, ct) =>
+            }, async (reviewFiles, ct) =>
             {
-                var content = StudentDataSanitizer.Sanitize(await File.ReadAllTextAsync(path, ct), identifiers);
-                var files = new List<OllamaService.CodeFile> { new() { Name = "file-1", Content = content } };
+                var files = new List<OllamaService.CodeFile>();
+                foreach (var target in reviewFiles)
+                {
+                    var content = StudentDataSanitizer.Sanitize(await File.ReadAllTextAsync(target.Path, ct), identifiers);
+                    files.Add(new() { Name = StudentDataSanitizer.AnonymousFileName(files.Count + 1, Path.GetExtension(target.Path)), Content = content });
+                }
                 var prompt = OverallFeedbackPrompt.WithFiles(
                     OverallFeedbackPrompt.BuildInstructions(assignment, settings.RequirementsTemplate, identifiers), files);
                 var feedback = settings.Provider switch
                 {
                     LLMProvider.AzureOpenAI => await new AzureOpenAIService(settings.AzureEndpoint, settings.AzureApiKey, settings.AzureDeployment)
-                        .AnalyzeCodeAsync(prompt, [new CodeFile { FileName = "file-1", Content = content }], ct, wrapPrompt: false, jobTitle: "Batch overall file review"),
+                        .AnalyzeCodeAsync(prompt, files.Select(file => new CodeFile { FileName = file.Name, Content = file.Content }).ToList(), ct, wrapPrompt: false, jobTitle: "Batch submission review"),
                     LLMProvider.Ollama => await new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel)
-                        .AnalyzeCodeAsync(files, prompt, wrapPrompt: false, cancellationToken: ct, jobTitle: "Batch overall file review"),
+                        .AnalyzeCodeAsync(files, prompt, wrapPrompt: false, cancellationToken: ct, jobTitle: "Batch submission review"),
                     _ => throw new InvalidOperationException("Unsupported batch provider.")
                 };
                 ct.ThrowIfCancellationRequested();
-                if (!_reviewGeneration.IsCurrent(path, version)) throw new InvalidOperationException("Review was cleared while this file was being reviewed.");
+                if (reviewFiles.Any(target => !_reviewGeneration.IsCurrent(target.Path, target.Version))) throw new InvalidOperationException("Review was cleared while this file was being reviewed.");
                 if (string.IsNullOrWhiteSpace(feedback)) throw new InvalidOperationException("The model returned no feedback.");
-                CompleteOverallFileReview([(path, version)], item.Context, feedback, approve, publishToDraft: approve);
+                CompleteOverallFileReview(reviewFiles.ToArray(), item.Context, feedback, approve, publishToDraft: approve);
             }, cancellation);
         }, (item, status) =>
         {
@@ -182,7 +186,7 @@ public partial class MainWindow
         var comments = _fileComments.TryGetValue(path, out var cached) ? cached : _commentPersistenceService.LoadComments(path);
         _commentPersistenceService.DeleteComments(path);
         _reviewGeneration.Clear(path);
-        _fileComments.Remove(path);
+        RefreshPersistedComments(path);
         foreach (var key in _reviewDrafts.Keys.ToArray())
         {
             var matching = comments.Where(c => ReviewContext.Matches(c.ReviewContext.Length == 0 ? context : c.ReviewContext, key));

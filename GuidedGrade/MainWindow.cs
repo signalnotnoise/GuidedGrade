@@ -1,3 +1,4 @@
+using GuidedGrade.ViewModels;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 using GuidedGrade.Models;
@@ -29,7 +30,7 @@ namespace GuidedGrade
 
         private FileTab? _selectedTabButton;
         private ViolationHighlighter _violationHighlighter = null!;
-        private double _sidePanelWidth = 500;
+        private double _sidePanelWidth = 380;
         private string? _openedDirectoryPath;
 
         // Section grading
@@ -467,14 +468,14 @@ namespace GuidedGrade
 
         private void SetupAssignmentMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            var setupWindow = new Windows.AssignmentSetupWindow(_currentAssignment)
+            var setupWindow = new Windows.AssignmentSetupWindow(_assignmentPersistenceService, _currentAssignment)
             {
                 Owner = this
             };
 
             if (setupWindow.ShowDialog() == true)
             {
-                SetReviewAssignment(setupWindow.Assignment);
+                RefreshSavedAssignmentSelection(setupWindow.Assignment);
                 ReloadSubmissionFolders();
                 CloseSidePanel();
                 MessageBox.Show($"Assignment '{setupWindow.Assignment.Title}' configured with {setupWindow.Assignment.Rubric.Count} rubric items.",
@@ -574,7 +575,8 @@ namespace GuidedGrade
             {
                 TrackCommentForFile(filePath, feedback, publishToDraft: false);
                 PersistCommentsForFile(filePath);
-                RestoreApprovedFeedback(filePath, new[] { feedback });
+                RestoreApprovedFeedback(filePath, _fileComments[filePath]);
+                RenderCommentsForFile(filePath);
             }
         }
 
@@ -660,11 +662,9 @@ namespace GuidedGrade
 
         private void LoadCommentsForFile(string filePath)
         {
-            if (!_fileComments.TryGetValue(filePath, out var comments))
-            {
-                comments = _commentPersistenceService.LoadComments(filePath);
-                _fileComments[filePath] = comments;
-            }
+            // File/assignment selection reads storage rather than reusing a stale cache.
+            RefreshPersistedComments(filePath);
+            var comments = _fileComments[filePath];
 
             RenderCommentsForFile(filePath);
             RestoreApprovedFeedback(filePath, comments);
@@ -679,9 +679,9 @@ namespace GuidedGrade
             if (!_fileComments.TryGetValue(filePath, out var comments))
                 return;
 
-            foreach (var comment in comments.Where(c => MatchesCurrentReview(c) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
+            foreach (var comment in comments.Where(c => !c.IsOverallReview && (MatchesCurrentReview(c) || c.ReviewContext.Length == 0) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
             {
-                _commentLayer?.AddComment(comment, comment.StartLine, comment.EndLine);
+                _commentLayer?.AddComment(comment, comment.StartLine, comment.EndLine, earlierReview: _currentAssignment != null && comment.ReviewContext.Length == 0);
             }
         }
 
@@ -812,6 +812,7 @@ namespace GuidedGrade
             if (_fileComments.TryGetValue(filePath, out var comments))
             {
                 _commentPersistenceService.SaveComments(filePath, comments);
+                RefreshPersistedComments(filePath);
             }
             // An absent cache entry means this file was never loaded, not that
             // its persisted reviews should be deleted. Clear review is explicit.
@@ -1130,7 +1131,7 @@ namespace GuidedGrade
                 // Delete first: a storage failure must not leave a falsely cleared UI.
                 _commentPersistenceService.DeleteComments(item.FullPath);
                 _reviewGeneration.Clear(item.FullPath);
-                _fileComments.Remove(item.FullPath);
+                RefreshPersistedComments(item.FullPath);
                 if (IsSelectedFile(item.FullPath))
                     _commentLayer?.ClearComments();
                 Title = $"GuidedGrade - Review cleared for {item.Name}";
@@ -1241,13 +1242,7 @@ namespace GuidedGrade
             var identifiers = GetStudentIdentifiers(solutionPath).ToArray();
             var checkedPaths = GetCheckedFiles(fileTreeView.Items)
                 .Where(file => !file.IsSolution && searchRoot != null && ReviewContext.Contains(searchRoot, file.FullPath)).Select(file => file.FullPath).ToArray();
-            var assignment = _currentAssignment == null ? null : new GradingAssignment
-            {
-                Course = _currentAssignment.Course,
-                Title = _currentAssignment.Title,
-                Requirements = _currentAssignment.Requirements,
-                Rubric = _currentAssignment.Rubric.Select(r => new RubricItem(r.Name, r.MaxPoints)).ToList()
-            };
+            var assignment = ReviewContext.Snapshot(_currentAssignment);
             var draftTarget = CurrentFeedbackKey(solutionPath);
             if (assignment?.Rubric.Count > 0 && checkedPaths.Length > 0 &&
                 !ConfirmGrading(settings, $"Test the solution and grade {checkedPaths.Length} checked file(s)?")) return;
@@ -1828,7 +1823,7 @@ namespace GuidedGrade
         private void OpenSidePanel()
         {
             sidePanelSplitter.Visibility = Visibility.Visible;
-            sidePanelColumn.Width = new GridLength(Math.Min(_sidePanelWidth, Math.Max(300, ActualWidth * 0.45)));
+            sidePanelColumn.Width = new GridLength(Math.Min(_sidePanelWidth, Math.Max(300, ActualWidth * 0.35)));
             UpdatePinnedTabs();
         }
 

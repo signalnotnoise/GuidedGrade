@@ -1,4 +1,4 @@
-﻿using GuidedGrade.Models;
+using GuidedGrade.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +32,11 @@ namespace GuidedGrade.Services
                 return results;
             }
 
+            if (Path.GetExtension(filepath).Equals(".fslog", StringComparison.OrdinalIgnoreCase))
+            {
+                var log = FsLogReader.Read(filepath);
+                return [new Result("Builds from " + Path.GetFileName(filepath), log.BuildCount)];
+            }
             var lines = File.ReadAllLines(filepath);
             var extension = Path.GetExtension(filepath).ToLower();
             var filename = Path.GetFileName(filepath).ToLower();

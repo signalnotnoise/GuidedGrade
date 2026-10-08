@@ -1,3 +1,5 @@
+using GuidedGrade.Views;
+using GuidedGrade.ViewModels;
 using System.IO;
 using System.Windows;
 using GuidedGrade.Models;
@@ -38,20 +40,18 @@ public partial class MainWindow
     internal void SaveStudentGrade(string context, StudentGrade? grade)
     {
         _gradePersistence.Save(context, grade);
-        if (grade == null) _studentGrades.Remove(context); else _studentGrades[context] = grade;
+        // Publish a complete persisted snapshot so course totals include other saved grades.
+        var persisted = _gradePersistence.LoadAll();
+        _studentGrades.Clear();
+        foreach (var entry in persisted) _studentGrades.Add(entry.Key, entry.Value);
         _gradeRevision.Value++;
     }
 
-    private static string GradeColor(StudentGrade? grade) => grade == null ? "#AAB8C8" : "#83DECF";
-    private static View GradeBadge(StudentGrade? grade, string label) => Text(label + " " + (grade == null ? "—" : $"{grade.Percentage:0.#}%"))
-        .FontSize(12).Foreground(GradeColor(grade)).Padding(6).Background(grade == null ? "#29323E" : "#173C3B");
-
+    private static string GradeColor(StudentGrade? grade) => new GradeBadgeViewModel(grade, "").Color;
     private View BuildStudentGradeRow(Student student)
     {
         _ = _gradeRevision.Value;
-        return FlexRow(Text(student.FullName).FontSize(13).Flex(1),
-                VStack(GradeBadge(GradeForStudent(student), "Assignment"), GradeBadge(TotalForStudent(student), "Total")).Spacing(3).Flex(0))
-            .Spacing(8).Padding(4).Background("#1B1E23");
+        return new StudentGradeRowView(new StudentGradeRowViewModel(student.FullName, GradeForStudent(student), TotalForStudent(student))).Build();
     }
 
     private View BuildGradeScope()
@@ -67,11 +67,11 @@ public partial class MainWindow
         _ = _gradeRevision.Value;
         var grade = CanEditGrade ? _studentGrades.GetValueOrDefault(CurrentFeedbackKey()) : null;
         var total = listBoxStudents.SelectedItem is Student student ? TotalForStudent(student) : null;
-        return HStack(Button(CanEditGrade ? "Assignment: " + (grade?.Summary ?? "Not graded") : "Grade: select an assignment and file", EditStudentGrade)
-            .IsEnabled(CanEditGrade).Foreground(GradeColor(grade)).Background(grade == null ? "#29323E" : "#173C3B")
-            .AccessibilityLabel("Edit student grade"),
-            Text("Course total: " + (total?.Summary ?? "Not graded")).FontSize(12).Foreground(GradeColor(total))
-                .AccessibilityLabel("Student course total")).Spacing(12);
+        return HStack(new Views.ToolbarActionView(new ViewModels.ToolbarActionViewModel(
+            CanEditGrade ? "Assignment: " + (grade?.Summary ?? "Not graded") : "Grade: select an assignment and file",
+            EditStudentGrade, "Edit student grade", CanEditGrade, GradeColor(grade))).Build(),
+            new Views.ToolbarLabelView(new ViewModels.ToolbarLabelViewModel("Course total: " + (total?.Summary ?? "Not graded"))).Build()
+                .Foreground(GradeColor(total)).AccessibilityLabel("Student course total")).Spacing(8);
     }
 
     private void EditStudentGrade()

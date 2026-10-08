@@ -40,7 +40,7 @@ public class OllamaStructuredOutputTests
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
             Assert.AreEqual(4, schema.GetProperty("required").GetArrayLength());
             Assert.IsFalse(schema.GetProperty("additionalProperties").GetBoolean());
-            CollectionAssert.AreEqual(new[] { "type", "wait", "close", "stop" },
+            CollectionAssert.AreEqual(new[] { "type", "key", "click", "wait", "close", "stop" },
                 schema.GetProperty("properties").GetProperty("action").GetProperty("enum")
                     .EnumerateArray().Select(x => x.GetString()).ToArray());
         }

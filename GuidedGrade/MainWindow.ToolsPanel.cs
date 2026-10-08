@@ -13,7 +13,8 @@ public partial class MainWindow
 
     private void SelectToolsPanel(bool violations, bool toggleSelected = false)
     {
-        var collapse = toggleSelected && violations == _violationsToolSelected && toolsPanelContent.Visibility == Visibility.Visible;
+        var collapse = !_logSelected.Value && toggleSelected && violations == _violationsToolSelected && toolsPanelContent.Visibility == Visibility.Visible;
+        _logSelected.Value = false;
         _violationsToolSelected = violations;
         _violationsSelected.Value = violations;
         SetToolsPanelVisible(!collapse);
@@ -23,9 +24,10 @@ public partial class MainWindow
     {
         toolsPanelRow.Height = visible ? new GridLength(0.65, GridUnitType.Star) : new GridLength(0);
         toolsPanelContent.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        violationsPanel.Visibility = visible && _violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
-        runtimeTerminalPanel.Visibility = visible && !_violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
-        runtimeTerminalPanel.Tag = visible && !_violationsToolSelected ? "open" : "closed";
+        violationsPanel.Visibility = visible && !_logSelected.Value && _violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
+        runtimeTerminalPanel.Visibility = visible && !_logSelected.Value && !_violationsToolSelected ? Visibility.Visible : Visibility.Collapsed;
+        runtimeTerminalPanel.Tag = visible && !_logSelected.Value && !_violationsToolSelected ? "open" : "closed";
+        _logPanel.Visibility = visible && _logSelected.Value ? Visibility.Visible : Visibility.Collapsed;
         _toolsVisible.Value = visible;
     }
 }

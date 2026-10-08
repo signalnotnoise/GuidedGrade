@@ -124,6 +124,7 @@ namespace GuidedGrade.Services
 
             sb.AppendLine("# ASSIGNMENT CONTEXT");
             sb.AppendLine(_assignment.Requirements);
+            sb.AppendLine(AssignmentGradingInstructions.Build(_assignment, includeOutputFormat: false));
             sb.AppendLine();
 
             sb.AppendLine("# GRADING SECTION");

@@ -75,3 +75,5 @@ publication alone does not establish that this app has migrated.
 
 Rollback metadata for `0.1.0-alpha.3-local.1` is under `history/local.4`; the
 older exact packages remain beside this candidate.
+
+October 7 workspace refinement: the pinned package lacks declarative tab/link styling and explicit vertical text alignment used by toolbar labels. Application-owned native adapters provide these presentations; NavigationTab uses an attached selected property independent of framework identity tags. Scoped centered ContentPresenter button styling preserves rich content. Reported to the authorized CUI task. No package bytes or performance claims changed.

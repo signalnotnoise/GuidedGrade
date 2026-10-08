@@ -1,9 +1,11 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using UI_Framework;
 using UI_Framework.Wpf;
 using GuidedGrade.Presentation;
+using GuidedGrade.Views;
+using GuidedGrade.ViewModels;
 using static UI_Framework.UI;
 
 namespace GuidedGrade;
@@ -22,7 +24,7 @@ public partial class MainWindow
         if (listBoxStudents.SelectedItem is not Models.Student { Folder: not null } student || _currentAssignment == null) return [];
         return _commentPersistenceService.GetReviewedFiles()
             .Where(file => Services.ReviewContext.Contains(student.Folder, file.FilePath) &&
-                Services.ReviewContext.Matches(file.Context, Services.ReviewContext.Key(student.Folder, _currentAssignment, file.FilePath)))
+                (file.Context.Length == 0 || Services.ReviewContext.Matches(file.Context, Services.ReviewContext.Key(student.Folder, _currentAssignment, file.FilePath))))
             .Select(file => file.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Where(System.IO.File.Exists).ToArray();
     }
 
@@ -37,10 +39,23 @@ public partial class MainWindow
         return true;
     }
 
+    private View BuildEarlierReviews()
+    {
+        _ = _savedReviewRevision.Value;
+        var comments = _selectedTabButton?.Tag is string path && _fileComments.TryGetValue(path, out var saved)
+            ? saved.Where(c => c.ReviewContext.Length == 0 && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected).ToArray() : [];
+        var pending = _selectedTabButton?.Tag is string active && _fileComments.TryGetValue(active, out var records)
+            ? records.Where(c => c.IsOverallReview && MatchesCurrentReview(c) && c.ReviewStatus == Models.FeedbackReviewStatus.Pending).ToArray() : [];
+        return VStack(new OverallReviewPanelView(new OverallReviewPanelViewModel(pending, c => CommentLayer_ApproveRequested(this, c))).Build(),
+            new EarlierReviewsView(new EarlierReviewsViewModel(comments)).Build()).Spacing(8);
+    }
+
     private readonly Dictionary<string, string> _reviewDrafts = new();
     private readonly HashSet<string> _restoredFeedback = new(StringComparer.Ordinal);
     private string FeedbackIdentity(string filePath, Models.SectionFeedback feedback, string? draftTarget = null) =>
-        (draftTarget ?? CurrentFeedbackKey()) + "|" + filePath + "|" + feedback.StartLine + "|" + feedback.EndLine + "|" + feedback.SectionName;
+        feedback.IsOverallReview
+            ? (draftTarget ?? CurrentFeedbackKey()) + "|overall|" + feedback.SectionName + "|" + feedback.Explanation
+            : (draftTarget ?? CurrentFeedbackKey()) + "|" + filePath + "|" + feedback.StartLine + "|" + feedback.EndLine + "|" + feedback.SectionName;
     private void MarkFeedbackImported(string filePath, Models.SectionFeedback feedback, string? draftTarget = null)
         => _restoredFeedback.Add(FeedbackIdentity(filePath, feedback, draftTarget));
 
@@ -80,11 +95,13 @@ public partial class MainWindow
     internal void SetReviewAssignment(Models.GradingAssignment assignment)
     {
         _currentAssignment = assignment;
+        _reviewAssignmentSelected.Value = true;
         RefreshReviewSelection();
     }
 
     private void RefreshReviewSelection()
     {
+        if (_logSelected.Value || _logModel.IsLoaded.Value) LoadAssignmentLog();
         RefreshGradeSelection();
         if (_selectedTabButton?.Tag is string path) LoadCommentsForFile(path);
         if (_feedbackEditorKey != null && _feedbackEditorKey != CurrentFeedbackKey())
@@ -114,14 +131,8 @@ public partial class MainWindow
     {
         var assignment = _currentAssignment;
         _rubricHost?.Dispose();
-        rubricDetailsTab.Content = _rubricHost = ReviewTheme.Host(() => Scroll(VStack(
-            Text(assignment?.Title ?? "Assignment and rubric").FontSize(22),
-            Text(assignment?.Requirements ?? "Choose a saved assignment or set one up to define expectations."),
-            Text("Rubric").FontSize(18),
-            VStack(assignment?.Rubric.Select((item, index) => Text($"{item.Name}: {item.MaxPoints} points").Id(index.ToString())).ToArray() ?? [] ).Spacing(10),
-            HStack(Button("Set up assignment", () => WorkspaceAssignment_Click(this, new())),
-                Button("Close panel", CloseSidePanel)).Spacing(8)
-        ).Spacing(14).Padding(18)));
+        var model = new ReviewRubricViewModel(assignment, () => WorkspaceAssignment_Click(this, new()));
+        rubricDetailsTab.Content = _rubricHost = ReviewTheme.Host(new ReviewRubricView(model).Build);
         rightPanelTabs.SelectedItem = rubricDetailsTab;
         OpenSidePanel();
     }
@@ -172,19 +183,9 @@ public partial class MainWindow
             try { System.IO.File.WriteAllText(dialog.FileName, student.FullName + "\n" + assignmentTitle + "\n\n" + draft.Value); }
             catch (Exception ex) { MessageBox.Show(this, "Could not export feedback: " + ex.Message, "Export feedback"); }
         }
-        _feedbackHost = ReviewTheme.Host(() => Scroll(VStack(
-            Text(student.FullName).FontSize(18), Text(assignmentTitle).FontSize(14),
-            SavedReviewLinks(student),
-            Text("Feedback draft - export to keep a copy").FontSize(12),
-            TextEditor(draftBinding).Height(_feedbackHeight.Value).UndoLimit(100).AccessibilityLabel("Editable feedback draft"),
-            Picker(new[] { "TXT", "Markdown", "HTML" }, format).AccessibilityLabel("Clipboard format"),
-            HStack(Button(copyLabel.Value, Copy).IsEnabled(!string.IsNullOrWhiteSpace(draft.Value)), Button("Export feedback", Export)).Spacing(8),
-            Button("Close feedback", CloseSidePanel),
-            Toggle("Programming results and deductions", _showProgrammingResults),
-            _showProgrammingResults.Value
-                ? WpfUI.Native(() => _gradingView).Height(350).Id("programming-results")
-                : Text("").Id("programming-results-collapsed")
-        ).Spacing(10).Padding(12)));
+        var model = new FeedbackPanelViewModel(student.FullName, assignmentTitle, () => SavedReviewLinks(student), draftBinding,
+            _feedbackHeight, format, copyLabel, _showProgrammingResults, _gradingView, Copy, Export, BuildEarlierReviews);
+        _feedbackHost = ReviewTheme.Host(new FeedbackPanelView(model).Build);
         commentsDetailsTab.Content = _feedbackHost;
         rightPanelTabs.SelectedItem = commentsDetailsTab;
         OpenSidePanel();

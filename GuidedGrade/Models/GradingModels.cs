@@ -28,6 +28,11 @@ namespace GuidedGrade.Models
     /// </summary>
     public class GradingAssignment
     {
+        public string CourseReviewRules { get; set; } = "";
+        public List<string> ReviewFilePaths { get; set; } = new();
+        public string LogFilePath { get; set; } = "";
+        public AssignmentFeedbackOptions FeedbackOptions { get; set; } = new();
+        public List<AssignmentDeduction> Deductions { get; set; } = new();
         public string Course { get; set; }
         public string Title { get; set; }
         public string Requirements { get; set; }
@@ -66,6 +71,24 @@ namespace GuidedGrade.Models
         public double PercentageScore => TotalMaxPoints > 0 
             ? (double)TotalEarnedPoints / TotalMaxPoints * 100 
             : 0;
+    }
+
+    public class AssignmentDeduction
+    {
+        public string Rule { get; set; } = "";
+        public double Points { get; set; }
+        public bool RequiresInstructorConfirmation { get; set; }
+    }
+
+    public class AssignmentFeedbackOptions
+    {
+        public int DetailLevel { get; set; } = 3;
+        public string ReadingLevel { get; set; } = "High school";
+        public bool AddressDirectly { get; set; } = true;
+        public bool IncludeScoreBreakdown { get; set; } = true;
+        public bool IncludeDeductions { get; set; } = true;
+        public bool IncludeFinalGrade { get; set; } = true;
+        public bool IncludeFeedback { get; set; } = true;
     }
 
     /// <summary>

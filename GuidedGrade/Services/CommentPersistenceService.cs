@@ -209,6 +209,18 @@ namespace GuidedGrade.Services
             return result;
         }
 
+        internal List<string> GetAllReviewedPaths()
+        {
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT DISTINCT FilePath FROM SectionComments";
+            using var reader = command.ExecuteReader();
+            var result = new List<string>();
+            while (reader.Read()) result.Add(reader.GetString(0));
+            return result;
+        }
+
         internal List<(string FilePath, string Context)> GetReviewedFiles()
         {
             using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -219,6 +231,33 @@ namespace GuidedGrade.Services
             var files = new List<(string, string)>();
             while (reader.Read()) files.Add((reader.GetString(0), reader.GetString(1)));
             return files;
+        }
+
+        // Delete only contexts explicitly attributed to this course and assignment.
+        // Legacy unscoped comments cannot safely be attributed and remain intact.
+        internal List<string> DeleteAssignmentReviews(GradingAssignment assignment, IReadOnlyList<string>? paths = null)
+        {
+            using var connection = new SqliteConnection($"Data Source={_databasePath}");
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            var predicate = "CASE WHEN json_valid(ReviewContext) THEN json_extract(ReviewContext, '$[1]') END = @course AND CASE WHEN json_valid(ReviewContext) THEN json_extract(ReviewContext, '$[2]') END = @title";
+            command.Parameters.AddWithValue("@course", assignment.Course);
+            command.Parameters.AddWithValue("@title", assignment.Title);
+            if (paths != null)
+            {
+                if (paths.Count == 0) return [];
+                var parameters = paths.Select((path, index) => { var name = "@path" + index; command.Parameters.AddWithValue(name, path); return name; });
+                predicate += " AND FilePath COLLATE NOCASE IN (" + string.Join(",", parameters) + ")";
+            }
+            command.CommandText = "SELECT DISTINCT FilePath FROM SectionComments WHERE " + predicate;
+            var affected = new List<string>();
+            using (var reader = command.ExecuteReader()) while (reader.Read()) affected.Add(reader.GetString(0));
+            command.CommandText = "DELETE FROM SectionComments WHERE " + predicate;
+            command.ExecuteNonQuery();
+            transaction.Commit();
+            return affected;
         }
 
         public void DeleteComments(string filePath)

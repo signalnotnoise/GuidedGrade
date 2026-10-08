@@ -18,6 +18,207 @@ namespace GuidedGrade.Tests.Services;
 public class FrameworkMigrationTests
 {
     [TestMethod]
+    public void LogPanelRendersDecodedSnapshotAndClearsPreviousContent() => RunSta(() =>
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            using (var writer = new BinaryWriter(File.Create(path)))
+            {
+                writer.Write(0x474C5346u); writer.Write(2f); writer.Write(1u);
+                var name = System.Text.Encoding.ASCII.GetBytes("Game.cpp"); writer.Write((uint)name.Length); writer.Write(name);
+                writer.Write(1700000000ul);
+                var content = System.Text.Encoding.ASCII.GetBytes("void Run() {}").Select(b => unchecked((byte)(b + 128))).ToArray(); writer.Write((uint)content.Length); writer.Write(content);
+            }
+            var model = new GuidedGrade.ViewModels.LogPanelViewModel();
+            using var host = GuidedGrade.Presentation.ReviewTheme.Host(() => new GuidedGrade.Views.LogPanelView(model).Build());
+            Layout(host, 1000, 300);
+            model.Load(path); Flush(); Layout(host, 1000, 300);
+            Assert.AreEqual("void Run() {}", model.Source.Text);
+            Assert.AreEqual(1, model.Snapshots.Items.Count);
+            Assert.AreEqual(1, model.BuildCount);
+            Assert.IsTrue(model.IsLoaded.Value);
+            Assert.AreEqual(1, model.RecordedBuildCount.Value);
+            Assert.AreEqual(1, model.History.Points.Count);
+            Assert.AreNotEqual(model.Snapshots.Foreground.ToString(), model.Snapshots.Background.ToString());
+            Assert.AreNotEqual(model.Source.Foreground.ToString(), model.Source.Background.ToString());
+            model.Clear("No log for current student"); Flush(); Layout(host, 1000, 300);
+            Assert.AreEqual("", model.Source.Text);
+            Assert.AreEqual(0, model.Snapshots.Items.Count);
+            Assert.IsFalse(model.IsLoaded.Value);
+            Assert.AreEqual(0, model.RecordedBuildCount.Value);
+        }
+        finally { File.Delete(path); }
+    });
+
+    [TestMethod]
+    public void WindowInputDispatcherDeliversPhysicalKeysToOwnedWindow() => RunSta(() =>
+    {
+        var text = new TextBox();
+        var window = new Window { Title = "GuidedGrade input validation", Width = 320, Height = 180, Content = text };
+        var keys = new List<System.Windows.Input.Key>();
+        var clicks = 0;
+        window.AddHandler(System.Windows.Input.Mouse.MouseUpEvent, new System.Windows.Input.MouseButtonEventHandler((_, _) => clicks++), true);
+        text.KeyUp += (_, e) => keys.Add(e.Key);
+        try
+        {
+            window.Show(); window.Activate(); text.Focus(); Flush();
+            foreach (var key in new ushort[] { 0x57, 0x20, 0x1B })
+            {
+                WindowInputDispatcher.Send((uint)System.Diagnostics.Process.GetCurrentProcess().Id, new("key", key));
+                var frame = new DispatcherFrame();
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+                timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+                timer.Start(); Dispatcher.PushFrame(frame);
+            }
+            CollectionAssert.AreEqual(new[] { System.Windows.Input.Key.W, System.Windows.Input.Key.Space, System.Windows.Input.Key.Escape }, keys);
+            Assert.AreEqual("w ", text.Text.ToLowerInvariant());
+            WindowInputDispatcher.Send((uint)System.Diagnostics.Process.GetCurrentProcess().Id, new("click", X: 0.5, Y: 0.5));
+            var clickFrame = new DispatcherFrame();
+            var clickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            clickTimer.Tick += (_, _) => { clickTimer.Stop(); clickFrame.Continue = false; };
+            clickTimer.Start(); Dispatcher.PushFrame(clickFrame);
+            Assert.AreEqual(1, clicks);
+        }
+        finally { window.Close(); }
+    });
+
+    [TestMethod]
+    public void EarlierSectionsRemainVisibleAndReopeningReadsFreshPersistedComments() => RunSta(() =>
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "EarlierReviews-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, "Code.cpp"); File.WriteAllText(file, "// line one\n// line two");
+        var database = Path.Combine(directory, "reviews.db");
+        var persistence = new CommentPersistenceService(database);
+        var assignment = new GradingAssignment { Course = "PG2", Title = "Lab 1" };
+        persistence.SaveComments(file, [new() { SectionName = "Old section", StartLine = 1, EndLine = 1,
+            Explanation = "Earlier saved explanation", ReviewStatus = FeedbackReviewStatus.Approved }]);
+        var window = new GuidedGrade.MainWindow(new AssignmentPersistenceService(database), persistence);
+        try
+        {
+            window.SetReviewAssignment(assignment);
+            window.listBoxStudents.Items.Add(new Student("Alex", "Rivera", "1", directory));
+            window.listBoxStudents.SelectedIndex = 0;
+            var host = (FrameworkElement)window.Content;
+            Layout(host, 1200, 800);
+            Assert.AreEqual(1, Descendants<InlineCommentAdorner>(host).Count());
+            ClickShell(window, "Comments panel");
+            var panel = (FrameworkElement)window.commentsDetailsTab.Content;
+            Layout(panel, 400, 600);
+            Assert.IsTrue(Descendants<TextBlock>(panel).Any(t => t.Text.Contains("Earlier saved explanation")));
+            var draft = Descendants<TextBox>(panel).Single(t => AutomationProperties.GetName(t) == "Editable feedback draft");
+            Assert.IsFalse(draft.Text.Contains("Earlier saved explanation"));
+            var saved = persistence.LoadComments(file);
+            saved.Add(new() { SectionName = "New section", StartLine = 2, EndLine = 2, Explanation = "Fresh saved section",
+                ReviewContext = ReviewContext.Key(directory, assignment, file) });
+            persistence.SaveComments(file, saved);
+            Assert.IsTrue(window.OpenSavedReviewForSelectedStudent());
+            Layout(host, 1200, 800);
+            Assert.AreEqual(2, Descendants<InlineCommentAdorner>(host).Count());
+            window.SetReviewAssignment(new() { Course = "PG2", Title = "Different" });
+            Layout(host, 1200, 800);
+            Assert.AreEqual(1, Descendants<InlineCommentAdorner>(host).Count());
+            Assert.AreEqual("Old section", Descendants<InlineCommentAdorner>(host).Single().Feedback.SectionName);
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
+    });
+
+    [TestMethod]
+    public void ReviewMenuUsesSelectionAndClearsOnlyCurrentAssignment() => RunSta(() =>
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ReviewMenu-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var database = Path.Combine(directory, "reviews.db");
+        var comments = new CommentPersistenceService(database);
+        var window = new GuidedGrade.MainWindow(new AssignmentPersistenceService(database), comments);
+        try
+        {
+            var host = (FrameworkElement)window.Content;
+            Layout(host, 1200, 800);
+            Assert.IsFalse(Descendants<MenuItem>(host).Any(m => AutomationProperties.GetName(m) == "Review menu"));
+            var assignment = new GradingAssignment { Course = "PG2", Title = "Lab 1", Rubric = [new("Correctness", 100)] };
+            window.SetReviewAssignment(assignment);
+            var file = Path.Combine(directory, "One.cpp"); var other = Path.Combine(directory, "Two.cpp");
+            File.WriteAllText(file, "int main() {} "); File.WriteAllText(other, "// other");
+            var item = new FileSystemItem(file, false);
+            window.fileTreeView.Items.Add(item);
+            Layout(host, 1200, 800);
+            var review = Descendants<MenuItem>(host).Single(m => AutomationProperties.GetName(m) == "Review menu");
+            void Refresh() => review.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, review));
+            MenuItem Option(string label) => review.Items.OfType<MenuItem>().Single(m => Equals(m.Header, label));
+            Refresh();
+            Assert.IsFalse(Option("Selection review").IsEnabled);
+            Assert.IsFalse(Option("Overall review").IsEnabled);
+            Assert.IsFalse(Option("Clear reviews").IsEnabled);
+            item.IsCheckedForAnalysis = true;
+            ((TreeViewItem)window.fileTreeView.ItemContainerGenerator.ContainerFromItem(item)).IsSelected = true;
+            window.codeEditor.Select(0, 3);
+            Refresh();
+            Assert.IsTrue(Option("Selection review").IsEnabled);
+            Assert.IsTrue(Option("Overall review").IsEnabled);
+            Assert.IsTrue(Option("Clear reviews").IsEnabled);
+            SectionFeedback Feedback(string path, GradingAssignment a, string name) => new() {
+                SectionName = name, ReviewContext = ReviewContext.Key(directory, a, path), ReviewStatus = FeedbackReviewStatus.Rejected };
+            var different = new GradingAssignment { Course = "PG2", Title = "Lab 2" };
+            comments.SaveComments(file, [Feedback(file, assignment, "Delete"), Feedback(file, different, "Keep"), new() { SectionName = "Legacy" }]);
+            comments.SaveComments(other, [Feedback(other, assignment, "Other file")]);
+            window.ClearAssignmentReviews(false);
+            CollectionAssert.AreEquivalent(new[] { "Keep", "Legacy" }, comments.LoadComments(file).Select(c => c.SectionName).ToArray());
+            Assert.AreEqual(1, comments.LoadComments(other).Count);
+            window.ClearAssignmentReviews(true);
+            Assert.AreEqual(0, comments.LoadComments(other).Count);
+            Assert.AreEqual(2, comments.LoadComments(file).Count);
+            Capture(host, "workspace-review-menu", 1200, 800);
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
+    });
+
+    [TestMethod]
+    public void DatabaseWritesRefreshPersistedGradesAndAssignmentSelectors() => RunSta(() =>
+    {
+        var database = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
+        var persistence = new AssignmentPersistenceService(database);
+        var window = new GuidedGrade.MainWindow(persistence, new CommentPersistenceService(database));
+        try
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "RefreshStudent");
+            var student = new Student("Alex", "Rivera", "1", folder);
+            var first = new GradingAssignment { Course = "PG2", Title = "Lab 1", Rubric = [new("Correctness", 100)] };
+            var second = new GradingAssignment { Course = "PG2", Title = "Lab 2", Rubric = [new("Correctness", 100)] };
+            var firstKey = ReviewContext.Key(folder, first, Path.Combine(folder, "Lab", "One.cpp"));
+            var secondKey = ReviewContext.Key(folder, second, Path.Combine(folder, "Lab", "Two.cpp"));
+            // Another persistence owner writes after the window took its initial snapshot.
+            new GradePersistenceService(database).Save(secondKey, new(60, 100));
+            window.SetReviewAssignment(first);
+            window.SaveStudentGrade(firstKey, new(80, 100));
+            Assert.AreEqual(new StudentGrade(140, 200), window.TotalForStudent(student));
+            window.SaveStudentGrade(firstKey, null);
+            Assert.AreEqual(new StudentGrade(60, 100), window.TotalForStudent(student));
+
+            persistence.SaveAssignment(first);
+            first.Requirements = "Persisted instructions";
+            persistence.SaveAssignment(first);
+            window.RefreshSavedAssignmentSelection(new() { Course = first.Course, Title = first.Title, Requirements = "Stale caller" });
+            var host = (FrameworkElement)window.Content;
+            Layout(host, 1200, 800);
+            var course = Descendants<MenuItem>(host).Single(c => AutomationProperties.GetName(c) == "Saved course");
+            var assignment = Descendants<MenuItem>(host).Single(c => AutomationProperties.GetName(c) == "Saved assignment");
+            Assert.AreEqual("Course: PG2", course.Header);
+            Assert.IsTrue(course.Items.OfType<MenuItem>().Single().IsChecked);
+            Assert.AreEqual("Assignment: Lab 1", assignment.Header);
+            Assert.IsTrue(assignment.Items.OfType<MenuItem>().Single().IsChecked);
+            ClickShell(window, "Rubric panel");
+            var panel = (FrameworkElement)window.rubricDetailsTab.Content;
+            Layout(panel, 400, 600);
+            Descendants<CheckBox>(panel).Single(c => Equals(c.Content, "Show assignment instructions")).IsChecked = true;
+            Layout(panel, 400, 600);
+            Assert.IsTrue(Descendants<TextBlock>(panel).Any(t => t.Text == "Persisted instructions"));
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(database); }
+    });
+
+    [TestMethod]
     public void SelectingStudentReopensPersistedBatchReviewInNestedFolderAndBothDisplays() => RunSta(() =>
     {
         var directory = Path.Combine(Path.GetTempPath(), "BatchDisplay-" + Guid.NewGuid());
@@ -40,14 +241,12 @@ public class FrameworkMigrationTests
             window.listBoxStudents.SelectedItem = student;
             Layout(host, 1200, 800);
             StringAssert.Contains(window.codeEditor.Text, "// source 1");
-            var card = Descendants<InlineCommentAdorner>(host).Single();
-            Assert.AreEqual("Persisted approved batch feedback", card.Feedback.Explanation);
+            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
             var draft = Descendants<TextBox>((FrameworkElement)window.commentsDetailsTab.Content).Single(c => AutomationProperties.GetName(c) == "Editable feedback draft");
             StringAssert.Contains(draft.Text, "Persisted approved batch feedback");
             window.codeEditor.ScrollToLine(180);
             Layout(host, 1200, 800);
-            Assert.AreEqual(Visibility.Visible, card.Visibility);
-            Assert.IsTrue(card.ActualWidth > 0);
+            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
             window.SetReviewAssignment(new() { Course = "PG1", Title = "Different assignment" });
             Assert.IsFalse(window.OpenSavedReviewForSelectedStudent());
             Layout(host, 1200, 800);
@@ -344,7 +543,7 @@ public class FrameworkMigrationTests
             Assert.AreEqual(File.ReadAllText(other), editor.Text, "Finishing a job must not switch or overwrite the selected file.");
             ((TreeViewItem)tree.ItemContainerGenerator.ContainerFromItem(fileItem)).IsSelected = true;
             Layout(host, 1200, 800);
-            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any(card => card.Feedback.IsOverallReview));
+            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any(card => card.Feedback.IsOverallReview));
             window.CompleteOverallFileReview(window.CaptureOverallReviewFiles(new[] { source }), window.CurrentFeedbackKey(source), "Updated overall review.");
             Assert.AreEqual(1, persistence.LoadComments(source).Count(item => item.IsOverallReview));
             var inFlight = window.CaptureOverallReviewFiles(new[] { source });
@@ -425,7 +624,8 @@ public class FrameworkMigrationTests
             window.listBoxStudents.SelectedItem = studentA;
             Open(lab1);
             Assert.AreEqual("Only A Lab 1", Draft());
-            Assert.AreEqual("Only A Lab 1", Descendants<InlineCommentAdorner>(host).Single().Feedback.Explanation);
+            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<TextBlock>(host).Any(t => t.Text.Contains("Only A Lab 1")));
             Open(lab2);
             Assert.AreEqual("Only A Lab 2", Draft());
 
@@ -441,7 +641,8 @@ public class FrameworkMigrationTests
             Assert.AreEqual(2, new CommentPersistenceService(database).LoadComments(lab2).Count);
             window.SetReviewAssignment(new GradingAssignment { Course = "Course", Title = "Assignment 1" });
             Layout(host, 1200, 800);
-            Assert.AreEqual("Late Assignment 1", Descendants<InlineCommentAdorner>(host).Single().Feedback.Explanation);
+            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<TextBlock>(host).Any(t => t.Text.Contains("Late Assignment 1")));
         }
         finally
         {
@@ -588,8 +789,20 @@ public class FrameworkMigrationTests
         {
             Course = "Programming", Title = "Input validation", Requirements = "Accept valid input and explain invalid input.",
             Rubric = new() { new("Correctness", 7.5), new("Validation", 2.5) }
+            , Deductions = new() { new() { Rule = "External-resource policy violation", Points = 100, RequiresInstructorConfirmation = true } }
         });
         Capture((FrameworkElement)assignment.Content, "assignment", 780, 800);
+        for (var page = 1; page < 5; page++)
+        {
+            assignment.Model.Page.Value = page;
+            Flush();
+            Capture((FrameworkElement)assignment.Content, "assignment-page-" + page, 780, 800);
+        }
+        var importModel = new GuidedGrade.ViewModels.AssignmentImportViewModel();
+        importModel.Text.Value = "* **10pts:** Item class created.\n* **-10pt deduction:** Missing detailed comments.";
+        importModel.Parse();
+        using (var importHost = GuidedGrade.Presentation.ReviewTheme.Host(new GuidedGrade.Views.AssignmentImportView(importModel, () => { }, () => { }).Build))
+            Capture(importHost, "assignment-import", 760, 760);
         assignment.Close();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         File.Delete(database);
@@ -630,6 +843,19 @@ public class FrameworkMigrationTests
             draft.Text = "Instructor edits must remain when changing panels.";
             Flush();
             ClickShell(window, "Rubric panel");
+            var shell = (FrameworkElement)window.Content;
+            Layout(shell, 1000, 700);
+            Assert.IsTrue(window.codeEditor.ActualWidth >= 300, "An open panel must leave room to read source.");
+            var selectedTab = Descendants<Button>(shell).Single(b => AutomationProperties.GetName(b) == "Rubric panel");
+            Assert.AreEqual(true, selectedTab.GetValue(GuidedGrade.Presentation.NativeTheme.TabSelectedProperty));
+            selectedTab.ApplyTemplate();
+            Layout(shell, 1000, 700);
+            var tabBorder = (Border)selectedTab.Template.FindName("tab", selectedTab);
+            Assert.AreEqual(new Thickness(0, 0, 0, 2), tabBorder.BorderThickness);
+            Assert.AreEqual(Color.FromRgb(0x50, 0xB5, 0xFF), ((SolidColorBrush)tabBorder.BorderBrush).Color);
+            var rubricPanel = (FrameworkElement)window.rubricDetailsTab.Content;
+            Assert.IsFalse(Descendants<CheckBox>(rubricPanel).Single(t => Equals(t.Content, "Show assignment instructions")).IsChecked == true);
+            Capture(shell, "workspace-rubric", 1200, 800);
             ClickShell(window, "Comments panel");
             Assert.AreSame(feedbackPanel, comments.Content);
             Assert.AreEqual("Instructor edits must remain when changing panels.", draft.Text);

@@ -8,7 +8,7 @@ namespace GuidedGrade.Tests.Services;
 public class BatchReviewTests
 {
     [TestMethod]
-    public async Task ClearsSelectedFilesThenOptionallyBuildsThenReviewsEachFileInOrder()
+    public async Task ClearsSelectedFilesThenOptionallyBuildsThenReviewsSubmissionOnce()
     {
         var item = new BatchReviewItem(new Student("A", "Student", "1", "A"), "one", "entry", "context", null) { Files = ["one", "two"] };
         foreach (var build in new[] { false, true })
@@ -16,9 +16,9 @@ public class BatchReviewTests
             var calls = new List<string>();
             await BatchReviewPlan.ProcessStudentAsync(item, build, path => { calls.Add("clear " + path); return 7; },
                 _ => { calls.Add("build"); return Task.CompletedTask; },
-                async (path, version, token) => { Assert.AreEqual(7L, version); calls.Add("review " + path); await Task.Yield(); }, CancellationToken.None);
-            CollectionAssert.AreEqual(build ? new[] { "clear one", "clear two", "build", "review one", "review two" } :
-                new[] { "clear one", "clear two", "review one", "review two" }, calls);
+                async (files, token) => { CollectionAssert.AreEqual(new[] { "one", "two" }, files.Select(file => file.Path).ToArray()); Assert.IsTrue(files.All(file => file.Version == 7)); calls.Add("review submission"); await Task.Yield(); }, CancellationToken.None);
+            CollectionAssert.AreEqual(build ? new[] { "clear one", "clear two", "build", "review submission" } :
+                new[] { "clear one", "clear two", "review submission" }, calls);
         }
     }
 

@@ -1,3 +1,5 @@
+using GuidedGrade.Views;
+using GuidedGrade.ViewModels;
 using System.Windows;
 using UI_Framework;
 using UI_Framework.Wpf;
@@ -19,33 +21,9 @@ public partial class MainWindow
     private readonly State<double> _queueHeight = new(220);
     private ViewHost? _queueHost;
 
-    private View BuildQueueView()
-    {
-        var rows = _queueRows.Value;
-        var selected = rows.FirstOrDefault(row => row.Key == _selectedQueueKey.Value);
-        return Scroll(VStack(
-            Text("Job queue").FontSize(20),
-            Button("Design batch review", DesignBatchReview),
-            Button("Open selected student's saved review", () =>
-            {
-                if (!OpenSavedReviewForSelectedStudent())
-                    MessageBox.Show(this, "Select the student and the assignment used for the batch. No saved review file was found for the current selection.", "Saved reviews");
-                else WorkspaceFeedback_Click(this, new());
-            }),
-            TextEditor(new Binding<string>(() => _batchProgress.Value, _ => { })).Height(100).IsReadOnly(true).UndoLimit(0).AccessibilityLabel("Batch progress"),
-            Text("Assignments run before general AI jobs. Active requests finish or cancel before the next starts.").FontSize(13),
-            TextEditor(_freeFormPrompt).Height(80).MaxLength(32000).AccessibilityLabel("Task for AI provider"),
-            HStack(Button("Queue task", () => QueueFreeFormJob_Click(this, new())).IsEnabled(!string.IsNullOrWhiteSpace(_freeFormPrompt.Value)),
-                Button("Clear finished", () => ClearFinishedJobs_Click(this, new()))).Spacing(8),
-            VirtualList(rows.Select(row => VStack(
-                Text(row.Title), Text(row.Description).FontSize(12),
-                HStack(Button("Details", () => _selectedQueueKey.Value = row.Key),
-                    Button("Cancel job", () => CancelQueuedJob(row)).IsEnabled(row.CanCancel)).Spacing(8)
-            ).Spacing(6).Padding(8).Background(row.Key == _selectedQueueKey.Value ? "#344457" : ReviewTheme.Tokens.Surface).Id(row.Key)), _queueHeight.Value),
-            Text("Selected job result"),
-            TextEditor(new Binding<string>(() => selected?.Job.Result ?? "", _ => { })).Height(180).IsReadOnly(true).UndoLimit(0).AccessibilityLabel("Selected job result")
-        ).Spacing(10).Padding(14));
-    }
+    private View BuildQueueView() => new JobQueueView(new JobQueueViewModel(_queueRows, _selectedQueueKey, _batchProgress, _freeFormPrompt, _queueHeight,
+        DesignBatchReview, () => { if (!OpenSavedReviewForSelectedStudent()) MessageBox.Show(this, "Select a student and assignment with a saved review.", "Saved reviews"); else WorkspaceFeedback_Click(this, new()); },
+        () => QueueFreeFormJob_Click(this, new()), () => ClearFinishedJobs_Click(this, new()), CancelQueuedJob)).Build();
 
     private void InitializeJobQueuePanel()
     {
@@ -118,11 +96,4 @@ public partial class MainWindow
         finally { RefreshJobQueue(); }
     }
 
-    private sealed record QueueRow(LlmJobSnapshot Job, bool IsSolution)
-    {
-        public string Key => (IsSolution ? "solution:" : "request:") + Job.Id;
-        public string Title => Job.Title;
-        public string Description => $"{(IsSolution ? "Solution test" : "LLM request")} · {Job.Priority} · {Job.Status}";
-        public bool CanCancel => Job.CanCancel;
-    }
 }
