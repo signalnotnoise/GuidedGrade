@@ -5,8 +5,7 @@ public partial class MainWindow
     // Call only after the storage operation succeeds. Draft editors remain independent.
     private void RefreshPersistedComments(string path)
     {
-        var persisted = _commentPersistenceService.LoadComments(path);
-        _fileComments[path] = persisted;
+        _reviewWorkspace.Reload(path);
         _savedReviewRevision.Value++;
     }
 

@@ -62,40 +62,21 @@ public partial class MainWindow
     private void CompleteInlineOverallReview((string Path, long Version)[] targets, string context,
         IReadOnlyList<Services.ReviewFindingEnvelope.FindingDraft> findings, bool autoApprove)
     {
-        if (targets.Any(target => !_reviewGeneration.IsCurrent(target.Path, target.Version))) return;
-        var sources = targets.Select(target => Services.BoundedTextReader.Read(target.Path)).ToArray();
-        var pinned = targets.SelectMany(target => _commentPersistenceService.LoadComments(target.Path))
-            .Where(comment => comment.ReviewContext == context && comment.IsPinned).ToArray();
-        var reportId = $"{DateTime.UtcNow.Ticks:D19}-{Guid.NewGuid():N}";
-        var routed = findings.Where(finding => !pinned.Any(comment => finding.Id == 0
-            ? comment.IsOverallReview : comment.RubricReview?.CriterionId == finding.Id && comment.RubricReview.IsDeduction == finding.IsDeduction)).Select(finding =>
+        var completed = _reviewWorkspace.CompleteInline(targets, context, findings, autoApprove, _reviewGeneration);
+        if (completed.Paths.Length == 0) return;
+        if (_reviewDrafts.TryGetValue(context, out var draft))
+            _reviewDrafts[context] = Services.ReviewDraftCleanup.Remove(draft, completed.Removed);
+        foreach (var path in completed.Paths)
         {
-            var location = Services.InlineRubricReview.Locate(finding, sources);
-            return (Path: targets[location.File - 1].Path, Comment: Services.InlineRubricReview.Create(finding, location.Line, context, reportId, autoApprove));
-        }).ToArray();
-        foreach (var target in targets)
-        {
-            var comments = _commentPersistenceService.LoadComments(target.Path);
-            var old = comments.Where(c => c.ReviewContext == context && !c.IsPinned && (c.IsOverallReview || c.RubricReview != null)).ToArray();
-            if (_reviewDrafts.TryGetValue(context, out var draft)) _reviewDrafts[context] = Services.ReviewDraftCleanup.Remove(draft, old);
-            comments.RemoveAll(c => old.Contains(c));
-            comments.AddRange(routed.Where(row => row.Path == target.Path).Select(row => row.Comment));
-            _commentPersistenceService.SaveComments(target.Path, comments);
-            RefreshPersistedComments(target.Path);
-            RenderCommentsForFile(target.Path);
-            if (context == CurrentFeedbackKey()) RestoreApprovedFeedback(target.Path, comments);
+            RenderCommentsForFile(path);
+            if (Services.ReviewContext.Matches(context, CurrentFeedbackKey())) RestoreApprovedFeedback(path, _fileComments[path]);
         }
         _savedReviewRevision.Value++;
-        if (routed.Any(row => row.Comment.ReviewStatus == FeedbackReviewStatus.Approved) || pinned.Any(comment => comment.ReviewStatus == FeedbackReviewStatus.Approved)) RefreshRubricGrade(context);
+        if (completed.UpdateGrade) RefreshRubricGrade(context);
     }
     private void RefreshRubricGrade(string context)
     {
-        var paths = _commentPersistenceService.GetAllReviewedPaths();
-        var comments = paths.SelectMany(path => _commentPersistenceService.LoadComments(path)).Where(c => c.ReviewContext == context).ToArray();
-        var possible = comments.Where(c => c.RubricReview is { IsDeduction: false })
-            .OrderByDescending(c => c.RubricReview!.ReportId, StringComparer.Ordinal).GroupBy(c => c.RubricReview!.CriterionId).Sum(group => group.First().RubricReview!.MaximumPoints);
-        if (possible > 0)
-            SaveStudentGrade(context, new(Math.Max(0, Services.InlineRubricReview.ApprovedPoints(comments)), possible));
+        if (_reviewWorkspace.CalculateGrade(context) is { } grade) SaveStudentGrade(context, grade);
     }
 
 }

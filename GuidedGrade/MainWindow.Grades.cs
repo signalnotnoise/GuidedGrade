@@ -80,37 +80,10 @@ public partial class MainWindow
         // Capture identity before opening the editor; saving never follows a later selection.
         var key = CurrentFeedbackKey();
         var existing = _studentGrades.GetValueOrDefault(key);
-        var earned = new State<string>(existing?.Earned.ToString("0.##") ?? "");
-        var possible = new State<string>((existing?.Possible ?? (_currentAssignment!.TotalMaxPoints > 0 ? _currentAssignment.TotalMaxPoints : 100)).ToString("0.##"));
-        var error = new State<string>("");
-        var dialog = new Window { Owner = this, Title = "Student grade", Width = 440, SizeToContent = SizeToContent.Height,
-            ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        void Save(bool clear)
-        {
-            StudentGrade? grade = null;
-            if (!clear)
-            {
-                if (!double.TryParse(earned.Value, out var points) || !double.TryParse(possible.Value, out var maximum) ||
-                    !double.IsFinite(points) || !double.IsFinite(maximum) || maximum <= 0 || points < 0 || points > maximum)
-                { error.Value = "Enter points from zero to a positive maximum."; return; }
-                grade = new(points, maximum);
-            }
-            try { SaveStudentGrade(key, grade); dialog.Close(); }
-            catch (Exception ex) { error.Value = "Could not save grade: " + ex.Message; }
-        }
-        using var host = ReviewTheme.Host(() => VStack(
-            Text(student.FullName).FontSize(21),
-            Text(_currentAssignment!.Title + " · " + (_gradeLab == "." ? "Submission" : _gradeLab)).Foreground("#AAB8C8"),
-            Text("Final grade").FontSize(16),
-            Text("Record this submission's grade. The course total updates automatically."),
-            HStack(VStack(Text("Points earned"), TextField(earned).AccessibilityLabel("Grade points earned")).Spacing(5),
-                VStack(Text("Points possible"), TextField(possible).AccessibilityLabel("Grade points possible")).Spacing(5)).Spacing(12),
-            Text(error.Value).Foreground("#FFABAB"),
-            HStack(Button("Save grade", () => Save(false)), Button("Clear grade", () => Save(true)).IsEnabled(existing != null),
-                Button("Cancel", () => dialog.Close())).Spacing(8)
-        ).Spacing(14).Padding(22));
-        dialog.Content = host;
-        ReviewTheme.Apply(dialog);
-        dialog.ShowDialog();
+        var model = new StudentGradeEditViewModel(student.FullName,
+            _currentAssignment!.Title + " · " + (_gradeLab == "." ? "Submission" : _gradeLab), existing,
+            _currentAssignment.TotalMaxPoints > 0 ? _currentAssignment.TotalMaxPoints : 100,
+            grade => SaveStudentGrade(key, grade));
+        new Windows.StudentGradeEditWindow(model) { Owner = this }.ShowDialog();
     }
 }

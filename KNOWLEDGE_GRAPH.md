@@ -2,11 +2,11 @@
 
 Latest affected-path source review: October 9, 2026 (overall reviews score supplied template files together, keep verified suggested grades when some rows are unverified, and ignore empty/invented deductions; persistent student grades
 
-Source-reviewed map of the working tree, updated October 7, 2026 (compact workspace toolbar, focused panel views/view models and native File/Settings menus; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
+Source-reviewed map of the working tree, updated October 9, 2026 (MainWindow service/view extraction, inline finding placement and compact workspace toolbar, focused panel views/view models and native File/Settings menus; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
 
 ## Maintenance services and validation (October 9, 2026)
 
-Manual and batch overall review preparation now resides in `ReviewOrchestrator`, with anonymous selected-file packets and rejection of missing/oversized input. `LlmCompletionService` routes both overall and section requests to Ollama or Azure; direct OpenAI remains unimplemented, is hidden in settings, and cannot fall through to Ollama. `ProtectedSettingsStore` migrates plaintext API keys and writes current-user DPAPI ciphertext atomically. `BoundedTextReader` enforces byte limits without source truncation. `CodeSectionDetector` handles multiline method signatures with a regex timeout and comment/string brace handling; it remains a heuristic, not a C++ parser. `SubmissionFolderLoader` owns bounded folder-tree traversal and immediate student-folder discovery, exposing skipped-folder warnings to the shell. MainWindow still owns UI workflows and review publication/persistence coordination; this extraction does not remove all shell responsibilities.
+Manual and batch overall review preparation now resides in `ReviewOrchestrator`, with anonymous selected-file packets and rejection of missing/oversized input. `LlmCompletionService` routes both overall and section requests to Ollama or Azure; direct OpenAI remains unimplemented, is hidden in settings, and cannot fall through to Ollama. `ProtectedSettingsStore` migrates plaintext API keys and writes current-user DPAPI ciphertext atomically. `BoundedTextReader` enforces byte limits without source truncation. `CodeSectionDetector` handles multiline method signatures with a regex timeout and comment/string brace handling; it remains a heuristic, not a C++ parser. `SubmissionFolderLoader` owns bounded folder-tree traversal and immediate student-folder discovery, exposing skipped-folder warnings to the shell. ReviewWorkspaceService now owns the bounded comment cache, inline completion routing/replacement and approved-rubric grade calculation. MainWindow retains event adapters, legacy prose publication and feedback-editor coordination; it is not a complete removal of shell responsibilities.
 
 `ReviewDraftStore` saves instructor-edited drafts in the assignments database and retains 64 cached contexts. File comments retain 128 cache entries with the active file pinned; review generation tokens retain 4,096 entries, and eviction makes captured work stale. Persisted records are not deleted by cache eviction. Import deduplication markers remain session-local. Windows CI builds the runner and runs tests except `FrameworkMigrationTests`, which require an interactive desktop. Existing Linux graph validation remains separate. Workflow execution in GitHub Actions is not yet verified locally.
 
@@ -894,4 +894,29 @@ flowchart LR
     Validation --> Move[CommentPersistenceService.MoveComment / atomic row update]
     Move --> Refresh[MainWindow.CommentPlacement / reload both file caches]
     Refresh --> Destination[Open destination tab at saved line]
+```
+
+
+## MainWindow extraction (source reviewed October 9, 2026)
+
+MainWindow.cs is now a 148-line composition/lifecycle shell. Assignment selection, grading actions, comment actions, review execution, submission browsing, file navigation/context actions, preferences, diagnostics and student actions live in focused event-adapter partials. These adapters still share the window's selection state; moving them into partial files does not itself make them independent services.
+
+ReviewWorkspaceService supplies the independent behavior: it owns the 128-entry active-file-pinned comment cache, reloads persisted records after saves, tracks comments without replacing other review contexts, rejects stale overall completion captures before source reads, routes combined findings to evidence anchors while preserving pins, and calculates grades from persisted approved rubric decisions. The service has no WPF/window/dispatcher dependency. The legacy prose completion path and draft editor publication still remain in the window. Completion writes are per file; the whole multi-file batch is not one database transaction.
+
+WorkspaceShellView/WorkspaceShellViewModel own layout composition and the native splitter/editor/tree/terminal adapters. MainWindow.Framework constructs the model and retains lifecycle disposal of ViewHosts; native control instances remain stable. InlineCommentView/InlineCommentViewModel now own the reusable card presentation and expansion/approval state, while InlineCommentAdorner remains its native placement/event adapter. StudentGradeEditView/StudentGradeEditViewModel/StudentGradeEditWindow replace the window's embedded grade form. Grade validation and save errors live in its model, with the captured context supplied by the shell. All new views use the pinned framework; native adapters preserve specialized WPF behavior. No vendor package bytes or versions changed.
+
+Unused legacy file-tab population, status-log parsing and violation-line parsing helpers were removed after reference checks; active assignment-scoped log loading is unchanged. Existing active diagnostic scanning still lives in MainWindow.Diagnostics; this extraction does not claim it has been moved into a service.
+
+```mermaid
+flowchart LR
+    Shell[MainWindow / composition and lifetime] --> LayoutModel[WorkspaceShellViewModel]
+    LayoutModel --> Layout[WorkspaceShellView / stable native layout]
+    Shell --> Adapters[Focused MainWindow event adapters]
+    Adapters --> Review[ReviewWorkspaceService / cache and completion]
+    Review --> Storage[CommentPersistenceService]
+    Review --> Grade[Approved rubric grade calculation]
+    Grade --> Badges[Grade persistence and badge refresh]
+    Layout --> Card[InlineCommentView / InlineCommentViewModel]
+    Card --> Native[InlineCommentAdorner / placement adapter]
+    Adapters --> GradeEditor[StudentGradeEditView / StudentGradeEditViewModel]
 ```
