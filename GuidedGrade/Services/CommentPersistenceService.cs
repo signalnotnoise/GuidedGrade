@@ -50,15 +50,35 @@ namespace GuidedGrade.Services
                 }
             }
 
+            EnsureReviewStatusColumn(connection);
+            using (var metadata = connection.CreateCommand())
+            {
+                metadata.CommandText = "SELECT COUNT(*) FROM pragma_table_info('SectionComments') WHERE name = 'RubricReview';";
+                if (Convert.ToInt64(metadata.ExecuteScalar()) == 0)
+                {
+                    metadata.CommandText = "ALTER TABLE SectionComments ADD COLUMN RubricReview TEXT NOT NULL DEFAULT 'null';";
+                    metadata.ExecuteNonQuery();
+                }
+            }
+
+            using (var pin = connection.CreateCommand())
+            {
+                pin.CommandText = "SELECT COUNT(*) FROM pragma_table_info('SectionComments') WHERE name = 'IsPinned';";
+                if (Convert.ToInt64(pin.ExecuteScalar()) == 0)
+                {
+                    pin.CommandText = "ALTER TABLE SectionComments ADD COLUMN IsPinned INTEGER NOT NULL DEFAULT 0;";
+                    pin.ExecuteNonQuery();
+                }
+            }
             using var indexCommand = connection.CreateCommand();
             indexCommand.CommandText = @"
                 DROP INDEX IF EXISTS IX_SectionComments_FilePath_SectionName_StartLine_EndLine;
-                CREATE UNIQUE INDEX IF NOT EXISTS IX_SectionComments_Context_File_Section_Lines
-                ON SectionComments(FilePath, ReviewContext, SectionName, StartLine, EndLine);
+                DROP INDEX IF EXISTS IX_SectionComments_Context_File_Section_Lines;
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_SectionComments_Context_File_Section_Lines_Rubric
+                ON SectionComments(FilePath, ReviewContext, SectionName, StartLine, EndLine, COALESCE(json_extract(RubricReview, '$.CriterionId'), 0), COALESCE(json_extract(RubricReview, '$.IsDeduction'), 0));
             ";
             indexCommand.ExecuteNonQuery();
 
-            EnsureReviewStatusColumn(connection);
             using var columns = connection.CreateCommand();
             columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('SectionComments') WHERE name = 'IsOverallReview';";
             if (Convert.ToInt64(columns.ExecuteScalar()) == 0)
@@ -135,7 +155,7 @@ namespace GuidedGrade.Services
                         Issues,
                         SuggestedCode,
                         Explanation,
-                        ReviewStatus, IsOverallReview, ReviewContext)
+                        ReviewStatus, IsOverallReview, ReviewContext, RubricReview, IsPinned)
                     VALUES (
                         @filePath,
                         @sectionName,
@@ -146,7 +166,7 @@ namespace GuidedGrade.Services
                         @issues,
                         @suggestedCode,
                         @explanation,
-                        @reviewStatus, @isOverallReview, @reviewContext);
+                        @reviewStatus, @isOverallReview, @reviewContext, @rubricReview, @isPinned);
                 ";
 
                 insertCommand.Parameters.AddWithValue("@filePath", filePath);
@@ -161,11 +181,42 @@ namespace GuidedGrade.Services
                 insertCommand.Parameters.AddWithValue("@reviewStatus", comment.ReviewStatus.ToString());
                 insertCommand.Parameters.AddWithValue("@isOverallReview", comment.IsOverallReview ? 1 : 0);
                 insertCommand.Parameters.AddWithValue("@reviewContext", comment.ReviewContext);
+                insertCommand.Parameters.AddWithValue("@rubricReview", JsonSerializer.Serialize(comment.RubricReview));
+                insertCommand.Parameters.AddWithValue("@isPinned", comment.IsPinned ? 1 : 0);
 
                 insertCommand.ExecuteNonQuery();
             }
 
             transaction.Commit();
+        }
+
+        internal void MoveComment(string source, string destination, SectionFeedback original, SectionFeedback updated)
+        {
+            if (!ReviewContext.Matches(original.ReviewContext, updated.ReviewContext))
+                throw new InvalidOperationException("A comment cannot move to another review context.");
+            using var connection = new SqliteConnection($"Data Source={_databasePath}"); connection.Open();
+            using var transaction = connection.BeginTransaction();
+            using var find = connection.CreateCommand(); find.Transaction = transaction;
+            find.CommandText = "SELECT Id, IsPinned FROM SectionComments WHERE FilePath=@source COLLATE NOCASE AND ReviewContext=@context AND SectionName=@name AND StartLine=@start AND EndLine=@end AND COALESCE(json_extract(RubricReview,'$.CriterionId'),0)=@criterion AND COALESCE(json_extract(RubricReview,'$.IsDeduction'),0)=@deduction";
+            find.Parameters.AddWithValue("@source",source); find.Parameters.AddWithValue("@context",original.ReviewContext);
+            find.Parameters.AddWithValue("@name",original.SectionName); find.Parameters.AddWithValue("@start",original.StartLine); find.Parameters.AddWithValue("@end",original.EndLine);
+            find.Parameters.AddWithValue("@criterion",original.RubricReview?.CriterionId ?? 0); find.Parameters.AddWithValue("@deduction",original.RubricReview?.IsDeduction == true ? 1 : 0);
+            long id; bool pinned;
+            using (var reader = find.ExecuteReader())
+            {
+                if (!reader.Read()) throw new InvalidOperationException("This comment was cleared or changed. Reopen its review before moving it.");
+                id=reader.GetInt64(0); pinned=reader.GetInt64(1)!=0;
+            }
+            if (pinned && (!string.Equals(source,destination,StringComparison.OrdinalIgnoreCase) || original.StartLine != updated.StartLine || original.EndLine != updated.EndLine))
+                throw new InvalidOperationException("Unpin the comment before moving it.");
+            using var update = connection.CreateCommand(); update.Transaction = transaction;
+            update.CommandText = "UPDATE SectionComments SET FilePath=@destination, StartLine=@start, EndLine=@end, SuggestedScore=@points, Explanation=@text, Strengths=@strengths, Issues=@issues, SuggestedCode=@code, ReviewStatus=@status, RubricReview=@rubric WHERE Id=@id";
+            update.Parameters.AddWithValue("@destination",destination); update.Parameters.AddWithValue("@start",updated.StartLine); update.Parameters.AddWithValue("@end",updated.EndLine);
+            update.Parameters.AddWithValue("@points",updated.SuggestedScore); update.Parameters.AddWithValue("@text",updated.Explanation);
+            update.Parameters.AddWithValue("@strengths",SerializeList(updated.Strengths)); update.Parameters.AddWithValue("@issues",SerializeList(updated.Issues));
+            update.Parameters.AddWithValue("@code",updated.SuggestedCode); update.Parameters.AddWithValue("@status",updated.ReviewStatus.ToString());
+            update.Parameters.AddWithValue("@rubric",JsonSerializer.Serialize(updated.RubricReview)); update.Parameters.AddWithValue("@id",id);
+            update.ExecuteNonQuery(); transaction.Commit();
         }
 
         public List<SectionFeedback> LoadComments(string filePath)
@@ -180,7 +231,7 @@ namespace GuidedGrade.Services
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus, IsOverallReview, ReviewContext
+                SELECT SectionName, StartLine, EndLine, SuggestedScore, Strengths, Issues, SuggestedCode, Explanation, ReviewStatus, IsOverallReview, ReviewContext, RubricReview, IsPinned
                 FROM SectionComments
                 WHERE FilePath = @filePath COLLATE NOCASE
                 ORDER BY StartLine, EndLine;
@@ -202,7 +253,9 @@ namespace GuidedGrade.Services
                     Explanation = reader.GetString(7),
                     ReviewStatus = ParseReviewStatus(reader.GetString(8)),
                     IsOverallReview = reader.GetInt64(9) != 0,
-                    ReviewContext = reader.GetString(10)
+                    ReviewContext = reader.GetString(10),
+                    RubricReview = JsonSerializer.Deserialize<RubricReviewDetails>(reader.GetString(11)),
+                    IsPinned = reader.GetInt64(12) != 0
                 });
             }
 

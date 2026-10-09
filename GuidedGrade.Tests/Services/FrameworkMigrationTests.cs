@@ -241,12 +241,12 @@ public class FrameworkMigrationTests
             window.listBoxStudents.SelectedItem = student;
             Layout(host, 1200, 800);
             StringAssert.Contains(window.codeEditor.Text, "// source 1");
-            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any());
             var draft = Descendants<TextBox>((FrameworkElement)window.commentsDetailsTab.Content).Single(c => AutomationProperties.GetName(c) == "Editable feedback draft");
             StringAssert.Contains(draft.Text, "Persisted approved batch feedback");
             window.codeEditor.ScrollToLine(180);
             Layout(host, 1200, 800);
-            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any());
             window.SetReviewAssignment(new() { Course = "PG1", Title = "Different assignment" });
             Assert.IsFalse(window.OpenSavedReviewForSelectedStudent());
             Layout(host, 1200, 800);
@@ -461,6 +461,90 @@ public class FrameworkMigrationTests
         finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
     });
 
+    [TestMethod]
+    public void OverallRubricCardsAppearInlineAndApprovalUpdatesPersistedPoints() => RunSta(() =>
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "InlineRubric-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var source = Path.Combine(directory, "Game.cpp");
+        File.WriteAllText(source, "// heading\nBuildBoard();\n// TODO: B-2 DrawBoard\n");
+        var database = Path.Combine(directory, "reviews.db");
+        var persistence = new CommentPersistenceService(database);
+        var window = new GuidedGrade.MainWindow(new AssignmentPersistenceService(database), persistence);
+        try
+        {
+            var assignment = new GradingAssignment { Course="PG2", Title="Lab", Rubric=[new("Part B-1",15),new("Part B-2",15)] };
+            window.SetReviewAssignment(assignment);
+            var host = (FrameworkElement)window.Content;
+            var item = new FileSystemItem(source,false); window.fileTreeView.Items.Add(item);
+            Layout(host,1200,800);
+            ((TreeViewItem)window.fileTreeView.ItemContainerGenerator.ContainerFromItem(item)).IsSelected=true;
+            var reply = System.Text.Json.JsonSerializer.Serialize(new OverallReviewResult.Response
+            {
+                Criteria=[new() {Id=1,Earned=15,Status="verified",File=1,Quote="BuildBoard();",Reason="Your board is built."},
+                    new() {Id=2,Status="unverified",File=1,Quote="missing",Reason="Check your drawing."}],
+                Feedback="Your overall feedback."
+            });
+            var packet=ReviewFindingEnvelope.Pack("report",reply,assignment,[new() {Name="file-1.cpp",Content=File.ReadAllText(source)}]);
+            var context=window.CurrentFeedbackKey(source);
+            window.CompleteOverallFileReview(window.CaptureOverallReviewFiles([source]),context,packet);
+            Layout(host,1200,800);
+            Assert.AreEqual(3,persistence.LoadComments(source).Count);
+            var cards=Descendants<InlineCommentAdorner>(host).ToArray();
+            Assert.AreEqual(3,cards.Length);
+            Assert.AreEqual(3,cards.Single(c=>c.Feedback.RubricReview?.CriterionId==2).LineNumber);
+            var card=cards.Single(c=>c.Feedback.RubricReview?.CriterionId==1); card.IsExpanded=true; Flush();
+            Layout(host,1200,800);
+            Descendants<Button>(card).Single(b=>AutomationProperties.GetName(b)=="Approve inline comment").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.AreEqual(FeedbackReviewStatus.Approved,persistence.LoadComments(source).Single(c=>c.RubricReview?.CriterionId==1).ReviewStatus);
+            Assert.AreEqual(15d,new GradePersistenceService(database).LoadAll()[context].Earned);
+            Assert.AreEqual(30d,new GradePersistenceService(database).LoadAll()[context].Possible);
+            Layout(host,1200,800);
+            var movable=Descendants<InlineCommentAdorner>(host).Single(c=>c.Feedback.RubricReview?.CriterionId==1);
+            Assert.IsTrue(movable.MoveTo(3,window.codeEditor.Document.LineCount));
+            Layout(host,1200,800);
+            var moved=Descendants<InlineCommentAdorner>(host).Single(c=>c.Feedback.RubricReview?.CriterionId==1);
+            Assert.AreEqual(3,moved.LineNumber);
+            Descendants<Button>(moved).Single(b=>AutomationProperties.GetName(b)=="Pin inline comment").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var pinned=persistence.LoadComments(source).Single(c=>c.RubricReview?.CriterionId==1);
+            Assert.IsTrue(pinned.IsPinned); Assert.AreEqual(3,pinned.StartLine);
+            Layout(host,1200,800);
+            var locked=Descendants<InlineCommentAdorner>(host).Single(c=>c.Feedback.RubricReview?.CriterionId==1);
+            Assert.IsFalse(locked.MoveTo(2,window.codeEditor.Document.LineCount));
+            window.CompleteOverallFileReview(window.CaptureOverallReviewFiles([source]),context,packet);
+            var retained=persistence.LoadComments(source).Single(c=>c.RubricReview?.CriterionId==1);
+            Assert.IsTrue(retained.IsPinned); Assert.AreEqual(3,retained.StartLine);
+            Assert.AreEqual(FeedbackReviewStatus.Approved,retained.ReviewStatus);
+
+            Assert.AreEqual(15d,new GradePersistenceService(database).LoadAll()[context].Earned);
+
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory,true); }
+    });
+
+    [TestMethod]
+    public void CommentDropCoordinatesResolveDocumentLineAfterScrolling() => RunSta(() =>
+    {
+        var editor = new ICSharpCode.AvalonEdit.TextEditor
+        { Text = string.Join("\n",Enumerable.Range(1,250).Select(line=>"// line " + line)), FontSize=14, IsReadOnly=true };
+        var window = new Window { Content=editor, Width=600, Height=300, ShowActivated=false,
+            WindowStyle=WindowStyle.None, Opacity=0, Left=-10000, Top=-10000 };
+        try
+        {
+            window.Show(); Flush(); editor.UpdateLayout();
+            editor.ScrollToLine(180); Flush(); editor.UpdateLayout();
+            var view = editor.TextArea.TextView;
+            view.EnsureVisualLines();
+            var point = view.GetVisualPosition(new ICSharpCode.AvalonEdit.TextViewPosition(180,1), ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineMiddle) - view.ScrollOffset;
+            var editorPoint = view.TranslatePoint(point,editor);
+            var mapped = editor.GetPositionFromPoint(editorPoint);
+            Assert.IsTrue(mapped.HasValue, $"Point={editorPoint}, scroll={view.ScrollOffset}");
+            Assert.AreEqual(180,mapped.Value.Line);
+        }
+        finally { window.Close(); }
+
+    });
+
     private static void ClickShell(GuidedGrade.MainWindow window, string name)
     {
         var host = (FrameworkElement)window.Content;
@@ -543,7 +627,7 @@ public class FrameworkMigrationTests
             Assert.AreEqual(File.ReadAllText(other), editor.Text, "Finishing a job must not switch or overwrite the selected file.");
             ((TreeViewItem)tree.ItemContainerGenerator.ContainerFromItem(fileItem)).IsSelected = true;
             Layout(host, 1200, 800);
-            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any(card => card.Feedback.IsOverallReview));
+            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any(card => card.Feedback.IsOverallReview));
             window.CompleteOverallFileReview(window.CaptureOverallReviewFiles(new[] { source }), window.CurrentFeedbackKey(source), "Updated overall review.");
             Assert.AreEqual(1, persistence.LoadComments(source).Count(item => item.IsOverallReview));
             var inFlight = window.CaptureOverallReviewFiles(new[] { source });
@@ -624,7 +708,7 @@ public class FrameworkMigrationTests
             window.listBoxStudents.SelectedItem = studentA;
             Open(lab1);
             Assert.AreEqual("Only A Lab 1", Draft());
-            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any());
             Assert.IsTrue(Descendants<TextBox>(host).Any(t => t.Text.Contains("Only A Lab 1")));
             Open(lab2);
             Assert.AreEqual("Only A Lab 2", Draft());
@@ -641,7 +725,7 @@ public class FrameworkMigrationTests
             Assert.AreEqual(2, new CommentPersistenceService(database).LoadComments(lab2).Count);
             window.SetReviewAssignment(new GradingAssignment { Course = "Course", Title = "Assignment 1" });
             Layout(host, 1200, 800);
-            Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
+            Assert.IsTrue(Descendants<InlineCommentAdorner>(host).Any());
             Assert.IsTrue(Descendants<TextBox>(host).Any(t => t.Text.Contains("Late Assignment 1")));
         }
         finally

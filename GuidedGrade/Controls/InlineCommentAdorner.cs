@@ -15,11 +15,13 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
     private readonly State<bool> _expanded = new(false);
     private readonly State<bool> _approved;
     private readonly ViewHost _host;
-    public int LineNumber { get; }
+    public int LineNumber { get; private set; }
     public SectionFeedback Feedback => _feedback;
     public bool IsExpanded { get => _expanded.Value; set => _expanded.Value = value; }
     public event EventHandler<SectionFeedback>? ApproveRequested;
-    public event EventHandler<SectionFeedback>? RegenerateRequested;
+    public event EventHandler<SectionFeedback>? ModifyRequested;
+    public event EventHandler<SectionFeedback>? PlacementChanged;
+    internal const string DragFormat = "GuidedGrade.InlineCommentPlacement";
     public event EventHandler<SectionFeedback>? RejectRequested;
 
     public InlineCommentAdorner(SectionFeedback feedback, int lineNumber, bool earlierReview = false)
@@ -36,11 +38,15 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
     {
         var children = new List<View>
         {
+            HStack(new GuidedGrade.Views.CommentPlacementView(new GuidedGrade.ViewModels.CommentPlacementViewModel(
+                _feedback.IsPinned, !_earlierReview, source => DragDrop.DoDragDrop(source, new DataObject(DragFormat, this), DragDropEffects.Move), TogglePin)).Build(),
             Button($"{(_expanded.Value ? "−" : "+")} {(_approved.Value ? "Approved" : "Review")}: {_feedback.SectionName}{(_feedback.IsOverallReview ? "" : $" · {_feedback.SuggestedScore} pts")}",
-                () => _expanded.Value = !_expanded.Value).ButtonStyle(ButtonStyleKind.Quiet).Id("header")
+                () => _expanded.Value = !_expanded.Value).ButtonStyle(ButtonStyleKind.Quiet).Id("header")).Spacing(4)
         };
         if (_earlierReview)
-            children.Add(Text("Earlier review � assignment not recorded").FontSize(12).Foreground("#FCCF31"));
+            children.Add(Text("Earlier review · assignment not recorded").FontSize(12).Foreground("#FCCF31"));
+        if (_feedback.RubricReview is { LocationResolved: false })
+            children.Add(Text("Location needs review — Modify to choose a line.").FontSize(12).Foreground("#FCCF31"));
         if (_expanded.Value)
         {
             if (_feedback.Strengths.Count > 0)
@@ -53,11 +59,11 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
                 ).Spacing(6).Id("code"));
             if (!string.IsNullOrWhiteSpace(_feedback.Explanation))
                 children.Add(VStack(Text("Explanation").Foreground("#CE9178"), Text(_feedback.Explanation)).Spacing(6).Id("explanation"));
-            if (!_approved.Value && !_earlierReview)
+            if (!_earlierReview)
                 children.Add(AdaptiveGrid(100,
-                    Button("Approve", () => ApproveRequested?.Invoke(this, _feedback)).ButtonStyle(ButtonStyleKind.Primary),
-                    Button("Regenerate", () => RegenerateRequested?.Invoke(this, _feedback)).IsEnabled(!_feedback.IsOverallReview),
-                    Button("Reject", () => RejectRequested?.Invoke(this, _feedback))).Spacing(8).Id("actions"));
+                    Button("Approve", () => ApproveRequested?.Invoke(this, _feedback)).AccessibilityLabel("Approve inline comment").ButtonStyle(ButtonStyleKind.Primary).IsEnabled(!_approved.Value && _feedback.RubricReview is not { LocationResolved: false }),
+                    Button("Modify", () => ModifyRequested?.Invoke(this, _feedback)).AccessibilityLabel("Modify inline comment"),
+                    Button("Reject", () => RejectRequested?.Invoke(this, _feedback)).AccessibilityLabel("Reject inline comment")).Spacing(8).Id("actions"));
         }
         // The editor overlay caps cards at 400px. Scroll long reviews instead of clipping actions.
         var content = _expanded.Value
@@ -66,6 +72,18 @@ public sealed class InlineCommentAdorner : ContentControl, IDisposable
         return VStack(content).Spacing(8).Padding(6).Background(ReviewTheme.Tokens.Surface).CornerRadius(6);
     }
 
+    private void TogglePin()
+    {
+        GuidedGrade.Services.CommentPlacementService.TogglePin(_feedback);
+        PlacementChanged?.Invoke(this, _feedback);
+    }
+    internal bool MoveTo(int line, int lineCount)
+    {
+        if (_earlierReview || !GuidedGrade.Services.CommentPlacementService.Move(_feedback, line, lineCount)) return false;
+        LineNumber = line;
+        PlacementChanged?.Invoke(this, _feedback);
+        return true;
+    }
     public void MarkApproved() { _feedback.ReviewStatus = FeedbackReviewStatus.Approved; _approved.Value = true; _expanded.Value = false; }
     public void Dispose() { _host.Dispose(); Content = null; }
 }

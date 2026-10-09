@@ -98,6 +98,8 @@ namespace GuidedGrade.Models
     /// </summary>
     public class SectionFeedback
     {
+        public RubricReviewDetails? RubricReview { get; set; }
+        public bool IsPinned { get; set; }
         // Empty identifies legacy records whose assignment was never recorded.
         public string ReviewContext { get; set; } = string.Empty;
         public bool IsOverallReview { get; set; }
@@ -120,6 +122,16 @@ namespace GuidedGrade.Models
             Explanation = string.Empty;
             ReviewStatus = FeedbackReviewStatus.Pending;
         }
+    }
+
+    public sealed class RubricReviewDetails
+    {
+        public int CriterionId { get; set; }
+        public bool IsDeduction { get; set; }
+        public double MaximumPoints { get; set; }
+        public bool EvidenceVerified { get; set; }
+        public bool LocationResolved { get; set; }
+        public string ReportId { get; set; } = "";
     }
 
     public enum FeedbackReviewStatus

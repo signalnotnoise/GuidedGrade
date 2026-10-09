@@ -44,7 +44,9 @@ public class OverallFeedbackPromptTests
         StringAssert.Contains(prompt, "one total score out of 10");
         StringAssert.Contains(prompt, "void shop() {}");
         StringAssert.Contains(prompt, "void shop();");
-        StringAssert.Contains(prompt, "withhold the final numeric grade");
+        StringAssert.Contains(prompt, "complete student work to grade");
+        StringAssert.Contains(prompt, "not missing context");
+        StringAssert.Contains(prompt, "Do not mark unverified because a live run");
         StringAssert.Contains(prompt, "not in Deductions Applied");
         StringAssert.Contains(prompt, "TODO:// labels");
         StringAssert.Contains(prompt, "methods named for those sections");

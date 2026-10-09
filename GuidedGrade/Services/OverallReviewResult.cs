@@ -28,7 +28,7 @@ internal static class OverallReviewResult
             criteria = new { type = "array", items = ItemSchema },
             deductions = new { type = "array", items = ItemSchema },
             feedback = new { type = "string" }
-        }, required = new[] { "criteria", "deductions", "feedback" }
+        }, required = new[] { "criteria", "feedback" }
     });
     private static object ItemSchema => new
     {
@@ -50,6 +50,9 @@ internal static class OverallReviewResult
         criteria["minItems"] = assignment.Rubric.Count;
         criteria["maxItems"] = assignment.Rubric.Count;
         criteria["items"]!["properties"]!["id"]!["enum"] = System.Text.Json.JsonSerializer.SerializeToNode(Enumerable.Range(1, assignment.Rubric.Count).ToArray());
+        var deductions = node["properties"]!["deductions"]!;
+        deductions["minItems"] = 0;
+        deductions["maxItems"] = assignment.Deductions.Count;
         return JsonSerializer.SerializeToElement(node);
     }
     internal static string Contract(GradingAssignment assignment)
@@ -57,7 +60,7 @@ internal static class OverallReviewResult
         var sb = new StringBuilder();
         sb.AppendLine("# MACHINE REVIEW CONTRACT (overrides prose output formatting only)");
         sb.AppendLine("Return only JSON matching this schema: " + SchemaFor(assignment).GetRawText());
-        sb.AppendLine("Return every criterion exactly once using its ID below. Evaluate all supplied files together. earned is the criterion's awarded points, never a total. status is verified only when supported by supplied code. Supply a short exact contiguous source quote and 1-based file number for every verified criterion or deduction. For unverified or missing context use earned:null, file:0, quote:empty and explain the uncertainty. Never interpret a declaration as an absent definition without inspecting every file. For alleged missing code, quote the incomplete body or relevant supplied code and explain the search; if the implementation file is absent, mark unverified. Quotes must preserve punctuation and whitespace. Do not invent build/run evidence.");
+        sb.AppendLine("Return every criterion exactly once using its ID below. Evaluate all supplied files together as the complete submission. earned is the criterion's awarded points, never a total. status is verified when supported by source in any supplied file. Supply a short contiguous source quote and 1-based file number for every verified criterion or deduction. Do not mark unverified because the definition is in another supplied file or because a live run was not provided. For truly absent source use earned:null, file:0, quote:empty and explain the search. Never interpret a declaration as an absent definition without inspecting every file. For alleged missing code, quote the incomplete body or relevant supplied code. Quotes should match supplied punctuation; surrounding whitespace may differ. Do not invent build/run evidence. If no deduction rules are configured, return an empty deductions array.");
         sb.AppendLine("C# calculates totals. Do not return or state overall scores in feedback. Use feedback only for a single student-facing paragraph; no headings, rubric list or repeated review. deductions contains only separately configured penalty IDs that have source evidence; do not include rubric losses. Use earned:null for deductions; C# uses configured penalty amounts. Do not invent deductions. Instructor-confirmation deductions are flags, not applied penalties.");
         for (var i = 0; i < assignment.Rubric.Count; i++) sb.AppendLine($"Criterion ID {i+1}: rubric row {i+1} in the sanitized assignment rubric above | maximum {assignment.Rubric[i].MaxPoints.ToString(CultureInfo.InvariantCulture)}");
         for (var i = 0; i < assignment.Deductions.Count; i++) sb.AppendLine($"Deduction ID {i+1}: configured deduction row {i+1} above");
@@ -68,8 +71,14 @@ internal static class OverallReviewResult
         Response result;
         try { result = JsonSerializer.Deserialize<Response>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new JsonException(); }
         catch (JsonException) { throw new InvalidOperationException("The model returned an invalid structured review. No grade or feedback was saved."); }
-        if (result.Criteria == null || result.Deductions == null || result.Criteria.Any(c => c == null) || result.Deductions.Any(c => c == null))
+        result.Criteria ??= [];
+        result.Deductions ??= [];
+        if (result.Criteria.Any(c => c == null) || result.Deductions.Any(c => c == null))
             throw new InvalidOperationException("The model returned null rubric data. No grade or feedback was saved.");
+        if (assignment.Deductions.Count == 0)
+            result.Deductions = [];
+        else if (allowIncomplete)
+            result.Deductions = result.Deductions.Where(f => f.Id >= 1 && f.Id <= assignment.Deductions.Count).ToList();
         var incomplete = result.Criteria.Count != assignment.Rubric.Count || result.Criteria.Select(c => c.Id).Distinct().Count() != assignment.Rubric.Count || result.Criteria.Any(c => c.Id < 1 || c.Id > assignment.Rubric.Count);
         if (incomplete && !allowIncomplete)
         {
@@ -83,8 +92,7 @@ internal static class OverallReviewResult
             result.Criteria = Enumerable.Range(1, assignment.Rubric.Count).Select(id => unique.GetValueOrDefault(id) ?? new Finding { Id = id, Status = "unverified", Reason = "The model omitted this criterion or supplied conflicting duplicate rows." }).ToList();
             result.Feedback = "This review is incomplete. Some rubric findings could not be obtained reliably; inspect the unverified rows before grading.";
         }
-        bool Evidence(Finding f) => f.File >= 1 && f.File <= files.Count && !string.IsNullOrWhiteSpace(f.Quote) && files[f.File-1].Content.Contains(f.Quote, StringComparison.Ordinal);
-        var verified = !incomplete; double earned = 0, penalty = 0;
+        var unverifiedCriteria = 0; double earned = 0, penalty = 0;
         var sb = new StringBuilder();
         var depth = Math.Clamp(assignment.FeedbackOptions.DetailLevel, 1, 5);
         string Short(string text, int limit) => string.Join(" ", (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Take(limit));
@@ -94,9 +102,10 @@ internal static class OverallReviewResult
         {
             var criterion = assignment.Rubric[f.Id-1];
             if (f.Earned.HasValue && (!double.IsFinite(f.Earned.Value) || f.Earned < 0 || f.Earned > criterion.MaxPoints)) throw new InvalidOperationException("The model returned points outside the rubric range. No grade or feedback was saved.");
-            var supported = f.Status == "verified" && f.Earned.HasValue && Evidence(f);
-            if (!supported) verified = false; else earned += f.Earned!.Value;
-            var reason = supported ? Short(f.Reason, reasonLimit) + $" [file-{f.File}]" : "Unverified: " + (Evidence(f) || f.Status != "verified" ? Short(f.Reason, reasonLimit) : "source evidence did not match the supplied files.");
+            var evidenceFile = FindEvidenceFile(files, f);
+            var supported = f.Status == "verified" && f.Earned.HasValue && evidenceFile > 0;
+            if (!supported) unverifiedCriteria++; else earned += f.Earned!.Value;
+            var reason = supported ? Short(f.Reason, reasonLimit) + $" [file-{evidenceFile}]" : "Unverified: " + (evidenceFile > 0 || f.Status != "verified" ? Short(f.Reason, reasonLimit) : "source evidence did not match the supplied files.");
             if (assignment.FeedbackOptions.IncludeScoreBreakdown || !supported)
                 sb.AppendLine($"- {criterion.Name}: {(supported ? f.Earned!.Value.ToString("0.##", CultureInfo.InvariantCulture) + "/" + criterion.MaxPoints.ToString("0.##", CultureInfo.InvariantCulture) : "unverified")} — {reason}");
         }
@@ -106,13 +115,34 @@ internal static class OverallReviewResult
         {
             if (f.Id < 1 || f.Id > assignment.Deductions.Count) throw new InvalidOperationException("The model invented a deduction rule. No grade or feedback was saved.");
             var rule = assignment.Deductions[f.Id-1];
-            if (f.Status != "verified" || !Evidence(f)) { verified = false; deductionLines.Add(rule.Rule + ": unverified evidence; not applied."); continue; }
+            var evidenceFile = FindEvidenceFile(files, f);
+            if (f.Status != "verified" || evidenceFile == 0) { deductionLines.Add(rule.Rule + ": unverified evidence; not applied."); continue; }
             if (rule.RequiresInstructorConfirmation) deductionLines.Add(rule.Rule + ": requires instructor confirmation; not applied.");
-            else { penalty += rule.Points; deductionLines.Add($"-{rule.Points.ToString("0.##", CultureInfo.InvariantCulture)}: {Short(f.Reason, reasonLimit)} [file-{f.File}]"); }
+            else { penalty += rule.Points; deductionLines.Add($"-{rule.Points.ToString("0.##", CultureInfo.InvariantCulture)}: {Short(f.Reason, reasonLimit)} [file-{evidenceFile}]"); }
         }
         if (assignment.FeedbackOptions.IncludeDeductions) sb.AppendLine("\nDeductions Applied: " + (deductionLines.Count == 0 ? "None" : "\n" + string.Join("\n", deductionLines.Select(l => "- " + l))));
-        if (assignment.FeedbackOptions.IncludeFinalGrade) sb.AppendLine("\nFinal Grade: " + (verified ? $"{Math.Clamp(earned-penalty,0,assignment.TotalMaxPoints).ToString("0.##", CultureInfo.InvariantCulture)}/{assignment.TotalMaxPoints.ToString("0.##", CultureInfo.InvariantCulture)} (suggested)" : "Withheld — one or more findings could not be verified."));
+        if (assignment.FeedbackOptions.IncludeFinalGrade)
+        {
+            var total = Math.Clamp(earned - penalty, 0, assignment.TotalMaxPoints).ToString("0.##", CultureInfo.InvariantCulture);
+            var max = assignment.TotalMaxPoints.ToString("0.##", CultureInfo.InvariantCulture);
+            sb.AppendLine("\nFinal Grade: " + (unverifiedCriteria == 0
+                ? $"{total}/{max} (suggested)"
+                : unverifiedCriteria < assignment.Rubric.Count
+                    ? $"{total}/{max} (suggested; {unverifiedCriteria} unverified)"
+                    : "Withheld — no criterion had matching source evidence."));
+        }
         if (assignment.FeedbackOptions.IncludeFeedback && !string.IsNullOrWhiteSpace(result.Feedback)) sb.AppendLine("\nFeedback: " + Short(result.Feedback, depth == 1 ? 35 : depth == 2 ? 60 : depth == 3 ? 150 : depth == 4 ? 300 : 500));
         return sb.ToString().Trim();
+    }
+    internal static bool QuoteExists(IReadOnlyList<OllamaService.CodeFile> files, Finding f) => FindEvidenceFile(files, f) > 0;
+    internal static int FindEvidenceFile(IReadOnlyList<OllamaService.CodeFile> files, Finding f)
+    {
+        if (string.IsNullOrWhiteSpace(f.Quote) || files.Count == 0) return 0;
+        static string Compact(string text) => string.Join(" ", text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        bool In(string content) => content.Contains(f.Quote, StringComparison.Ordinal) || Compact(content).Contains(Compact(f.Quote), StringComparison.Ordinal);
+        if (f.File >= 1 && f.File <= files.Count && In(files[f.File - 1].Content)) return f.File;
+        for (var index = 0; index < files.Count; index++)
+            if (In(files[index].Content)) return index + 1;
+        return 0;
     }
 }

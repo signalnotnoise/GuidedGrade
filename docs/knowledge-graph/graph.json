@@ -132,7 +132,7 @@
       "id": "FEEDBACK_WORKSPACE.md",
       "label": "FEEDBACK_WORKSPACE.md",
       "group": "root",
-      "sha256": "82e1ab3761975f40fcc1738bbd3ffd9eff09ebc39ecf97369a4b6bcd0ae4afec"
+      "sha256": "ca5b23a9105b860f945111c65f50ac2b59ce41bb345c25f6410596a584ceb962"
     },
     {
       "id": "FILE_TREE_PERFORMANCE.md",
@@ -213,6 +213,12 @@
       "sha256": "eff95d8a9c933cd68d21c2886741088a420c131b00ba361b10bc84a8b77bf490"
     },
     {
+      "id": "GuidedGrade.Tests/Services/CommentPlacementTests.cs",
+      "label": "CommentPlacementTests.cs",
+      "group": "GuidedGrade.Tests",
+      "sha256": "f2cf2acb1cd69d78cf151f7e2bdc496765e42c18897d8e839563428f69aaf3a7"
+    },
+    {
       "id": "GuidedGrade.Tests/Services/ConsoleInteractionTests.cs",
       "label": "ConsoleInteractionTests.cs",
       "group": "GuidedGrade.Tests",
@@ -246,7 +252,7 @@
       "id": "GuidedGrade.Tests/Services/FrameworkMigrationTests.cs",
       "label": "FrameworkMigrationTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "4d8f96bd14f39d8637378e0f9b888665a33aa56906967d811d2080aaa1c96415"
+      "sha256": "c1bf9b794bd18ffdfbc61916ade09aee9a0aa33a1659011369113fd7db67dc71"
     },
     {
       "id": "GuidedGrade.Tests/Services/FsLogReaderTests.cs",
@@ -277,6 +283,12 @@
       "label": "HyperVRunnerTests.cs",
       "group": "GuidedGrade.Tests",
       "sha256": "cf01d6159e9d32f4ffa504f138c94764dc1c44e3f89acdbf9d8a5040bc89df23"
+    },
+    {
+      "id": "GuidedGrade.Tests/Services/InlineRubricReviewTests.cs",
+      "label": "InlineRubricReviewTests.cs",
+      "group": "GuidedGrade.Tests",
+      "sha256": "6695205a4f45a1577c11c49c2541626e8883da271d37ee20423ddde315dfe395"
     },
     {
       "id": "GuidedGrade.Tests/Services/InteractiveProcessSessionTests.cs",
@@ -336,13 +348,13 @@
       "id": "GuidedGrade.Tests/Services/OverallFeedbackPromptTests.cs",
       "label": "OverallFeedbackPromptTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "a86ab13c5a02e1e603a5c44bc7392bc55ef871f8b0796ae5ee175946a007f123"
+      "sha256": "f12d7146573fd13b8245d0e9afd36305dd2af5fb8668f19f676a9f464f674f36"
     },
     {
       "id": "GuidedGrade.Tests/Services/OverallReviewResultTests.cs",
       "label": "OverallReviewResultTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "62696bd6bc3ecc2590f6dce70a269cf9f85befb3e8b73bd907ce689e2ff7f263"
+      "sha256": "a44f8e3daa80cf15fba7287e4f20925fa0ccb8cf8837f5d9a6c2897d1b5a86a3"
     },
     {
       "id": "GuidedGrade.Tests/Services/ProcessRunnerTests.cs",
@@ -438,13 +450,13 @@
       "id": "GuidedGrade/Controls/InlineCommentAdorner.cs",
       "label": "InlineCommentAdorner.cs",
       "group": "GuidedGrade",
-      "sha256": "ce0ca051c1e55443a760899642cd587924c2e87d0833921ebec3704aead32fe2"
+      "sha256": "097c9dd03a2d6e93dacac7266918f6906f72022c2037606d723a7e379dd7bb75"
     },
     {
       "id": "GuidedGrade/Controls/InlineCommentLayer.cs",
       "label": "InlineCommentLayer.cs",
       "group": "GuidedGrade",
-      "sha256": "1a416bbbf957a8b13366f3c756fd7f3431403cf725d8b496c5d5762f6e3ad751"
+      "sha256": "e60f3eaf6638cb64d6bed8d15f4b0fdd2299187976b43cffa3ff87f6389509b0"
     },
     {
       "id": "GuidedGrade/Converters/InverseBoolToVisibilityConverter.cs",
@@ -465,10 +477,16 @@
       "sha256": "3363b7014044f26cc546e4aadf2c2dbab49d34d9ee464c59f6535392439cbe3b"
     },
     {
+      "id": "GuidedGrade/MainWindow.CommentPlacement.cs",
+      "label": "MainWindow.CommentPlacement.cs",
+      "group": "GuidedGrade",
+      "sha256": "d0d68d03dc62c845967f6575c7af797094ebd669373da891c0b7d587903a6409"
+    },
+    {
       "id": "GuidedGrade/MainWindow.FileReviews.cs",
       "label": "MainWindow.FileReviews.cs",
       "group": "GuidedGrade",
-      "sha256": "3d4b102c01bfd27037dbcfe50a23ceb83fb359a8e1d59d9d0db9df62fe93e677"
+      "sha256": "503a9e99c669e1470921406e8ae56cc80765901b2925e45f92f3cfa92695c37a"
     },
     {
       "id": "GuidedGrade/MainWindow.Framework.cs",
@@ -534,7 +552,7 @@
       "id": "GuidedGrade/MainWindow.cs",
       "label": "MainWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "b7ec6f031d2259b5ea9d46cbc023d0919e77bc6d81103f2a9b627286a9a292a1"
+      "sha256": "bac29ee11a84101e2acf272d2cbbc245f56e29e19af1bc84fa96f923f6eeb762"
     },
     {
       "id": "GuidedGrade/Models/Assignment.cs",
@@ -564,7 +582,7 @@
       "id": "GuidedGrade/Models/GradingModels.cs",
       "label": "GradingModels.cs",
       "group": "GuidedGrade",
-      "sha256": "420ec2006ac12fe1eea807d479ca07cd9753375762dd647708bdc51c5459620c"
+      "sha256": "8097eba1fe5db98e39161cf177852ecb08f59a70b33c9e795848f68d29ec675e"
     },
     {
       "id": "GuidedGrade/Models/LLMSettings.cs",
@@ -708,7 +726,7 @@
       "id": "GuidedGrade/Services/AssignmentGradingInstructions.cs",
       "label": "AssignmentGradingInstructions.cs",
       "group": "GuidedGrade",
-      "sha256": "4b8d53b53353032c0df7e7e84b397c4cbbe47f62f98f1950f0608216a304ae9a"
+      "sha256": "b8880baae53aa776e774f48cfdc9e6bd9d10be60f5bf258284806e798e3ccebf"
     },
     {
       "id": "GuidedGrade/Services/AssignmentPersistenceService.cs",
@@ -768,7 +786,13 @@
       "id": "GuidedGrade/Services/CommentPersistenceService.cs",
       "label": "CommentPersistenceService.cs",
       "group": "GuidedGrade",
-      "sha256": "677f719f286d80e662535f9b700135fe4908b016310548d3221d5621b6b9b314"
+      "sha256": "0f6663b614f8eb95e16ab56aa9daf7951d4aa29b272eefb2571c9716a4115850"
+    },
+    {
+      "id": "GuidedGrade/Services/CommentPlacementService.cs",
+      "label": "CommentPlacementService.cs",
+      "group": "GuidedGrade",
+      "sha256": "ef2cc6ed73a569032b7ccf6a6c05aba4d8859c915a9f872f88936d39e3c086da"
     },
     {
       "id": "GuidedGrade/Services/ConsoleDriverAgent.cs",
@@ -843,6 +867,12 @@
       "sha256": "d51ddc04451c4ed2fb99465ef91d155f670e466d5566761fd54a43822dfed530"
     },
     {
+      "id": "GuidedGrade/Services/InlineRubricReview.cs",
+      "label": "InlineRubricReview.cs",
+      "group": "GuidedGrade",
+      "sha256": "7f033fd79e53e3599fa407fe91ace4caeb434a552ee399d1caf6ccbf572b3a5f"
+    },
+    {
       "id": "GuidedGrade/Services/InteractiveProcessSession.cs",
       "label": "InteractiveProcessSession.cs",
       "group": "GuidedGrade",
@@ -894,19 +924,19 @@
       "id": "GuidedGrade/Services/OverallFeedbackPrompt.cs",
       "label": "OverallFeedbackPrompt.cs",
       "group": "GuidedGrade",
-      "sha256": "7ae4dca8d7003782824d35085443037b814244270e2a5eda01ca7ebbfc1a1a4a"
+      "sha256": "8b41461ca2e8a1a27f90f2b7e3cd203ccea5d3818a4e135b4adf1aad71560a37"
     },
     {
       "id": "GuidedGrade/Services/OverallReviewResult.cs",
       "label": "OverallReviewResult.cs",
       "group": "GuidedGrade",
-      "sha256": "4cc8d7cbd299a44fd1a390159373fd60e75033ba0ee0a5f98b60bae08ce588c1"
+      "sha256": "7f4e750b2ced24e795ed397b23012c57ef3a65060c66ee1c4201fedf81a904ea"
     },
     {
       "id": "GuidedGrade/Services/OverallReviewService.cs",
       "label": "OverallReviewService.cs",
       "group": "GuidedGrade",
-      "sha256": "20fbcd4b51c79af6946bf1db7a7d4350f2785aa5e2597f7d842255bffa8c78d7"
+      "sha256": "2d44154c198d43d0f1c98948043b387f13ce88be8d07483ddb89d12a8148b8d3"
     },
     {
       "id": "GuidedGrade/Services/PEHeaderReader.cs",
@@ -951,6 +981,12 @@
       "sha256": "bda1e537c034b834c3dfdb3fc5388fd435a70c6281b951472789a39d4bb79a68"
     },
     {
+      "id": "GuidedGrade/Services/ReviewFindingEnvelope.cs",
+      "label": "ReviewFindingEnvelope.cs",
+      "group": "GuidedGrade",
+      "sha256": "c67070e819aa40c8aa05b2f41877f008b24f1a530d2e18cb789b6c7135898a43"
+    },
+    {
       "id": "GuidedGrade/Services/ReviewGeneration.cs",
       "label": "ReviewGeneration.cs",
       "group": "GuidedGrade",
@@ -984,7 +1020,7 @@
       "id": "GuidedGrade/Services/SavedFeedbackText.cs",
       "label": "SavedFeedbackText.cs",
       "group": "GuidedGrade",
-      "sha256": "cbbcb43b1f6291a9dab8b59cc47561640a405ec35dcaccb55e56861a361bf29f"
+      "sha256": "7cadd4af1167457ebda371645868d4712dc2d670758022e140d6df3cc6b2f128"
     },
     {
       "id": "GuidedGrade/Services/SectionGradingService.cs",
@@ -1113,6 +1149,12 @@
       "sha256": "d279aec0c6b8eec85ff0e33f8321402e08ea3efca3b54f9bbec9dae9effaccf9"
     },
     {
+      "id": "GuidedGrade/ViewModels/CommentPlacementViewModel.cs",
+      "label": "CommentPlacementViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "5f923d4bb48c02d1db81cdba0048b8940f9c413a268cb8ea2653435b424b6cb8"
+    },
+    {
       "id": "GuidedGrade/ViewModels/ConsolePanelViewModel.cs",
       "label": "ConsolePanelViewModel.cs",
       "group": "GuidedGrade",
@@ -1147,6 +1189,12 @@
       "label": "GradeBadgeViewModel.cs",
       "group": "GuidedGrade",
       "sha256": "a10152186ce98250df91cc0c8a0d6e57b0fc8a116208f09896414f16af5bbf41"
+    },
+    {
+      "id": "GuidedGrade/ViewModels/InlineReviewEditViewModel.cs",
+      "label": "InlineReviewEditViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "75b320787d3ecf7b95d5736ef13e09581dd88939de9663e3d298d238f2b97c2c"
     },
     {
       "id": "GuidedGrade/ViewModels/JobQueueViewModel.cs",
@@ -1335,6 +1383,12 @@
       "sha256": "c3670bcc56b4a1dc3ef8149b1d4466bb1b81ab9dc0ee06654f6b92a168f1dcb0"
     },
     {
+      "id": "GuidedGrade/Views/CommentPlacementView.cs",
+      "label": "CommentPlacementView.cs",
+      "group": "GuidedGrade",
+      "sha256": "416d551ec3fbe171b7f141860823d64107dc0b3d2556bb19a84da87d15aa89e8"
+    },
+    {
       "id": "GuidedGrade/Views/ConsolePanelView.cs",
       "label": "ConsolePanelView.cs",
       "group": "GuidedGrade",
@@ -1387,6 +1441,12 @@
       "label": "GradingView.cs",
       "group": "GuidedGrade",
       "sha256": "eaec3e97082199fd5ef811928caa19ee3af1fb6286d689dc98a065cd203f4061"
+    },
+    {
+      "id": "GuidedGrade/Views/InlineReviewEditView.cs",
+      "label": "InlineReviewEditView.cs",
+      "group": "GuidedGrade",
+      "sha256": "7beccd9048db9e182b7bc91e2ca3c449a7848064789f636ac20f2b01f2a02e76"
     },
     {
       "id": "GuidedGrade/Views/JobQueueView.cs",
@@ -1533,6 +1593,12 @@
       "sha256": "05d7bbfe2c037e854d76993a223913945855c7710e4ca00e953f3641bf8527ca"
     },
     {
+      "id": "GuidedGrade/Windows/InlineReviewEditWindow.cs",
+      "label": "InlineReviewEditWindow.cs",
+      "group": "GuidedGrade",
+      "sha256": "e567494d72d8a1f69d6645f9e52eb2465890f5ce0886b33b6b0312e9b83906f8"
+    },
+    {
       "id": "GuidedGrade/Windows/LLMSettingsWindow.cs",
       "label": "LLMSettingsWindow.cs",
       "group": "GuidedGrade",
@@ -1560,7 +1626,7 @@
       "id": "KNOWLEDGE_GRAPH.md",
       "label": "KNOWLEDGE_GRAPH.md",
       "group": "root",
-      "sha256": "4b27e6e9bb6917688d4b8f7fa5f84c04fcf4b73f4dc313bf0e772f224ce79c37"
+      "sha256": "f17e04af84daf5cd3b6fc08bef181ce43f57fb23a0a185cf477cffea7f269f25"
     },
     {
       "id": "LLM_SETTINGS_GUIDE.md",
@@ -1572,7 +1638,7 @@
       "id": "MEMORY_LIMITS.md",
       "label": "MEMORY_LIMITS.md",
       "group": "root",
-      "sha256": "489894d1c7f6f0304c3574fd41d2b5ed738bce3f8ad07237a7159a84af68dc00"
+      "sha256": "f4b224f01edb859d23f71c8159af6cd0fa9ae5a153105cd514df805b24e9a4ed"
     },
     {
       "id": "OLLAMA_SETUP.md",
@@ -2048,6 +2114,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/MainWindow.CommentPlacement.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/MainWindow.FileReviews.cs",
       "kind": "contains"
     },
@@ -2303,6 +2374,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Services/CommentPlacementService.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/Services/ConsoleDriverAgent.cs",
       "kind": "contains"
     },
@@ -2359,6 +2435,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Services/IInteractiveConsoleSession.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Services/InlineRubricReview.cs",
       "kind": "contains"
     },
     {
@@ -2449,6 +2530,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Services/ReviewDraftStore.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Services/ReviewFindingEnvelope.cs",
       "kind": "contains"
     },
     {
@@ -2588,6 +2674,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/CommentPlacementViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/ConsolePanelViewModel.cs",
       "kind": "contains"
     },
@@ -2614,6 +2705,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/GradeBadgeViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/InlineReviewEditViewModel.cs",
       "kind": "contains"
     },
     {
@@ -2773,6 +2869,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/CommentPlacementView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/ConsolePanelView.cs",
       "kind": "contains"
     },
@@ -2814,6 +2915,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/GradingView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/InlineReviewEditView.cs",
       "kind": "contains"
     },
     {
@@ -2938,6 +3044,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Windows/InlineReviewEditWindow.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/Windows/LLMSettingsWindow.cs",
       "kind": "contains"
     },
@@ -3018,6 +3129,11 @@
     },
     {
       "source": "group:GuidedGrade.Tests",
+      "target": "GuidedGrade.Tests/Services/CommentPlacementTests.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade.Tests",
       "target": "GuidedGrade.Tests/Services/ConsoleInteractionTests.cs",
       "kind": "contains"
     },
@@ -3069,6 +3185,11 @@
     {
       "source": "group:GuidedGrade.Tests",
       "target": "GuidedGrade.Tests/Services/HyperVRunnerTests.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade.Tests",
+      "target": "GuidedGrade.Tests/Services/InlineRubricReviewTests.cs",
       "kind": "contains"
     },
     {

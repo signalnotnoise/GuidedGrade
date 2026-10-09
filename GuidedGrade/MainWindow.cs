@@ -145,6 +145,8 @@ namespace GuidedGrade
             _commentLayer = new Controls.InlineCommentLayer(codeEditor);
             _commentLayer.ApproveRequested += CommentLayer_ApproveRequested;
             _commentLayer.RegenerateRequested += CommentLayer_RegenerateRequested;
+            _commentLayer.ModifyRequested += CommentLayer_ModifyRequested;
+            _commentLayer.PlacementChanged += CommentLayer_PlacementChanged;
             _commentLayer.RejectRequested += CommentLayer_RejectRequested;
 
             if (commentOverlay != null)
@@ -401,13 +403,36 @@ namespace GuidedGrade
 
         private void CommentLayer_ApproveRequested(object? sender, Models.SectionFeedback feedback)
         {
+            if (feedback.RubricReview is { LocationResolved: false }) return;
             feedback.ReviewStatus = Models.FeedbackReviewStatus.Approved;
+            if (feedback.RubricReview != null)
+            {
+                feedback.RubricReview.EvidenceVerified = true;
+                feedback.Issues.Remove("Model finding is unverified. Review the code, then approve, modify or reject.");
+            }
             if (_selectedTabButton?.Tag is string filePath)
             {
                 TrackCommentForFile(filePath, feedback, publishToDraft: false);
                 PersistCommentsForFile(filePath);
                 RestoreApprovedFeedback(filePath, _fileComments[filePath]);
+                if (feedback.RubricReview != null) RefreshRubricGrade(feedback.ReviewContext);
                 RenderCommentsForFile(filePath);
+            }
+        }
+
+        private void CommentLayer_PlacementChanged(object? sender, Models.SectionFeedback feedback)
+        {
+            if (_selectedTabButton?.Tag is not string path || !MatchesCurrentReview(feedback)) return;
+            try
+            {
+                PersistCommentsForFile(path);
+                RenderCommentsForFile(path);
+            }
+            catch (Exception ex)
+            {
+                RefreshPersistedComments(path);
+                RenderCommentsForFile(path);
+                MessageBox.Show("Could not save the comment location: " + ex.Message, "Comment placement", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -461,16 +486,12 @@ namespace GuidedGrade
             if (_selectedTabButton?.Tag is not string filePath)
                 return;
 
-            if (_fileComments.TryGetValue(filePath, out var comments))
-            {
-                comments.RemoveAll(c =>
-                    c.ReviewContext == feedback.ReviewContext &&
-                    string.Equals(c.SectionName, feedback.SectionName, StringComparison.OrdinalIgnoreCase) &&
-                    c.StartLine == feedback.StartLine &&
-                    c.EndLine == feedback.EndLine);
-            }
-
+            feedback.ReviewStatus = Models.FeedbackReviewStatus.Rejected;
+            if (_reviewDrafts.TryGetValue(feedback.ReviewContext, out var draft))
+                _reviewDrafts[feedback.ReviewContext] = Services.ReviewDraftCleanup.Remove(draft, [feedback]);
             PersistCommentsForFile(filePath);
+            if (feedback.RubricReview != null) RefreshRubricGrade(feedback.ReviewContext);
+            RenderCommentsForFile(filePath);
         }
 
         private bool IsSelectedFile(string path)
@@ -510,7 +531,7 @@ namespace GuidedGrade
             if (!_fileComments.TryGetValue(filePath, out var comments))
                 return;
 
-            foreach (var comment in comments.Where(c => !c.IsOverallReview && (MatchesCurrentReview(c) || c.ReviewContext.Length == 0) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
+            foreach (var comment in comments.Where(c => (MatchesCurrentReview(c) || c.ReviewContext.Length == 0) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
             {
                 _commentLayer?.AddComment(comment, comment.StartLine, comment.EndLine, earlierReview: _currentAssignment != null && comment.ReviewContext.Length == 0);
             }
@@ -615,6 +636,8 @@ namespace GuidedGrade
             if (publishToDraft) feedback.ReviewContext = draftTarget ?? CurrentFeedbackKey(filePath);
             var existingIndex = comments.FindIndex(c =>
                 c.ReviewContext == feedback.ReviewContext && c.IsOverallReview == feedback.IsOverallReview &&
+                c.RubricReview?.CriterionId == feedback.RubricReview?.CriterionId &&
+                c.RubricReview?.IsDeduction == feedback.RubricReview?.IsDeduction &&
                 string.Equals(c.SectionName, feedback.SectionName, StringComparison.OrdinalIgnoreCase) &&
                 c.StartLine == feedback.StartLine &&
                 c.EndLine == feedback.EndLine);
