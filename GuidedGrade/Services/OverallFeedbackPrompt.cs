@@ -46,8 +46,10 @@ internal static class OverallFeedbackPrompt
         var index = 1;
         foreach (var file in files)
         {
-            prompt.AppendLine($"=== file-{index++} ===");
+            prompt.AppendLine($"=== file-{index} ({System.IO.Path.GetExtension(file.Name)}) ===");
+            index++;
             prompt.AppendLine(file.Content);
+            prompt.AppendLine($"=== END file-{index - 1} ===");
         }
         return StudentDataSanitizer.Sanitize(prompt.ToString(), identifiers);
     }

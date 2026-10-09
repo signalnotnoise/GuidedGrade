@@ -183,7 +183,7 @@ namespace GuidedGrade.Services
 
                 try
                 {
-                    var text = File.ReadAllText(file);
+                    var text = BoundedTextReader.Read(file);
                     var updated = ReplacePathVariants(text, original, staged);
                     if (!string.Equals(text, updated, StringComparison.Ordinal))
                         File.WriteAllText(file, updated, Encoding.UTF8);

@@ -42,25 +42,8 @@ namespace GuidedGrade.Services
             var sanitizedRelated = SanitizeRelatedFiles(relatedFiles, identifiersToRedact);
             var prompt = StudentDataSanitizer.Sanitize(BuildSectionPrompt(sanitizedCode, relevantRubricItems, sanitizedRelated), identifiersToRedact);
 
-            string response;
-
-            switch (_settings.Provider)
-            {
-                case LLMProvider.AzureOpenAI:
-                    var azureService = _client != null ? new AzureOpenAIService(_client, _settings.AzureEndpoint, _settings.AzureApiKey, _settings.AzureDeployment) : new AzureOpenAIService(
-                        _settings.AzureEndpoint,
-                        _settings.AzureApiKey,
-                        _settings.AzureDeployment);
-
-                    response = await azureService.AnalyzeCodeAsync(prompt, BuildAzureFiles(sanitizedCode, sanitizedRelated), wrapPrompt: false, cancellationToken: cancellationToken, jobTitle: $"Grade section: {sectionName}");
-                    break;
-
-                case LLMProvider.Ollama:
-                default:
-                    var ollamaService = _client != null ? new OllamaService(_client, _settings.SelectedModel) : new OllamaService(_settings.OllamaBaseUrl, _settings.SelectedModel);
-                    response = await ollamaService.AnalyzeCodeAsync(BuildOllamaFiles(sanitizedCode, sanitizedRelated), prompt, wrapPrompt: false, cancellationToken: cancellationToken, jobTitle: $"Grade section: {sectionName}");
-                    break;
-            }
+            var response = await LlmCompletionService.CompleteAsync(_settings, OverallReviewService.SystemPrompt,
+                prompt, cancellationToken, priority: LlmJobPriority.Assignment, jobTitle: $"Grade section: {sectionName}", client: _client);
 
             return ParseFeedback(response, sectionName);
         }
@@ -77,42 +60,6 @@ namespace GuidedGrade.Services
                 FileName = $"file-{index + 2}",
                 Content = StudentDataSanitizer.Sanitize(file.Content, identifiersToRedact)
             }).ToList();
-        }
-
-        private static List<CodeFile> BuildAzureFiles(
-            string sanitizedCode,
-            IReadOnlyList<RelatedSubmissionFile> relatedFiles)
-        {
-            var files = new List<CodeFile>
-            {
-                new() { FileName = "target.cpp", Content = sanitizedCode }
-            };
-
-            files.AddRange(relatedFiles.Select(file => new CodeFile
-            {
-                FileName = file.FileName,
-                Content = file.Content
-            }));
-
-            return files;
-        }
-
-        private static List<OllamaService.CodeFile> BuildOllamaFiles(
-            string sanitizedCode,
-            IReadOnlyList<RelatedSubmissionFile> relatedFiles)
-        {
-            var files = new List<OllamaService.CodeFile>
-            {
-                new() { Name = "target.cpp", Content = sanitizedCode }
-            };
-
-            files.AddRange(relatedFiles.Select(file => new OllamaService.CodeFile
-            {
-                Name = file.FileName,
-                Content = file.Content
-            }));
-
-            return files;
         }
 
         private string BuildSectionPrompt(

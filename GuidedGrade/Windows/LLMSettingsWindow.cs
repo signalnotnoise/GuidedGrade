@@ -26,8 +26,10 @@ namespace GuidedGrade.Windows
         private void LoadSettings()
         {
             _settings = LLMSettings.Load();
+            if (!string.IsNullOrEmpty(_settings.ConfigurationWarning))
+                MessageBox.Show(_settings.ConfigurationWarning, "AI credentials", MessageBoxButton.OK, MessageBoxImage.Warning);
 
-            _provider.Value = (int)_settings.Provider;
+            _provider.Value = _settings.Provider == LLMProvider.AzureOpenAI ? 1 : 0;
 
             // Ollama
             txtOllamaUrl.Value = _settings.OllamaBaseUrl;
@@ -38,9 +40,6 @@ namespace GuidedGrade.Windows
             txtAzureApiKey.Value = _settings.AzureApiKey;
             cmbAzureDeployment.Value = _settings.AzureDeployment;
 
-            // OpenAI
-            txtOpenAIApiKey.Value = _settings.OpenAIApiKey;
-            cmbOpenAIModel.Value = _settings.OpenAIModel;
 
             // Requirements
             txtRequirements.Value = _settings.RequirementsTemplate;
@@ -61,8 +60,6 @@ namespace GuidedGrade.Windows
         private readonly State<string> txtAzureEndpoint = new("");
         private readonly State<string> txtAzureApiKey = new("");
         private readonly State<string> cmbAzureDeployment = new("");
-        private readonly State<string> txtOpenAIApiKey = new("");
-        private readonly State<string> cmbOpenAIModel = new("");
         private readonly State<string> txtRequirements = new("");
         private readonly State<string> txtRunnerBaseDisk = new("");
         private readonly State<string> txtRunnerCredentialFile = new("");
@@ -70,7 +67,6 @@ namespace GuidedGrade.Windows
         private readonly State<string> txtRunnerMemory = new("");
         private readonly State<string> txtOllamaStatus = new("");
         private readonly State<string> txtAzureStatus = new("");
-        private readonly State<string> txtOpenAIStatus = new("");
         private readonly State<int> _provider = new(0);
         private readonly State<int> cmbExecutionMode = new(0);
         private readonly State<bool> chkExecuteSubmissions = new(false);
@@ -88,11 +84,6 @@ namespace GuidedGrade.Windows
                     Text("API key"), PasswordField(txtAzureApiKey).AccessibilityLabel("Azure API key"),
                     Text("Deployment"), TextField(cmbAzureDeployment).AccessibilityLabel("Azure deployment"),
                     Button("Test Azure connection", () => TestAzure_Click(this, new())), Text(txtAzureStatus.Value)).Spacing(8).Id("azure"),
-                LLMProvider.OpenAI => VStack(
-                    Text("API key"), PasswordField(txtOpenAIApiKey).AccessibilityLabel("OpenAI API key"),
-                    Text("Model"), TextField(cmbOpenAIModel).AccessibilityLabel("OpenAI model"),
-                    Text("OpenAI integration is not yet available."),
-                    Button("Check configuration", () => TestOpenAI_Click(this, new())), Text(txtOpenAIStatus.Value)).Spacing(8).Id("openai"),
                 _ => VStack(Text("Ollama server"), TextField(txtOllamaUrl).AccessibilityLabel("Ollama server"),
                     Text("Model name"), TextField(cmbOllamaModel).AccessibilityLabel("Ollama model"),
                     Picker(_models.ToArray(), new Binding<int>(() => _models.ToList().IndexOf(cmbOllamaModel.Value), index =>
@@ -101,10 +92,10 @@ namespace GuidedGrade.Windows
             };
             return Scroll(VStack(
                 Text("AI Provider settings").FontSize(22),
-                Picker(new[] { "Ollama", "Azure OpenAI", "OpenAI (not yet available)" }, _provider).AccessibilityLabel("AI provider"), fields,
+                Picker(new[] { "Ollama", "Azure OpenAI" }, _provider).AccessibilityLabel("AI provider"), fields,
                 Text("Default assignment requirements"), TextEditor(txtRequirements).Height(140).AccessibilityLabel("Default requirements"),
                 Toggle("Ask before grading", chkConfirmGrading),
-                Text("Console model wait timeout (1–90 seconds)"),
+                Text("Console model wait timeout (1â€“90 seconds)"),
                 TextField(txtConsoleModelWait).AccessibilityLabel("Console model wait timeout"),
                 Text("Default: 30 seconds per model decision. The overall console test remains limited to 90 seconds.").FontSize(13),
                 Toggle("Build and run student programs during analysis", chkExecuteSubmissions),
@@ -114,7 +105,7 @@ namespace GuidedGrade.Windows
                 Text("Windows template disk (.vhdx)"), TextField(txtRunnerBaseDisk).AccessibilityLabel("Windows template disk"),
                 Text("Guest credential file (.xml)"), TextField(txtRunnerCredentialFile).AccessibilityLabel("Guest credential file"),
                 Text("Published runner folder"), TextField(txtRunnerWorkerFolder).AccessibilityLabel("Published runner folder"),
-                Text("VM memory (2048–16384 MB)"), TextField(txtRunnerMemory).AccessibilityLabel("VM memory"),
+                Text("VM memory (2048â€“16384 MB)"), TextField(txtRunnerMemory).AccessibilityLabel("VM memory"),
                 HStack(Button("Save", () => Save_Click(this, new())).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", () => Cancel_Click(this, new()))).Spacing(8)
             ).Spacing(12).Padding(20));
         }
@@ -211,34 +202,6 @@ namespace GuidedGrade.Windows
             }
         }
 
-        private async void TestOpenAI_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                txtOpenAIStatus.Value = "Testing connection...";
-
-
-                var apiKey = txtOpenAIApiKey.Value;
-                var model = cmbOpenAIModel.Value;
-
-                if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
-                {
-                    txtOpenAIStatus.Value = "Please fill all fields";
-
-                    return;
-                }
-
-                // TODO: Implement OpenAI test when we add OpenAI service
-                txtOpenAIStatus.Value = "OpenAI integration coming soon!";
-
-            }
-            catch (Exception ex)
-            {
-                txtOpenAIStatus.Value = ex.Message;
-
-            }
-        }
-
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -253,8 +216,6 @@ namespace GuidedGrade.Windows
                 _settings.AzureApiKey = txtAzureApiKey.Value;
                 _settings.AzureDeployment = cmbAzureDeployment.Value;
 
-                _settings.OpenAIApiKey = txtOpenAIApiKey.Value;
-                _settings.OpenAIModel = cmbOpenAIModel.Value;
 
                 _settings.RequirementsTemplate = txtRequirements.Value;
                 _settings.ExecuteStudentSubmissions = chkExecuteSubmissions.Value == true;

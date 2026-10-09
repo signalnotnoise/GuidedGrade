@@ -625,7 +625,7 @@ public class FrameworkMigrationTests
             Open(lab1);
             Assert.AreEqual("Only A Lab 1", Draft());
             Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
-            Assert.IsTrue(Descendants<TextBlock>(host).Any(t => t.Text.Contains("Only A Lab 1")));
+            Assert.IsTrue(Descendants<TextBox>(host).Any(t => t.Text.Contains("Only A Lab 1")));
             Open(lab2);
             Assert.AreEqual("Only A Lab 2", Draft());
 
@@ -642,7 +642,7 @@ public class FrameworkMigrationTests
             window.SetReviewAssignment(new GradingAssignment { Course = "Course", Title = "Assignment 1" });
             Layout(host, 1200, 800);
             Assert.IsFalse(Descendants<InlineCommentAdorner>(host).Any());
-            Assert.IsTrue(Descendants<TextBlock>(host).Any(t => t.Text.Contains("Late Assignment 1")));
+            Assert.IsTrue(Descendants<TextBox>(host).Any(t => t.Text.Contains("Late Assignment 1")));
         }
         finally
         {

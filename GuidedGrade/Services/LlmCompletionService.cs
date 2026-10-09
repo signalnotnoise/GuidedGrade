@@ -1,4 +1,5 @@
 using GuidedGrade.Models;
+using System.Net.Http;
 
 namespace GuidedGrade.Services
 {
@@ -10,12 +11,12 @@ namespace GuidedGrade.Services
             string userPrompt,
             CancellationToken cancellationToken = default,
             System.Text.Json.JsonElement? responseSchema = null,
-            LlmJobPriority priority = LlmJobPriority.General, string? jobTitle = null)
+            LlmJobPriority priority = LlmJobPriority.General, string? jobTitle = null, HttpClient? client = null)
         {
             switch (settings.Provider)
             {
                 case LLMProvider.AzureOpenAI:
-                    var azure = new AzureOpenAIService(
+                    var azure = client != null ? new AzureOpenAIService(client, settings.AzureEndpoint, settings.AzureApiKey, settings.AzureDeployment) : new AzureOpenAIService(
                         settings.AzureEndpoint,
                         settings.AzureApiKey,
                         settings.AzureDeployment);
@@ -25,9 +26,9 @@ namespace GuidedGrade.Services
                     throw new NotSupportedException("OpenAI is not yet supported. Select Ollama or Azure OpenAI in AI Provider settings.");
 
                 case LLMProvider.Ollama:
-                default:
-                    var ollama = new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel);
+                    var ollama = client != null ? new OllamaService(client, settings.SelectedModel) : new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel);
                     return await ollama.CompleteAsync(systemPrompt, userPrompt, cancellationToken, responseSchema, priority, jobTitle);
+                default: throw new NotSupportedException("Unsupported AI provider. Select Ollama or Azure OpenAI.");
             }
         }
     }

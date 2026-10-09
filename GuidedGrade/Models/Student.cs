@@ -46,41 +46,7 @@ namespace GuidedGrade.Models
 
         public static List<Student> GetStudentsFromFolders(string path, bool useFolderNames = false)
         {
-            List<Student> folders = new();
-
-            try
-            {
-                if (Directory.Exists(path))
-                {
-                    string[] subFolders = Directory.GetDirectories(path);
-
-
-                    foreach (var subFolder in subFolders)
-                    {
-                        try
-                        {
-                            folders.Add(useFolderNames
-                                ? new Student(Path.GetFileName(subFolder), "", "", subFolder)
-                                : new Student(path, subFolder));
-                        }
-                        catch (ArgumentException ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Skipping invalid student folder: {ex.Message}");
-                        }
-                    }
-                }
-                else
-                {
-                    // TODO: Update this to WPF equivalent
-                    // MessageBox.Show("Error");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Unable to load student folders: {ex.Message}");
-            }
-
-            return folders;
+            return SubmissionFolderLoader.LoadStudents(path, useFolderNames).Students;
         }
     }
 }

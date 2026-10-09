@@ -147,26 +147,13 @@ public partial class MainWindow
                     $"Submission: {item.EntryPoint}\n\n{report}", ct);
             }, async (reviewFiles, ct) =>
             {
-                var files = new List<OllamaService.CodeFile>();
-                foreach (var target in reviewFiles)
-                {
-                    var content = StudentDataSanitizer.Sanitize(await File.ReadAllTextAsync(target.Path, ct), identifiers);
-                    files.Add(new() { Name = StudentDataSanitizer.AnonymousFileName(files.Count + 1, Path.GetExtension(target.Path)), Content = content });
-                }
-                var prompt = OverallFeedbackPrompt.WithFiles(
-                    OverallFeedbackPrompt.BuildInstructions(assignment, settings.RequirementsTemplate, identifiers), files);
-                var feedback = settings.Provider switch
-                {
-                    LLMProvider.AzureOpenAI => await new AzureOpenAIService(settings.AzureEndpoint, settings.AzureApiKey, settings.AzureDeployment)
-                        .AnalyzeCodeAsync(prompt, files.Select(file => new CodeFile { FileName = file.Name, Content = file.Content }).ToList(), ct, wrapPrompt: false, jobTitle: "Batch submission review"),
-                    LLMProvider.Ollama => await new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel)
-                        .AnalyzeCodeAsync(files, prompt, wrapPrompt: false, cancellationToken: ct, jobTitle: "Batch submission review"),
-                    _ => throw new InvalidOperationException("Unsupported batch provider.")
-                };
+                var feedback = await ReviewOrchestrator.ReviewAsync(assignment, settings,
+                    reviewFiles.Select(target => target.Path), identifiers, ct);
                 ct.ThrowIfCancellationRequested();
                 if (reviewFiles.Any(target => !_reviewGeneration.IsCurrent(target.Path, target.Version))) throw new InvalidOperationException("Review was cleared while this file was being reviewed.");
                 if (string.IsNullOrWhiteSpace(feedback)) throw new InvalidOperationException("The model returned no feedback.");
-                CompleteOverallFileReview(reviewFiles.ToArray(), item.Context, feedback, approve, publishToDraft: approve);
+                var canApprove = approve && !feedback.StartsWith("Review draft — needs instructor review", StringComparison.Ordinal) && !feedback.Contains("Final Grade: Withheld", StringComparison.Ordinal);
+                CompleteOverallFileReview(reviewFiles.ToArray(), item.Context, feedback, canApprove, publishToDraft: canApprove);
             }, cancellation);
         }, (item, status) =>
         {

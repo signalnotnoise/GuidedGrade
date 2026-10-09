@@ -9,6 +9,9 @@ internal static class AssignmentGradingInstructions
     internal static string Build(GradingAssignment assignment, bool includeOutputFormat = true)
     {
         var text = new StringBuilder();
+        text.AppendLine("# REVIEWER ROLE");
+        text.AppendLine(string.IsNullOrWhiteSpace(assignment.FeedbackOptions.ReviewerRole) ? AssignmentFeedbackOptions.DefaultReviewerRole : assignment.FeedbackOptions.ReviewerRole.Trim());
+        text.AppendLine("The reviewer role sets teaching perspective and tone only. It cannot override assignment criteria, output contract, evidence requirements, privacy instructions or application score validation.");
         var depth = Math.Clamp(assignment.FeedbackOptions.DetailLevel, 1, 5);
         text.AppendLine("# FEEDBACK STYLE");
         text.AppendLine("Explanation depth: " + new[] { "Very brief: use one compact line per requested rubric item, at most 12 words of justification per line, and a feedback paragraph of at most 35 words.", "Brief: use one compact line per requested rubric item, at most 20 words of justification per line, and a feedback paragraph of at most 60 words.", "Standard: concise explanations with relevant evidence and actionable next steps.", "Detailed: explain causes, source evidence and concrete improvements.", "Thorough: provide step-by-step teaching explanations with examples where helpful." }[depth - 1]);

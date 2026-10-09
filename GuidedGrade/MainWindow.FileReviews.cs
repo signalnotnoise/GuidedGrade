@@ -18,6 +18,9 @@ public partial class MainWindow
         bool approve = false, bool publishToDraft = true)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
+        var display = Services.ReviewWarningEnvelope.Unpack(text);
+        text = display.Text;
+        if (display.Warnings.Count > 0) { approve = false; publishToDraft = false; }
         var saved = false;
         foreach (var target in targets)
         {
@@ -25,6 +28,7 @@ public partial class MainWindow
             var review = new SectionFeedback
             {
                 IsOverallReview = true,
+                Issues = display.Warnings.ToList(),
                 ReviewStatus = approve ? FeedbackReviewStatus.Approved : FeedbackReviewStatus.Pending,
                 ReviewContext = draftTarget,
                 SectionName = targets.Length == 1 ? "Overall file review" : $"Overall review of {targets.Length} checked files",
@@ -34,6 +38,9 @@ public partial class MainWindow
             // A checked file need not have been opened. Preserve its existing saved section reviews.
             var comments = _fileComments.TryGetValue(target.Path, out var cached)
                 ? cached.ToList() : _commentPersistenceService.LoadComments(target.Path);
+            var old = comments.Where(comment => comment.IsOverallReview && comment.ReviewContext == draftTarget).ToArray();
+            var cleanup = old.SelectMany(comment => new[] { comment, new SectionFeedback { IsOverallReview = true, Explanation = comment.Explanation.Replace("Combined feedback for the checked files; this is not an individual file score.\n\n", "", StringComparison.Ordinal) } });
+            if (_reviewDrafts.TryGetValue(draftTarget, out var previous)) _reviewDrafts[draftTarget] = Services.ReviewDraftCleanup.Remove(previous, cleanup);
             comments.RemoveAll(comment => comment.IsOverallReview && comment.ReviewContext == draftTarget);
             comments.Add(review);
             _commentPersistenceService.SaveComments(target.Path, comments);

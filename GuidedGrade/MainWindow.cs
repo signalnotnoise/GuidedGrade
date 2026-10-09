@@ -37,7 +37,8 @@ namespace GuidedGrade
         private Models.GradingAssignment? _currentAssignment;
         private Controls.InlineCommentLayer? _commentLayer;
         private readonly Services.CommentPersistenceService _commentPersistenceService;
-        private readonly Dictionary<string, List<Models.SectionFeedback>> _fileComments = new(StringComparer.OrdinalIgnoreCase);
+        private readonly BoundedCache<List<Models.SectionFeedback>> _fileComments;
+        private string? _draftSaveError;
 
 
         public MainWindow() : this(new AssignmentPersistenceService(), new CommentPersistenceService()) { }
@@ -45,6 +46,12 @@ namespace GuidedGrade
         internal MainWindow(AssignmentPersistenceService assignments, CommentPersistenceService comments)
         {
             _assignmentPersistenceService = assignments;
+            _reviewDrafts = new ReviewDraftStore(assignments.DatabasePath);
+            _fileComments = new BoundedCache<List<SectionFeedback>>(128, () => _selectedTabButton?.Tag as string);
+            Closing += (_, e) =>
+            {
+                if (_draftSaveError != null && MessageBox.Show(this, "Your latest feedback edits could not be saved: " + _draftSaveError + "\nClose anyway? Export feedback to keep a copy.", "Unsaved feedback", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) e.Cancel = true;
+            };
             _commentPersistenceService = comments;
             _gradePersistence = new GradePersistenceService(assignments.DatabasePath);
             _studentGrades = _gradePersistence.LoadAll();
@@ -109,8 +116,7 @@ namespace GuidedGrade
 
             SetReviewAssignment(assignment);
             CloseSidePanel();
-            MessageBox.Show($"Loaded assignment '{assignment.Title}' for course '{assignment.Course}'.",
-                "Saved Assignment Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
+
         }
 
         // --- Theme ------------------------------------------------------------
@@ -169,7 +175,7 @@ namespace GuidedGrade
                 return false;
 
             var relatedFiles = RelatedFileResolver.FindRelatedFiles(filePath, checkedPaths, searchRoot);
-            var fileText = await File.ReadAllTextAsync(filePath);
+            var fileText = await BoundedTextReader.ReadAsync(filePath);
             var sections = ExtractCodeSections(fileText, Path.GetFileNameWithoutExtension(filePath));
 
             if (sections.Count == 0)
@@ -232,104 +238,7 @@ namespace GuidedGrade
             MessageBox.Show(message, "Section comments", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private List<CodeSection> ExtractCodeSections(string fileText, string defaultName)
-        {
-            var sections = new List<CodeSection>();
-            var controlStatementNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "if", "else", "for", "foreach", "while", "do", "switch", "case", "catch", "using", "lock"
-            };
-            var text = fileText.Replace("\r\n", "\n");
-            var lines = text.Split('\n');
-
-            for (var i = 0; i < lines.Length; i++)
-            {
-                var line = lines[i];
-                var match = System.Text.RegularExpressions.Regex.Match(
-                    line,
-                    @"(?i)(?:^|\s)(?:[A-Za-z_:][\w:<>\s*&]*\s+)?[A-Za-z_][A-Za-z0-9_]*\s*\([^;{}]*\)\s*(?:const)?\s*\{");
-
-                if (!match.Success)
-                    continue;
-
-                var functionName = line.Trim();
-                var startLine = i + 1;
-                var braceIndex = line.IndexOf('{');
-                if (braceIndex < 0)
-                    continue;
-
-                var bodyStart = text.IndexOf('{', i == 0 ? 0 : text.IndexOf(lines[i], StringComparison.Ordinal));
-                if (bodyStart < 0)
-                    continue;
-
-                var openBraces = 0;
-                var closeBraces = 0;
-                var startOffset = bodyStart;
-                var foundStart = false;
-                var endOffset = -1;
-
-                for (var offset = bodyStart; offset < text.Length; offset++)
-                {
-                    if (text[offset] == '{')
-                    {
-                        openBraces++;
-                        foundStart = true;
-                    }
-                    else if (text[offset] == '}')
-                    {
-                        closeBraces++;
-                        if (foundStart && openBraces == closeBraces)
-                        {
-                            endOffset = offset;
-                            break;
-                        }
-                    }
-                }
-
-                if (endOffset < 0)
-                    continue;
-
-                var sectionText = text.Substring(startOffset + 1, endOffset - startOffset - 1);
-                var sectionEndLine = CountLines(text.Substring(0, endOffset + 1));
-
-                var sectionName = ExtractFunctionName(functionName);
-                // Control statements are not independent grading sections.
-                if (controlStatementNames.Contains(sectionName))
-                    continue;
-
-                if (string.IsNullOrWhiteSpace(sectionName))
-                    sectionName = $"{defaultName} - section {sections.Count + 1}";
-
-                sections.Add(new CodeSection
-                {
-                    Name = sectionName,
-                    Code = sectionText,
-                    StartLine = startLine,
-                    EndLine = sectionEndLine
-                });
-            }
-
-            return sections;
-        }
-
-        private static string ExtractFunctionName(string signature)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(signature, @"([A-Za-z_][A-Za-z0-9_]*)\s*\(");
-            return match.Success ? match.Groups[1].Value : signature.Trim();
-        }
-
-        private static int CountLines(string value)
-        {
-            return string.IsNullOrEmpty(value) ? 0 : value.Split('\n').Length;
-        }
-
-        private class CodeSection
-        {
-            public string Name { get; set; } = "";
-            public string Code { get; set; } = "";
-            public int StartLine { get; set; }
-            public int EndLine { get; set; }
-        }
+        private static List<CodeSection> ExtractCodeSections(string text, string name) => CodeSectionDetector.Extract(text, name);
 
         private async void AnalyzeSectionsMenuItem_Click(object sender, RoutedEventArgs e)
         {
@@ -375,87 +284,9 @@ namespace GuidedGrade
 
                 // Capture requirements and rubric before file reads or provider calls can yield.
                 var identifiers = checkedFiles.SelectMany(file => GetStudentIdentifiers(file.FullPath)).Distinct().ToArray();
-                var instructions = OverallFeedbackPrompt.BuildInstructions(_currentAssignment, settings.RequirementsTemplate, identifiers);
-
-                var codeFiles = new List<Services.OllamaService.CodeFile>();
-                foreach (var file in checkedFiles)
-                {
-                    try
-                    {
-                        var content = await File.ReadAllTextAsync(file.FullPath);
-                        codeFiles.Add(new Services.OllamaService.CodeFile
-                        {
-                            Name = Services.StudentDataSanitizer.AnonymousFileName(codeFiles.Count + 1, Path.GetExtension(file.Name)),
-                            Content = Services.StudentDataSanitizer.Sanitize(content, identifiers)
-                        });
-
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new IOException($"Could not read {file.Name}. Overall feedback was cancelled to avoid grading incomplete input.", ex);
-                    }
-                }
-
-                var requirements = OverallFeedbackPrompt.WithFiles(instructions, codeFiles);
-                string feedback;
-
-                switch (settings.Provider)
-                {
-                    case Models.LLMProvider.AzureOpenAI:
-                        if (string.IsNullOrWhiteSpace(settings.AzureEndpoint) || 
-                            string.IsNullOrWhiteSpace(settings.AzureApiKey) ||
-                            string.IsNullOrWhiteSpace(settings.AzureDeployment))
-                        {
-                            MessageBox.Show("Azure OpenAI is not configured.\n\nPlease go to Tools ? LLM Configuration to set up your Azure credentials.", 
-                                "Configuration Required", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            return;
-                        }
-
-                        Debug.WriteLine($"Analyzing {checkedFiles.Count} file(s) with Azure OpenAI ({settings.AzureDeployment})...");
-                        var azureService = new Services.AzureOpenAIService(
-                            settings.AzureEndpoint, 
-                            settings.AzureApiKey, 
-                            settings.AzureDeployment);
-
-                        var azureFiles = codeFiles.Select(f => new Services.CodeFile
-                        {
-                            FileName = f.Name,
-                            Content = f.Content
-                        }).ToList();
-
-                        feedback = await azureService.AnalyzeCodeAsync(requirements, azureFiles, wrapPrompt: false, jobTitle: "Overall feedback");
-                        break;
-
-                    case Models.LLMProvider.OpenAI:
-                        MessageBox.Show("OpenAI integration coming soon!\n\nFor now, please use Ollama (local) or Azure OpenAI.", 
-                            "Not Implemented", MessageBoxButton.OK, MessageBoxImage.Information);
-                        return;
-
-                    case Models.LLMProvider.Ollama:
-                    default:
-                        Debug.WriteLine($"Analyzing {checkedFiles.Count} file(s) with Ollama ({settings.SelectedModel})...");
-
-                        var ollamaService = new Services.OllamaService(
-                            baseUrl: settings.OllamaBaseUrl,
-                            model: settings.SelectedModel
-                        );
-
-                        var isAvailable = await ollamaService.IsAvailableAsync();
-                        if (!isAvailable)
-                        {
-                            var msg = $"Ollama is not running or model '{settings.SelectedModel}' is not installed.\n\n" +
-                                      "To use Ollama:\n" +
-                                      "1. Install Ollama from https://ollama.ai\n" +
-                                      $"2. Run: ollama pull {settings.SelectedModel}\n" +
-                                      "3. Ensure Ollama is running\n\n" +
-                                      "Or configure a different provider in Tools ? LLM Configuration.";
-                            MessageBox.Show(msg, "Ollama Not Available", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            return;
-                        }
-
-                        feedback = await ollamaService.AnalyzeCodeAsync(codeFiles, requirements, wrapPrompt: false, jobTitle: "Overall feedback");
-                        break;
-                }
+                var reviewAssignment = ReviewContext.Snapshot(_currentAssignment);
+                var feedback = await ReviewOrchestrator.ReviewAsync(reviewAssignment, settings,
+                    checkedFiles.Select(file => file.FullPath), identifiers);
 
                 CompleteOverallFileReview(reviewFiles, feedbackTarget, feedback);
             }
@@ -654,7 +485,7 @@ namespace GuidedGrade
             _activeFile.Value = btn.Tag;
 
             var path = (string)btn.Tag!;
-            codeEditor.Text = File.ReadAllText(path);
+            codeEditor.Text = BoundedTextReader.Read(path);
             RefreshReviewSelection();
             SetEmptyState(false);
             UpdateViolationsStatus();
@@ -840,8 +671,11 @@ namespace GuidedGrade
             if (string.IsNullOrWhiteSpace(_openedDirectoryPath)) return;
             var selectedFolder = (listBoxStudents.SelectedItem as Student)?.Folder;
             ClearFileTabs();
-            var students = Student.GetStudentsFromFolders(_openedDirectoryPath,
+            var loaded = SubmissionFolderLoader.LoadStudents(_openedDirectoryPath,
                 _assignmentPersistenceService.UseFolderNames(_currentAssignment?.Course));
+            var students = loaded.Students;
+            if (loaded.Warnings.Count > 0)
+                MessageBox.Show(string.Join("\n", loaded.Warnings), "Submission folders", MessageBoxButton.OK, MessageBoxImage.Warning);
             listBoxStudents.Items.Clear();
 
             foreach (var student in students)
@@ -1005,35 +839,9 @@ namespace GuidedGrade
 
         private void LoadDirectory(Models.FileSystemItem parentItem, string directoryPath)
         {
-            try
-            {
-                // Add subdirectories
-                var directories = Directory.GetDirectories(directoryPath);
-                foreach (var dir in directories.OrderBy(d => Path.GetFileName(d)))
-                {
-                    var dirItem = new Models.FileSystemItem(dir, true);
-                    parentItem.Children.Add(dirItem);
-
-                    // Recursively load subdirectories
-                    LoadDirectory(dirItem, dir);
-                }
-
-                // Add files
-                var files = Directory.GetFiles(directoryPath);
-                foreach (var file in files.OrderBy(f => Path.GetFileName(f)))
-                {
-                    var fileItem = new Models.FileSystemItem(file, false);
-                    parentItem.Children.Add(fileItem);
-                }
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Debug.WriteLine($"Access denied to: {directoryPath} - {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading directory {directoryPath}: {ex.Message}");
-            }
+            var warnings = SubmissionFolderLoader.Populate(parentItem, directoryPath);
+            if (warnings.Count > 0)
+                MessageBox.Show(string.Join("\n", warnings), "Submission folders", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private void FileTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -1315,7 +1123,7 @@ namespace GuidedGrade
             var reviewVersion = capturedReviewVersion ?? _reviewGeneration.Capture(filePath);
             if (!_reviewGeneration.IsCurrent(filePath, reviewVersion))
                 throw new InvalidOperationException("Review was cleared after this job was queued.");
-            var fileText = await File.ReadAllTextAsync(filePath);
+            var fileText = await BoundedTextReader.ReadAsync(filePath);
             var sections = ExtractCodeSections(fileText, Path.GetFileNameWithoutExtension(filePath));
             if (sections.Count == 0)
             {
@@ -1554,7 +1362,7 @@ namespace GuidedGrade
 
                 Debug.WriteLine($"    SCANNING: File matches pattern");
 
-                var text = File.ReadAllText(path);
+                var text = BoundedTextReader.Read(path);
                 Debug.WriteLine($"    File length: {text.Length} characters");
 
                 var violations = matcher.GetViolations(text);
@@ -1593,7 +1401,7 @@ namespace GuidedGrade
                 // Only highlight if the visible file should be scanned
                 if (configService.ShouldScanFile(visiblePath))
                 {
-                    var visibleText = File.ReadAllText(visiblePath);
+                    var visibleText = BoundedTextReader.Read(visiblePath);
                     var visibleFileViolations = matcher.GetViolations(visibleText);
                     var lineNumbers = visibleFileViolations.Select(v => v.LineNumber).ToList();
                     Debug.WriteLine($"Highlighting lines: {string.Join(", ", lineNumbers)}");

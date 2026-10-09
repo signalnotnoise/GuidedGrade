@@ -318,7 +318,7 @@ namespace GuidedGrade.Services
                         continue;
 
                     sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(Path.GetFileName(sourcePath), identifiers, index)} ===");
-                    sb.AppendLine(StudentDataSanitizer.Sanitize(File.ReadAllText(sourcePath), identifiers));
+                    sb.AppendLine(StudentDataSanitizer.Sanitize(BoundedTextReader.Read(sourcePath), identifiers));
                     index++;
                     // A solution file does not itself contain #includes. Resolve headers from its source files too.
                     if (companions.Count < 8)

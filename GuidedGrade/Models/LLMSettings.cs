@@ -17,10 +17,15 @@ namespace GuidedGrade.Models
 
         // Azure OpenAI settings
         public string AzureEndpoint { get; set; } = "";
+        [JsonIgnore]
         public string AzureApiKey { get; set; } = "";
         public string AzureDeployment { get; set; } = "";
 
+        public string AzureApiKeyProtected { get; set; } = "";
+        public string OpenAIApiKeyProtected { get; set; } = "";
+        [JsonIgnore] public string ConfigurationWarning { get; set; } = "";
         // OpenAI settings
+        [JsonIgnore]
         public string OpenAIApiKey { get; set; } = "";
         public string OpenAIModel { get; set; } = "gpt-4";
 
@@ -53,8 +58,7 @@ namespace GuidedGrade.Models
             {
                 if (File.Exists(SettingsPath))
                 {
-                    var json = File.ReadAllText(SettingsPath);
-                    var settings = JsonSerializer.Deserialize<LLMSettings>(json) ?? new LLMSettings();
+                    var settings = ProtectedSettingsStore.Load(SettingsPath);
                     if (settings.MigrateLegacyLocalPaths())
                     {
                         try
@@ -73,6 +77,7 @@ namespace GuidedGrade.Models
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error loading LLM settings: {ex.Message}");
+                return new LLMSettings { ConfigurationWarning = "Saved AI settings could not be loaded: " + ex.Message };
             }
 
             return new LLMSettings();
@@ -91,13 +96,7 @@ namespace GuidedGrade.Models
                     Directory.CreateDirectory(directory);
                 }
 
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                };
-
-                var json = JsonSerializer.Serialize(this, options);
-                File.WriteAllText(SettingsPath, json);
+                ProtectedSettingsStore.Save(SettingsPath, this);
             }
             catch (Exception ex)
             {

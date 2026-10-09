@@ -82,6 +82,8 @@ namespace GuidedGrade.Models
 
     public class AssignmentFeedbackOptions
     {
+        public const string DefaultReviewerRole = "You are an experienced C++ instructor reviewing a multi-file submission. Be rigorous, evidence-based, and constructive.";
+        public string ReviewerRole { get; set; } = DefaultReviewerRole;
         public int DetailLevel { get; set; } = 3;
         public string ReadingLevel { get; set; } = "High school";
         public bool AddressDirectly { get; set; } = true;

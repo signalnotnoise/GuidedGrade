@@ -1,3 +1,4 @@
+using GuidedGrade.Services;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -50,14 +51,17 @@ public partial class MainWindow
             new EarlierReviewsView(new EarlierReviewsViewModel(comments)).Build()).Spacing(8);
     }
 
-    private readonly Dictionary<string, string> _reviewDrafts = new();
+    private readonly ReviewDraftStore _reviewDrafts;
     private readonly HashSet<string> _restoredFeedback = new(StringComparer.Ordinal);
     private string FeedbackIdentity(string filePath, Models.SectionFeedback feedback, string? draftTarget = null) =>
         feedback.IsOverallReview
-            ? (draftTarget ?? CurrentFeedbackKey()) + "|overall|" + feedback.SectionName + "|" + feedback.Explanation
+            ? (draftTarget ?? CurrentFeedbackKey()) + "|overall|" + feedback.SectionName + "|" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(feedback.Explanation)))
             : (draftTarget ?? CurrentFeedbackKey()) + "|" + filePath + "|" + feedback.StartLine + "|" + feedback.EndLine + "|" + feedback.SectionName;
     private void MarkFeedbackImported(string filePath, Models.SectionFeedback feedback, string? draftTarget = null)
-        => _restoredFeedback.Add(FeedbackIdentity(filePath, feedback, draftTarget));
+    {
+        if (_restoredFeedback.Count >= 4096) _restoredFeedback.Clear();
+        _restoredFeedback.Add(FeedbackIdentity(filePath, feedback, draftTarget));
+    }
 
     private void RestoreApprovedFeedback(string filePath, IEnumerable<Models.SectionFeedback> comments)
     {
@@ -68,8 +72,10 @@ public partial class MainWindow
         {
             var identity = FeedbackIdentity(filePath, feedback);
             if (!_restoredFeedback.Add(identity)) continue;
+            if (_restoredFeedback.Count > 4096) _restoredFeedback.Clear();
             var text = Services.SavedFeedbackText.Format(feedback);
             var previous = _reviewDrafts.GetValueOrDefault(key, "");
+            if (previous.Contains(text, StringComparison.Ordinal)) continue;
             _reviewDrafts[key] = string.IsNullOrWhiteSpace(previous) ? text : previous + "\n\n---\n\n" + text;
         }
         // A second file in the same lab shares the existing editor. Refresh its
@@ -164,7 +170,10 @@ public partial class MainWindow
         _feedbackEditor = draft; _feedbackEditorKey = draftKey;
         var draftBinding = new Binding<string>(() => draft.Value, value =>
         {
-            draft.Value = value; _reviewDrafts[draftKey] = value; copyLabel.Value = "Copy feedback";
+            draft.Value = value;
+            try { _reviewDrafts[draftKey] = value; _draftSaveError = null; }
+            catch (Exception ex) when (ex is Microsoft.Data.Sqlite.SqliteException or InvalidOperationException) { _draftSaveError = ex.Message; copyLabel.Value = "Draft not saved â€” export feedback"; return; }
+            copyLabel.Value = "Copy feedback";
         });
         void Copy()
         {

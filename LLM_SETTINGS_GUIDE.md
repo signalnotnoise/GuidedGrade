@@ -6,7 +6,7 @@ You now have a complete **LLM configuration system** with GUI!
 
 ## 📍 How to Access
 
-**Tools → LLM Configuration...**
+**Settings → AI Provider**
 
 ## ⚙️ Features
 
@@ -14,7 +14,7 @@ You now have a complete **LLM configuration system** with GUI!
 Choose between:
 - **Ollama** (Local, free, private)
 - **Azure OpenAI** (Cloud, powerful, paid)
-- **OpenAI** (Coming soon)
+- Direct OpenAI is unavailable and is hidden from the provider picker. Unsupported saved providers are rejected rather than routed to Ollama.
 
 ### 2. Ollama Settings
 - **Server URL**: Default `http://localhost:11434`
@@ -35,10 +35,8 @@ Choose between:
 - **Deployment Name**: Your model deployment
 - **Test Connection button**: Validates credentials
 
-### 4. OpenAI Settings (Placeholder)
-- **API Key**: For direct OpenAI access
-- **Model**: gpt-4, gpt-4o, gpt-3.5-turbo, etc.
-- Coming soon!
+### 4. Credential storage
+Azure credentials are encrypted using Windows DPAPI for the current Windows user. Existing plaintext API keys are migrated when settings load successfully. Settings writes use an atomic file replacement. Encrypted credentials cannot be transferred to another Windows account; re-enter the key if the settings window reports that it cannot unlock credentials.
 
 ### 5. Requirements Template
 - **Default requirements text** that gets sent to the LLM
@@ -74,13 +72,13 @@ Secure storage for:
    - **Ollama**: Click "Refresh Available Models", select one, Save
    - **Azure**: Enter endpoint, API key, deployment, Test, Save
 3. **Click Save**
-4. **Analyze files**: Right-click → Analyze Selected Files with LLM
+4. **Analyze files**: Review → Overall review
 5. **No more prompts!** It uses your saved settings automatically
 
 ### Daily Usage
 
 1. **Check files** you want analyzed ☑
-2. **Right-click** in tree → Analyze Selected Files with LLM
+2. Select files, then **Review → Overall review**
 3. **App automatically uses** your configured provider & model
 4. **Get feedback!**
 
@@ -167,12 +165,12 @@ ollama pull qwen2.5:3b
 ┌─────────────────────────────────────┐
 │ LLM Configuration                   │
 ├─────────────────────────────────────┤
-│ Provider: ○ Ollama ○ Azure ○ OpenAI │
+│ Provider: ○ Ollama ○ Azure         │
 ├─────────────────────────────────────┤
 │ [Provider-specific settings]        │
 │   - Ollama: URL + Model dropdown    │
 │   - Azure: Endpoint + Key + Deploy  │
-│   - OpenAI: Key + Model             │
+│   - DPAPI credential storage             │
 │                                     │
 │ [Test/Refresh Buttons]              │
 │ Status: ✓ Ready                     │

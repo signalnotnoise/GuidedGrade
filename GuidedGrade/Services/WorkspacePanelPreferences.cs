@@ -11,7 +11,7 @@ public sealed class WorkspacePanelPreferences
 
     public static WorkspacePanelPreferences Load()
     {
-        try { return JsonSerializer.Deserialize<WorkspacePanelPreferences>(File.ReadAllText(FilePath)) ?? new(); }
+        try { return JsonSerializer.Deserialize<WorkspacePanelPreferences>(BoundedTextReader.Read(FilePath)) ?? new(); }
         catch (IOException) { return new(); }
         catch (UnauthorizedAccessException) { return new(); }
         catch (JsonException) { return new(); }

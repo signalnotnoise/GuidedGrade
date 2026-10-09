@@ -5,6 +5,7 @@ namespace GuidedGrade.Views;
 internal sealed class AssignmentFeedbackView(AssignmentFeedbackViewModel model)
 {
     internal View Build() => VStack(Text("Feedback preferences").FontSize(21),
+        new ReviewerRoleView(model.ReviewerRole).Build(),
         Text("Feedback length"),
         new FeedbackDialView(new FeedbackDialViewModel(model.Detail)).Build(),
         Text("Reading level"),

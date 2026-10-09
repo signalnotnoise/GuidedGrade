@@ -32,6 +32,33 @@ public class AssignmentSetupTests
         4. Feedback
         """;
     [TestMethod]
+    public void ReviewerRolePersistsAndAppearsInSanitizedGradingInstructions()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
+        try
+        {
+            var persistence = new AssignmentPersistenceService(path);
+            var assignment = new GradingAssignment { Title = "Role test", Rubric = [new("Correctness",100)] };
+            assignment.FeedbackOptions.ReviewerRole = "Act as a supportive DSA instructor for PRIVATE_STUDENT.";
+            persistence.SaveAssignment(assignment);
+            var loaded = persistence.LoadAssignment("General", "Role test")!;
+            Assert.AreEqual(assignment.FeedbackOptions.ReviewerRole, loaded.FeedbackOptions.ReviewerRole);
+            var snapshot = ReviewContext.Snapshot(loaded)!;
+            loaded.FeedbackOptions.ReviewerRole = "Changed after queueing";
+            var prompt = OverallFeedbackPrompt.BuildInstructions(snapshot, "", ["PRIVATE_STUDENT"]);
+            StringAssert.Contains(prompt, "supportive DSA instructor");
+            Assert.IsFalse(prompt.Contains("PRIVATE_STUDENT"));
+            Assert.IsFalse(prompt.Contains("Changed after queueing"));
+            var model = new GuidedGrade.ViewModels.AssignmentFeedbackViewModel(); model.Load(snapshot.FeedbackOptions);
+            Assert.AreEqual(snapshot.FeedbackOptions.ReviewerRole, model.Build().ReviewerRole);
+            model.ReviewerRole.Text.Value = "";
+            Assert.AreEqual(AssignmentFeedbackOptions.DefaultReviewerRole, model.Build().ReviewerRole);
+            model.ReviewerRole.Reset(); Assert.AreEqual(AssignmentFeedbackOptions.DefaultReviewerRole, model.ReviewerRole.Text.Value);
+        }
+        finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); }
+    }
+
+    [TestMethod]
     public void ImportsCop2334PercentageAndPointsRubricPreservingMultiFileRequirements()
     {
         var value = AssignmentPromptImporter.Parse("""

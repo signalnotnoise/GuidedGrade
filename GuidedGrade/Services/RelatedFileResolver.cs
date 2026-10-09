@@ -82,7 +82,7 @@ namespace GuidedGrade.Services
             {
                 try
                 {
-                    var content = File.ReadAllText(path);
+                    var content = BoundedTextReader.Read(path);
                     results.Add(new RelatedSubmissionFile
                     {
                         FileName = Path.GetFileName(path),
@@ -137,7 +137,7 @@ namespace GuidedGrade.Services
             string text;
             try
             {
-                text = File.ReadAllText(sourcePath);
+                text = BoundedTextReader.Read(sourcePath);
             }
             catch
             {

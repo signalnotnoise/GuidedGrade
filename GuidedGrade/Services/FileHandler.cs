@@ -37,7 +37,7 @@ namespace GuidedGrade.Services
                 var log = FsLogReader.Read(filepath);
                 return [new Result("Builds from " + Path.GetFileName(filepath), log.BuildCount)];
             }
-            var lines = File.ReadAllLines(filepath);
+            var lines = BoundedTextReader.Read(filepath).Split('\n');
             var extension = Path.GetExtension(filepath).ToLower();
             var filename = Path.GetFileName(filepath).ToLower();
 
@@ -194,7 +194,7 @@ namespace GuidedGrade.Services
             var resultsPath = SearchFile(assignmentPath, "results.json");
             if (string.IsNullOrEmpty(resultsPath)) return null;
 
-            var json = File.ReadAllText(resultsPath);
+            var json = BoundedTextReader.Read(resultsPath);
             return System.Text.Json.JsonSerializer.Deserialize<LabResults>(json);
         }
     }

@@ -68,6 +68,10 @@ namespace GuidedGrade.Services
 
         private async Task<string> CompleteCoreAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken, JsonElement? responseSchema)
         {
+            var combinedReview = userPrompt.Contains("# MACHINE REVIEW CONTRACT", StringComparison.Ordinal);
+            var estimatedContext = Math.Max(8192, ((systemPrompt.Length + userPrompt.Length) / 3 + 4096 + 4095) / 4096 * 4096);
+            if (combinedReview && estimatedContext > 32768)
+                throw new InvalidOperationException("The combined review exceeds the supported context budget. Reduce unrelated source files or review a smaller assignment scope; no partial submission was sent.");
             var request = new OllamaChatRequest
             {
                 Model = _model,
@@ -78,7 +82,7 @@ namespace GuidedGrade.Services
                 },
                 Stream = false,
                 Format = responseSchema,
-                Options = responseSchema.HasValue ? new { temperature = 0 } : null
+                Options = combinedReview ? new Dictionary<string, object> { ["temperature"] = 0, ["num_ctx"] = estimatedContext } : responseSchema.HasValue ? new { temperature = 0 } : null
             };
 
             var jsonOptions = new JsonSerializerOptions
@@ -101,6 +105,7 @@ namespace GuidedGrade.Services
                         System.Diagnostics.Debug.WriteLine($"Ollama GPU memory failure for {_model}; retrying this request once on CPU.");
                         var options = new Dictionary<string, object> { ["num_gpu"] = 0 };
                         if (responseSchema.HasValue) options["temperature"] = 0;
+                        if (combinedReview) options["num_ctx"] = estimatedContext;
                         request.Options = options;
                         continue;
                     }
