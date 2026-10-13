@@ -67,7 +67,9 @@ internal sealed class ReviewWorkspaceService
             .Select(finding =>
             {
                 var location = InlineRubricReview.Locate(finding, sources);
-                return (Path: targets[location.File - 1].Path, Comment: InlineRubricReview.Create(finding, location.Line, context, reportId, autoApprove));
+                // Unplaced records share a storage container only; LocationResolved=false
+                // prevents presenting that container as their source file or approving them.
+                return (Path: targets[Math.Max(1, location.File) - 1].Path, Comment: InlineRubricReview.Create(finding, location.Line, context, reportId, autoApprove));
             }).ToArray();
         var removed = new List<SectionFeedback>();
         foreach (var target in targets)
@@ -84,4 +86,9 @@ internal sealed class ReviewWorkspaceService
         return new(targets.Select(target => target.Path).ToArray(), removed.ToArray(),
             routed.Any(row => row.Comment.ReviewStatus == FeedbackReviewStatus.Approved) || pinned.Any(comment => comment.ReviewStatus == FeedbackReviewStatus.Approved));
     }
+
+    internal (string Path, SectionFeedback Comment)[] Unplaced(string context) => _store.GetAllReviewedPaths()
+        .SelectMany(path => _store.LoadComments(path).Where(comment => ReviewContext.Matches(comment.ReviewContext, context) &&
+            comment.ReviewStatus != FeedbackReviewStatus.Rejected && comment.RubricReview is { LocationResolved: false })
+            .Select(comment => (path, comment))).ToArray();
 }

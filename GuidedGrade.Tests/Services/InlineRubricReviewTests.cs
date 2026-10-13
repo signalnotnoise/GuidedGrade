@@ -20,7 +20,14 @@ public class InlineRubricReviewTests
     {
         var finding = Finding() with { Quote = "made up" };
         Assert.AreEqual((2,2), InlineRubricReview.Locate(finding, ["", "// header\n// TODO: B-1 BuildBoard"]));
-        Assert.AreEqual((1,0), InlineRubricReview.Locate(finding, ["void Run();"]));
+        Assert.AreEqual((0,0), InlineRubricReview.Locate(finding, ["void Run();"]));
+    }
+    [TestMethod]
+    public void InvalidQuoteCanAnchorToUniqueNamedMethodWithoutUsingNominatedFile()
+    {
+        var finding = Finding() with { Quote="made up",Reason="Your BuildBoard method needs a const reference." };
+        Assert.AreEqual((2,2), InlineRubricReview.Locate(finding,["class Graphics {};", "// implementation\nvoid Game::BuildBoard()\n{\n}\n"]));
+        Assert.AreEqual((0,0), InlineRubricReview.Locate(finding,["void BuildBoard() {}", "void Game::BuildBoard() {}"]));
     }
     [TestMethod]
     public void UnverifiedFindingsNeverAutoApprove()

@@ -33,21 +33,24 @@ internal sealed class WorkspaceShellView
         navigation.Children.Add(students); Grid.SetRow(split, 1); navigation.Children.Add(split); Grid.SetRow(files, 2); navigation.Children.Add(files);
 
         var editorLayer = new Grid();
-        editorLayer.Children.Add(model.Editor); editorLayer.Children.Add(model.Comments);
+        editorLayer.Children.Add(model.Host(new DocumentSearchView(model.SourceSearch).Build)); editorLayer.Children.Add(model.Comments);
         model.EmptyState.Child = model.Host(new WorkspaceEmptyStateView(new WorkspaceEmptyStateViewModel()).Build);
         editorLayer.Children.Add(model.EmptyState);
         var tabScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = model.Host(model.FileTabs) };
         var editorPane = FillBelow(tabScroll, model.Host(() => WpfUI.Native(() => editorLayer).Id("annotated-editor")));
 
         var panes = new Grid();
-        panes.ColumnDefinitions.Add(new() { Width = new(260), MinWidth = 160 });
-        panes.ColumnDefinitions.Add(new() { Width = new(5) });
+        panes.ColumnDefinitions.Add(model.NavigationColumn);
+        panes.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         panes.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star), MinWidth = 300 });
         panes.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         panes.ColumnDefinitions.Add(model.SidePanelColumn);
-        Add(panes, navigation, 0); Add(panes, new GridSplitter { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch }, 1);
+        navigation.ClipToBounds = true;
+        Add(panes, navigation, 0); Add(panes, model.NavigationSplitter, 1);
         Add(panes, editorPane, 2); Add(panes, model.SidePanelSplitter, 3);
-        Add(panes, FillBelow(model.Host(() => model.PanelHeader()), model.Host(() => WpfUI.Native(() => model.SidePanels).Id("workspace-panels"))), 4);
+        var reviewPanel = FillBelow(model.Host(() => model.PanelHeader()), model.Host(() => WpfUI.Native(() => model.SidePanels).Id("workspace-panels")));
+        reviewPanel.ClipToBounds = true;
+        Add(panes, reviewPanel, 4);
 
 
         model.ViolationsPanel.Child = model.Host(() => new ViolationsPanelView(new ViolationsPanelViewModel(model.Violations)).Build());
@@ -61,7 +64,7 @@ internal sealed class WorkspaceShellView
         workspace.RowDefinitions.Add(model.ToolsRow);
         workspace.Children.Add(panes);
         Grid.SetRow(model.ToolsContent, 2); workspace.Children.Add(model.ToolsContent);
-        var shell = new DockPanel();
+        var shell = new DockPanel { Margin = new Thickness(4) };
         var header = model.Host(model.Header); DockPanel.SetDock(header, System.Windows.Controls.Dock.Top); shell.Children.Add(header);
         var status = model.Host(model.ToolTabs); DockPanel.SetDock(status, System.Windows.Controls.Dock.Bottom); shell.Children.Add(status);
         shell.Children.Add(workspace);

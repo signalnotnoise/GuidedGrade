@@ -10,7 +10,8 @@ internal sealed class LogPanelView(LogPanelViewModel model)
     internal View Build()
     {
         model.Heading.Text = model.Summary.Value;
-        model.Panel.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(27, 30, 35));
+        model.Heading.Foreground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(Presentation.ReviewTheme.Tokens.Ink));
+        model.Panel.Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(Presentation.ReviewTheme.Tokens.Canvas));
         foreach (System.Windows.UIElement child in model.Panel.Children) child.InvalidateVisual();
         if (model.Panel.Children.Count > 0) return WpfUI.Native(() => model.Panel).Id("log-panel");
         var grid = new Grid();

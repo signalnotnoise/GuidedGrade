@@ -105,7 +105,7 @@ public partial class MainWindow
             TextEditor(new Binding<string>(() => preview.Value, _ => { })).IsReadOnly(true).UndoLimit(0).Height(170).AccessibilityLabel("Batch preview"),
             HStack(Button("Queue batch", Start).IsEnabled(signature.Value.Length > 0 && signature.Value == Signature() && plan?.Any(p => p.SkipReason == null) == true),
                 Button("Cancel", () => dialog.Close())).Spacing(10)
-        ).Spacing(10).Padding(20)));
+        ).Spacing(10).Padding(4)));
         dialog.Content = host;
         dialog.Closed += (_, _) => host.Dispose();
         ReviewTheme.Apply(dialog);

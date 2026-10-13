@@ -3,6 +3,8 @@ using System.Windows.Controls;
 namespace GuidedGrade.ViewModels;
 internal sealed class WorkspaceToolbarViewModel(StateList<string> courses, StateList<string> assignments, State<int> courseIndex, State<int> assignmentIndex, Func<Menu> menu, Action<int> selectCourse, Action<int> selectAssignment, Action assignment, Action open, Action rubric, Action feedback, Action batch, Func<View> panelTabs, Func<View> reviewMenu)
 {
+ internal Func<View> LeftToggle { get; init; } = () => UI.Text("");
+ internal Func<View> RightToggle { get; init; } = () => UI.Text("");
  internal StateList<string> Courses { get; } = courses;
  internal StateList<string> Assignments { get; } = assignments;
  internal State<int> CourseIndex { get; } = courseIndex;

@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.IO;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
 using GuidedGrade.Services;
 using UI_Framework;
 namespace GuidedGrade.ViewModels;
@@ -15,22 +17,19 @@ internal sealed class LogPanelViewModel
     internal State<int> RecordedBuildCount { get; } = new(0);
     internal int BuildCount => RecordedBuildCount.Value;
     internal ListBox Snapshots { get; } = new();
-    internal TextBox Source { get; } = new() { IsReadOnly = true, AcceptsReturn = true, FontFamily = new("Consolas"), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.NoWrap, IsUndoEnabled = false };
+    internal ICSharpCode.AvalonEdit.TextEditor Source { get; } = new() { IsReadOnly = true, FontFamily = new("Consolas"), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, WordWrap = false };
+    internal DocumentSearchViewModel Search { get; }
     internal LogPanelViewModel()
     {
+        Search = new(Source, "Log snapshot");
+        Source.Document.UndoStack.SizeLimit = 0;
         var background = new SolidColorBrush(Color.FromRgb(27, 30, 35));
         Snapshots.Background = background; Snapshots.Foreground = Brushes.WhiteSmoke;
         Snapshots.BorderBrush = Brushes.DimGray;
-        Source.Background = background; Source.Foreground = Brushes.WhiteSmoke; Source.CaretBrush = Brushes.WhiteSmoke;
-        Source.SelectionBrush = Brushes.SteelBlue; Source.SelectionOpacity = 0.6;
-        var style = new Style(typeof(ListBoxItem));
-        style.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.WhiteSmoke));
-        style.Setters.Add(new Setter(Control.BackgroundProperty, background));
-        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 5, 8, 5)));
-        var selected = new Trigger { Property = ListBoxItem.IsSelectedProperty, Value = true };
-        selected.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(0, 90, 140))));
-        selected.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
-        style.Triggers.Add(selected); Snapshots.ItemContainerStyle = style;
+        Source.Background = background; Source.Foreground = Brushes.WhiteSmoke;
+        Source.TextArea.SelectionBrush = Brushes.SteelBlue;
+        GuidedGrade.Presentation.LogSnapshotStyle.Apply(Snapshots);
+        Search.Changed += HighlightSnapshots;
         Snapshots.SelectionChanged += (_, _) => Source.Text = (Snapshots.SelectedItem as Entry)?.Snapshot.Content ?? "";
         History.SelectBuild = number =>
         {
@@ -38,12 +37,45 @@ internal sealed class LogPanelViewModel
             Snapshots.SelectedItem = entry; if (entry != null) Snapshots.ScrollIntoView(entry);
         };
     }
-    private sealed record Entry(FsLogSnapshot Snapshot, TimeSpan? Gap)
+    private sealed class Entry(FsLogSnapshot snapshot, TimeSpan? gap) : INotifyPropertyChanged
     {
+        internal FsLogSnapshot Snapshot { get; } = snapshot;
+        internal TimeSpan? Gap { get; } = gap;
+        private bool _matchesSearch;
+        public bool MatchesSearch
+        {
+            get => _matchesSearch;
+            set { if (_matchesSearch == value) return; _matchesSearch = value; PropertyChanged?.Invoke(this, new(nameof(MatchesSearch))); }
+        }
+        public event PropertyChangedEventHandler? PropertyChanged;
         public override string ToString() => $"Build {Snapshot.BuildNumber} | {Snapshot.Time.ToLocalTime():G}\n{Snapshot.Name} | {(Gap == null ? "first build" : "gap " + Gap.Value.ToString())}";
+    }
+    private void HighlightSnapshots()
+    {
+        var entries = Snapshots.Items.Cast<Entry>().ToArray();
+        Regex? pattern = null;
+        if (!string.IsNullOrEmpty(Search.ActivePattern))
+        {
+            var expression = Search.Panel.UseRegex ? Search.ActivePattern : Regex.Escape(Search.ActivePattern);
+            if (Search.Panel.WholeWords) expression = @"\b(?:" + expression + @")\b";
+            try { pattern = new(expression, Search.Panel.MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(50)); }
+            catch (ArgumentException) { /* The native search panel displays its invalid-pattern message. */ }
+        }
+        foreach (var entry in entries)
+        {
+            try { entry.MatchesSearch = pattern != null && (pattern.IsMatch(entry.Snapshot.Content) || pattern.IsMatch(entry.ToString())); }
+            catch (RegexMatchTimeoutException) { pattern = null; entry.MatchesSearch = false; }
+        }
+        if (entries.Any(entry => entry.MatchesSearch) && Snapshots.SelectedItem is not Entry { MatchesSearch: true })
+        {
+            var first = entries.First(entry => entry.MatchesSearch);
+            Snapshots.SelectedItem = first;
+            Snapshots.ScrollIntoView(first);
+        }
     }
     internal void Clear(string message)
     {
+        Search.Close(); Search.Panel.SearchPattern = "";
         Snapshots.ItemsSource = null; Source.Clear(); History.Points = []; RecordedBuildCount.Value = 0; IsLoaded.Value = false; Summary.Value = message;
     }
     internal void Load(string path)
@@ -68,7 +100,7 @@ internal sealed class LogPanelViewModel
             var largest = points.Where(p => p.Gap.HasValue).Select(p => p.Gap!.Value).DefaultIfEmpty(TimeSpan.Zero).Max();
             Summary.Value = $"{Path.GetFileName(path)} | {BuildCount} builds | {log.Snapshots.Count} file snapshots | elapsed {elapsed} | largest gap {largest}\nEach blue mark is a recorded build. Hover for details; click to inspect its source. Elapsed time includes breaks and is not active work time.";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or OverflowException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or OverflowException)
         { Clear("Cannot read log: " + ex.Message); }
     }
 }

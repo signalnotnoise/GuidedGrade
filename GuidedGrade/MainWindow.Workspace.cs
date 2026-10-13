@@ -47,7 +47,12 @@ public partial class MainWindow
             ? saved.Where(c => c.ReviewContext.Length == 0 && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected).ToArray() : [];
         var pending = _selectedTabButton?.Tag is string active && _fileComments.TryGetValue(active, out var records)
             ? records.Where(c => c.IsOverallReview && MatchesCurrentReview(c) && c.ReviewStatus == Models.FeedbackReviewStatus.Pending).ToArray() : [];
-        return VStack(new OverallReviewPanelView(new OverallReviewPanelViewModel(pending, c => CommentLayer_ApproveRequested(this, c))).Build(),
+        var unplaced = _reviewWorkspace.Unplaced(CurrentFeedbackKey());
+        return VStack(new UnplacedReviewsView(new UnplacedReviewsViewModel(unplaced, (path, comment) =>
+        {
+            OpenFileInTab(path);
+            CommentLayer_ModifyRequested(this, comment);
+        })).Build(), new OverallReviewPanelView(new OverallReviewPanelViewModel(pending, c => CommentLayer_ApproveRequested(this, c))).Build(),
             new EarlierReviewsView(new EarlierReviewsViewModel(comments)).Build()).Spacing(8);
     }
 

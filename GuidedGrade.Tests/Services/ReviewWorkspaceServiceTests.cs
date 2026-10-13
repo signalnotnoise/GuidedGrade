@@ -69,6 +69,27 @@ public class ReviewWorkspaceServiceTests
     }
 
     [TestMethod]
+    public void MissingFindingsRemainUnplacedAndDoNotBorrowFirstFileAsEvidence()
+    {
+        WithStore((store, root) =>
+        {
+            var header=Path.Combine(root,"Graphics.h"); var source=Path.Combine(root,"Game.cpp");
+            File.WriteAllText(header,"class Graphics {};\n"); File.WriteAllText(source,"// implementation\nvoid Game::GetIndex() {}\n");
+            var generations=new ReviewGeneration(); var service=new ReviewWorkspaceService(store,()=>header);
+            service.CompleteInline([(header,generations.Capture(header)),(source,generations.Capture(source))],"lab",[
+                new(1,"Creating Methods",15,null,false,1,"not real","Check your GetIndex method."),
+                new(2,"Basics",15,null,false,0,"","No unique finding was provided.")
+            ],true,generations);
+            var located=store.LoadComments(source).Single();
+            Assert.IsTrue(located.RubricReview!.LocationResolved); Assert.AreEqual(2,located.StartLine);
+            Assert.IsFalse(located.RubricReview.EvidenceVerified); Assert.AreEqual(FeedbackReviewStatus.Pending,located.ReviewStatus);
+            var unplaced=service.Unplaced("lab").Single(); Assert.AreEqual(2,unplaced.Comment.RubricReview!.CriterionId);
+            Assert.AreEqual(0d,service.CalculateGrade("lab")!.Earned);
+            Assert.AreEqual(0,service.Unplaced("another student").Length);
+        });
+    }
+
+    [TestMethod]
     public void GradeEditorRejectsInvalidPointsAndKeepsPersistenceFailureVisible()
     {
         StudentGrade? saved=null;

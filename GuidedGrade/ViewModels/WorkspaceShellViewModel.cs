@@ -14,9 +14,12 @@ internal sealed class WorkspaceShellViewModel
     internal required Func<View> Header { get; init; }
     internal required Func<View> ToolTabs { get; init; }
     internal required Func<View> PanelHeader { get; init; }
+    internal required ColumnDefinition NavigationColumn { get; init; }
+    internal required GridSplitter NavigationSplitter { get; init; }
     internal required ListBox Students { get; init; }
     internal required TreeView Files { get; init; }
     internal required TextEditor Editor { get; init; }
+    internal required DocumentSearchViewModel SourceSearch { get; init; }
     internal required Canvas Comments { get; init; }
     internal required Border EmptyState { get; init; }
     internal required ColumnDefinition SidePanelColumn { get; init; }

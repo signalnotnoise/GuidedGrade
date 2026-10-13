@@ -17,7 +17,7 @@ internal sealed class BuildHistoryView(BuildHistoryViewModel model)
         protected override void OnRender(DrawingContext dc)
         {
             base.OnRender(dc);
-            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(34, 38, 45)), null, new Rect(RenderSize));
+            dc.DrawRectangle(new SolidColorBrush((Color)ColorConverter.ConvertFromString(GuidedGrade.Presentation.ReviewTheme.Tokens.Surface)), null, new Rect(RenderSize));
             if (model.Points.Count == 0 || ActualWidth < 100) return;
             var ordered = model.Points.OrderBy(p => p.Time).ToArray();
             var start = ordered[0].Time; var end = ordered[^1].Time;
@@ -29,7 +29,7 @@ internal sealed class BuildHistoryView(BuildHistoryViewModel model)
                 var x = 16 + (point.Time - start).TotalSeconds / span * width;
                 dc.DrawLine(new Pen(Brushes.DeepSkyBlue, 2), new Point(x, 16), new Point(x, 43));
             }
-            void Label(string text, double x) => dc.DrawText(new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, Brushes.WhiteSmoke, VisualTreeHelper.GetDpi(this).PixelsPerDip), new Point(x, 48));
+            void Label(string text, double x) => dc.DrawText(new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11, new SolidColorBrush((Color)ColorConverter.ConvertFromString(GuidedGrade.Presentation.ReviewTheme.Tokens.Ink)), VisualTreeHelper.GetDpi(this).PixelsPerDip), new Point(x, 48));
             Label(start.ToLocalTime().ToString("g"), 16);
             if (width > 350) Label(end.ToLocalTime().ToString("g"), Math.Max(16, ActualWidth - 165));
         }

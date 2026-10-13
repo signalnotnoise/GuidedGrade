@@ -132,7 +132,7 @@
       "id": "FEEDBACK_WORKSPACE.md",
       "label": "FEEDBACK_WORKSPACE.md",
       "group": "root",
-      "sha256": "0b8b5a9cf317649a342afd1d908b7d60256676782182816e39253fc800b1e767"
+      "sha256": "bdc2378b690e848b24ccf9f0ec0fb707373a023390aec05276f9d0662593fbaa"
     },
     {
       "id": "FILE_TREE_PERFORMANCE.md",
@@ -252,7 +252,7 @@
       "id": "GuidedGrade.Tests/Services/FrameworkMigrationTests.cs",
       "label": "FrameworkMigrationTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "c1bf9b794bd18ffdfbc61916ade09aee9a0aa33a1659011369113fd7db67dc71"
+      "sha256": "ed7cbc29b60ea504cf4a1813969834e4953bb36d67324c53dbd433c99e81936b"
     },
     {
       "id": "GuidedGrade.Tests/Services/FsLogReaderTests.cs",
@@ -288,7 +288,7 @@
       "id": "GuidedGrade.Tests/Services/InlineRubricReviewTests.cs",
       "label": "InlineRubricReviewTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "6695205a4f45a1577c11c49c2541626e8883da271d37ee20423ddde315dfe395"
+      "sha256": "8cf3b50eae2312db38f1bf12c5b3af272e6af1cc4a17c152963bf66c2d97105c"
     },
     {
       "id": "GuidedGrade.Tests/Services/InteractiveProcessSessionTests.cs",
@@ -384,7 +384,7 @@
       "id": "GuidedGrade.Tests/Services/ReviewWorkspaceServiceTests.cs",
       "label": "ReviewWorkspaceServiceTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "0cd7f789bc586451347b96949f967f23437ab11576a9563c864ff1173d9ced32"
+      "sha256": "1df9842a9c0b056953289d7d2173f81b6660097cf47fd8407e81beaf45270733"
     },
     {
       "id": "GuidedGrade.Tests/Services/RunnableSubmissionDetectorTests.cs",
@@ -486,7 +486,7 @@
       "id": "GuidedGrade/MainWindow.BatchReview.cs",
       "label": "MainWindow.BatchReview.cs",
       "group": "GuidedGrade",
-      "sha256": "3363b7014044f26cc546e4aadf2c2dbab49d34d9ee464c59f6535392439cbe3b"
+      "sha256": "e5533b54ede304c2335006dff2e4fcf13a38f78ac470b7359547d4c51ea67eac"
     },
     {
       "id": "GuidedGrade/MainWindow.BuildRunActions.cs",
@@ -522,19 +522,19 @@
       "id": "GuidedGrade/MainWindow.FileNavigation.cs",
       "label": "MainWindow.FileNavigation.cs",
       "group": "GuidedGrade",
-      "sha256": "b417b0482c9c3cd7f40d7863e49a10482c57c5e85eeff4c443316ebbb0c57824"
+      "sha256": "59f4515f290bfe15f478cf83349c2173d045be9fc1e55e16934e8f29ddf27ed7"
     },
     {
       "id": "GuidedGrade/MainWindow.FileReviews.cs",
       "label": "MainWindow.FileReviews.cs",
       "group": "GuidedGrade",
-      "sha256": "67291df6b90edecaa882d31c41049b16bdbb65e2c41a453f69706ee0f03ffbdc"
+      "sha256": "8fcb7c5c0be038f86ae89620cf02439db4f6d1bf6981029f0a95caeb332fbd19"
     },
     {
       "id": "GuidedGrade/MainWindow.Framework.cs",
       "label": "MainWindow.Framework.cs",
       "group": "GuidedGrade",
-      "sha256": "bf249d5cd34e4d2a7a43257b85c088235968e16ecf90e113d36585311f43d09f"
+      "sha256": "b7e3cba0869fa19d90eb6c8f192f51e963a117a2bc06dccf490b1e6c7ce5eddc"
     },
     {
       "id": "GuidedGrade/MainWindow.Grades.cs",
@@ -558,13 +558,13 @@
       "id": "GuidedGrade/MainWindow.LogPanel.cs",
       "label": "MainWindow.LogPanel.cs",
       "group": "GuidedGrade",
-      "sha256": "3d32b72bf0d3faf7cdfe89a9edc34caa934157e635e59ee457b61b7e2fbc881f"
+      "sha256": "da0d3788318987479f4d56ff9a50554debe2d6d2b6b1ddea8187ac932e25d572"
     },
     {
       "id": "GuidedGrade/MainWindow.NativeControls.cs",
       "label": "MainWindow.NativeControls.cs",
       "group": "GuidedGrade",
-      "sha256": "a15a10e52f30bbfa9f7ddf29729b87b8859fce0eae2bd49ee29f0d8897f4d859"
+      "sha256": "48367a93b428a5e4503cd7d0f819962c3f1ba8ce3ec3fef2b8908a6c3b6796c3"
     },
     {
       "id": "GuidedGrade/MainWindow.Panels.cs",
@@ -597,6 +597,12 @@
       "sha256": "d19de53f2a6f3b0fa34809387c89c183f79e50ca63f7b8dcf1bff8beb9249a71"
     },
     {
+      "id": "GuidedGrade/MainWindow.Search.cs",
+      "label": "MainWindow.Search.cs",
+      "group": "GuidedGrade",
+      "sha256": "405fd1154dcc4cf736f14a0a9e79b1f9cdc7882702202d390fcf3a82be63e8c4"
+    },
+    {
       "id": "GuidedGrade/MainWindow.StudentActions.cs",
       "label": "MainWindow.StudentActions.cs",
       "group": "GuidedGrade",
@@ -618,13 +624,13 @@
       "id": "GuidedGrade/MainWindow.Workspace.cs",
       "label": "MainWindow.Workspace.cs",
       "group": "GuidedGrade",
-      "sha256": "8808d6964cb971e3b9ace730b1206c7a3ed461d4e6b728f5f39b50a224d8147e"
+      "sha256": "b3a6769ed3906dd2b185cb82c54ab3b3ef6774663e45162f397fd818e103112d"
     },
     {
       "id": "GuidedGrade/MainWindow.cs",
       "label": "MainWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "89eb6f9fd04d8fc0c85173817dbf015bfcf96cea1a82fa823d98b6eda153c19a"
+      "sha256": "f2d93acd69285d3032ad7cdfe58096f0f1abc7806f2eec996dfa3c27bdc0ff2f"
     },
     {
       "id": "GuidedGrade/Models/Assignment.cs",
@@ -681,6 +687,12 @@
       "sha256": "f01d7067d42263759512bbf3f4a8c88b82c6bb68d073b403962cadc0b997a51e"
     },
     {
+      "id": "GuidedGrade/Presentation/LogSnapshotStyle.cs",
+      "label": "LogSnapshotStyle.cs",
+      "group": "GuidedGrade",
+      "sha256": "c770a8f74eef9e00cacd56b17207746e906cc53776855fb00872823aeab86bd8"
+    },
+    {
       "id": "GuidedGrade/Presentation/NativeScrollTrack.cs",
       "label": "NativeScrollTrack.cs",
       "group": "GuidedGrade",
@@ -690,25 +702,31 @@
       "id": "GuidedGrade/Presentation/NativeTheme.cs",
       "label": "NativeTheme.cs",
       "group": "GuidedGrade",
-      "sha256": "ed793a819c1c92ba6e8cd9904193cc084b8fb4a86ecf9b52cc6b8812a3ae0e66"
+      "sha256": "d1a21f9a9db07b380e702e4044e5b72be976277c8c6579b5f58d369d4745f4f0"
     },
     {
       "id": "GuidedGrade/Presentation/ReviewTheme.cs",
       "label": "ReviewTheme.cs",
       "group": "GuidedGrade",
-      "sha256": "c6034fdd53da7bcc93e23ea194f2b6592fcd4d712c3887bf197d08cf58c6152a"
+      "sha256": "8455fef33c1dfcb68327538ec76570668b6e6efc2355ae185deb8e6bbf100d1d"
     },
     {
       "id": "GuidedGrade/Presentation/ReviewWindow.cs",
       "label": "ReviewWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "70b144490d33a79b2c645fd9955680abf5b596ea9497601254bb0d80e0fe3518"
+      "sha256": "d6d0ad894b4fd28a3303be0094c7ec4256d0818fbc50e1fd1c862d41f252ef29"
     },
     {
       "id": "GuidedGrade/Presentation/RubricEditorRow.cs",
       "label": "RubricEditorRow.cs",
       "group": "GuidedGrade",
       "sha256": "9869eae008862d1ec4db291bf14ab66e7b300a3768ce15a748bb5f53b80af071"
+    },
+    {
+      "id": "GuidedGrade/Presentation/SearchBarNativeAdapter.cs",
+      "label": "SearchBarNativeAdapter.cs",
+      "group": "GuidedGrade",
+      "sha256": "252382e0b599ee9a04379141e4c2746f3402f9ce921057343238f30aeefb29ed"
     },
     {
       "id": "GuidedGrade/Presentation/StudentGradeRow.cs",
@@ -942,7 +960,7 @@
       "id": "GuidedGrade/Services/InlineRubricReview.cs",
       "label": "InlineRubricReview.cs",
       "group": "GuidedGrade",
-      "sha256": "7f033fd79e53e3599fa407fe91ace4caeb434a552ee399d1caf6ccbf572b3a5f"
+      "sha256": "605e0b44ee26e5921ff30449a9aba8d35d9df3afc24a517101475bdfee04b80c"
     },
     {
       "id": "GuidedGrade/Services/InteractiveProcessSession.cs",
@@ -1080,7 +1098,7 @@
       "id": "GuidedGrade/Services/ReviewWorkspaceService.cs",
       "label": "ReviewWorkspaceService.cs",
       "group": "GuidedGrade",
-      "sha256": "35c046ab32df64bb828c20ed47d611febf0806f10953f248cc68810d20764298"
+      "sha256": "21198f85ac37f3e1d6c690cdd529df5a9deac78ff8b456a65d30b8e2708fa3c4"
     },
     {
       "id": "GuidedGrade/Services/RunnableSubmissionDetector.cs",
@@ -1170,13 +1188,19 @@
       "id": "GuidedGrade/Services/WorkspacePanelPreferences.cs",
       "label": "WorkspacePanelPreferences.cs",
       "group": "GuidedGrade",
-      "sha256": "1b6bb456703da28a8a9e76a3f28f818376c42fa2fddc8f848e5e856fe5cce832"
+      "sha256": "21a232ec72426452fc57c506ce4dc2408f779a9015877f5b3043be51b12b50d1"
     },
     {
       "id": "GuidedGrade/Services/ZipFileHandler.cs",
       "label": "ZipFileHandler.cs",
       "group": "GuidedGrade",
       "sha256": "274b63757b365736fdb1faae1e3d1024bfb1269aa1bde2ff91b68ac705351415"
+    },
+    {
+      "id": "GuidedGrade/ViewModels/AppearanceSettingsViewModel.cs",
+      "label": "AppearanceSettingsViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "10d6b98df950cece67e176b2b75a427b16ca4c67e75aa9559dc2e7273b1b5f40"
     },
     {
       "id": "GuidedGrade/ViewModels/AssignmentDeductionsViewModel.cs",
@@ -1239,6 +1263,18 @@
       "sha256": "925fd70c49edb152e6f824a42736f26976366895292e0a33e997da8d7afafc5f"
     },
     {
+      "id": "GuidedGrade/ViewModels/DialogViewportViewModel.cs",
+      "label": "DialogViewportViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "19a992fee6e6071843380e94b44d16a6f1028398c71e1195885902fddb3af713"
+    },
+    {
+      "id": "GuidedGrade/ViewModels/DocumentSearchViewModel.cs",
+      "label": "DocumentSearchViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "230bb720d485cda999d72fbad0e433d1c344a8a4bd84f84f835ef65351ee3e3e"
+    },
+    {
       "id": "GuidedGrade/ViewModels/EarlierReviewsViewModel.cs",
       "label": "EarlierReviewsViewModel.cs",
       "group": "GuidedGrade",
@@ -1287,10 +1323,16 @@
       "sha256": "2f5ceb9ec4d7115380682099a3a51bdcc85f25139123f38a0c8cb1cc3d1f058b"
     },
     {
+      "id": "GuidedGrade/ViewModels/LogFileSettingsViewModel.cs",
+      "label": "LogFileSettingsViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "073194b0376dd0bddcc826b4e52a168e3891db2ea63243b5361de682fec16bd2"
+    },
+    {
       "id": "GuidedGrade/ViewModels/LogPanelViewModel.cs",
       "label": "LogPanelViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "f5ceb434c4b3fa9b531aa4c49c02a76d8e1f4c7a9eec20a067d03d7a14774068"
+      "sha256": "77f7c6aaee72e04f99bc449ba2b169bfa94fc1258be05e490daa3ae50689c2fe"
     },
     {
       "id": "GuidedGrade/ViewModels/MenuSelectorViewModel.cs",
@@ -1311,16 +1353,22 @@
       "sha256": "3291c2e1fdcf4325492f0809923b078f7b35d02a1d5fd3e020ee5c0f0b3bbba0"
     },
     {
-      "id": "GuidedGrade/ViewModels/PanelHeaderViewModel.cs",
-      "label": "PanelHeaderViewModel.cs",
+      "id": "GuidedGrade/ViewModels/PanelIconViewModel.cs",
+      "label": "PanelIconViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "3160eac7bd94904444de32acd696775f7c7e4c00a49f3d991e0a45d9692713b3"
+      "sha256": "aff059509f0604e029d3db5d67a582b39c5417920308abc43683dfa2814f7054"
     },
     {
       "id": "GuidedGrade/ViewModels/PanelNavigationViewModel.cs",
       "label": "PanelNavigationViewModel.cs",
       "group": "GuidedGrade",
       "sha256": "c035dd0a6a1cff70553fba0ef7001f63c5f7df04badba0dc70b37352be137c15"
+    },
+    {
+      "id": "GuidedGrade/ViewModels/PanelToggleViewModel.cs",
+      "label": "PanelToggleViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "74620c493f273e7b806de64e2fede3db33f9434393efb68f0ea4a02e4ad0fb5f"
     },
     {
       "id": "GuidedGrade/ViewModels/ReviewMenuViewModel.cs",
@@ -1359,6 +1407,12 @@
       "sha256": "efe7327365bb1f9c513196da8dc8a0c98312def42a3d0f69f8d429d95fc11ef7"
     },
     {
+      "id": "GuidedGrade/ViewModels/SearchBarViewModel.cs",
+      "label": "SearchBarViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "cfe91ce7521edc46e09ce3eb98f2bc63ee07ee49e6b414c6fe635296425728e1"
+    },
+    {
       "id": "GuidedGrade/ViewModels/StudentGradeEditViewModel.cs",
       "label": "StudentGradeEditViewModel.cs",
       "group": "GuidedGrade",
@@ -1386,7 +1440,7 @@
       "id": "GuidedGrade/ViewModels/ToolbarActionViewModel.cs",
       "label": "ToolbarActionViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "0cf33ebc301f3b04b8741744d7ee1321db11a0b6ccf1fb59d4ccaf273bd2ae98"
+      "sha256": "d7466c93c2a4cbc4b7b825ff9ad2f7ad393c699b0d3083a24adb3a2198a75dc3"
     },
     {
       "id": "GuidedGrade/ViewModels/ToolbarLabelViewModel.cs",
@@ -1401,6 +1455,12 @@
       "sha256": "035f842cc35fce1e5d8f3a9e3dae17b31d5e863bf6a55013980a8c645241fae6"
     },
     {
+      "id": "GuidedGrade/ViewModels/UnplacedReviewsViewModel.cs",
+      "label": "UnplacedReviewsViewModel.cs",
+      "group": "GuidedGrade",
+      "sha256": "388f324085a716057dce8cb0fd0953cd95515a7401c7b8879a53785f9a88665c"
+    },
+    {
       "id": "GuidedGrade/ViewModels/ViolationsPanelViewModel.cs",
       "label": "ViolationsPanelViewModel.cs",
       "group": "GuidedGrade",
@@ -1410,13 +1470,13 @@
       "id": "GuidedGrade/ViewModels/WorkspaceEmptyStateViewModel.cs",
       "label": "WorkspaceEmptyStateViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "b51a480f90c0689219f7ac03bff338a8484f4fa469fffcd25e6fd81873901dcd"
+      "sha256": "ed4b266ecb1994af2d87b98fc867452119a24eb502f39afd1c77270a329e50df"
     },
     {
       "id": "GuidedGrade/ViewModels/WorkspaceShellViewModel.cs",
       "label": "WorkspaceShellViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "2d4f1d0369f27251e370643a182dd3977290f8b3d50cdd9f63343bf33a13b176"
+      "sha256": "a44ac7e5d2a113d8305cd1c993136728311de6ec66f609ad09096d2a4083b6c4"
     },
     {
       "id": "GuidedGrade/ViewModels/WorkspaceStatusViewModel.cs",
@@ -1428,7 +1488,13 @@
       "id": "GuidedGrade/ViewModels/WorkspaceToolbarViewModel.cs",
       "label": "WorkspaceToolbarViewModel.cs",
       "group": "GuidedGrade",
-      "sha256": "8197a1d98f6e4b75b746a7cb5cfad0d3b2b66690f227b5964983f5814ca07f29"
+      "sha256": "1be38a7f6bbf7510400443d71827910e3f2c110069548d57ad345f814e996c75"
+    },
+    {
+      "id": "GuidedGrade/Views/AppearanceSettingsView.cs",
+      "label": "AppearanceSettingsView.cs",
+      "group": "GuidedGrade",
+      "sha256": "183f81ea3d751601f0b4b619c57f0f4af130d9af243ec5afd12ce9b306b3fdbe"
     },
     {
       "id": "GuidedGrade/Views/AssignmentDeductionsView.cs",
@@ -1452,7 +1518,7 @@
       "id": "GuidedGrade/Views/AssignmentImportView.cs",
       "label": "AssignmentImportView.cs",
       "group": "GuidedGrade",
-      "sha256": "a3bd329098fba3f8fabf1d9b9b5c77b42ad63403c82b92bf609f86298f95ca2e"
+      "sha256": "e8eebef995f7c96f274c417192d31bd43897644bbc9a392c3191bc9be34a22a9"
     },
     {
       "id": "GuidedGrade/Views/AssignmentRubricView.cs",
@@ -1464,13 +1530,13 @@
       "id": "GuidedGrade/Views/AssignmentSetupView.cs",
       "label": "AssignmentSetupView.cs",
       "group": "GuidedGrade",
-      "sha256": "92bf3e719d57171cd69f68efe348238382e7878329d54c6046da315fbf0a8ecf"
+      "sha256": "e96ff403a9733b7f8d5765a4bde7c10e7627362ddd8a5245499c21eab28e5896"
     },
     {
       "id": "GuidedGrade/Views/BuildHistoryView.cs",
       "label": "BuildHistoryView.cs",
       "group": "GuidedGrade",
-      "sha256": "67b5acf23e399e23a1c127d525feef401f1ea6e9d60d36fa66190e7ec280d701"
+      "sha256": "6cde6825747ab61ea0654d9b23acd7495d330514bcd2d1acc6f3dfe57c8c074e"
     },
     {
       "id": "GuidedGrade/Views/ClassSettingsView.cs",
@@ -1491,6 +1557,18 @@
       "sha256": "b70281bece1ca6865cbe2340451bdd4ae678f02f3ecac5a6345529a6aa199912"
     },
     {
+      "id": "GuidedGrade/Views/DialogViewportView.cs",
+      "label": "DialogViewportView.cs",
+      "group": "GuidedGrade",
+      "sha256": "0a2a8d25fff8ca64f407eba2bc2625d263855af270ffa271f4225844c4bf98e9"
+    },
+    {
+      "id": "GuidedGrade/Views/DocumentSearchView.cs",
+      "label": "DocumentSearchView.cs",
+      "group": "GuidedGrade",
+      "sha256": "cb4ed143587ace828b9bf581ded5d7381c85505204dc9597047f25dc0b16f2c9"
+    },
+    {
       "id": "GuidedGrade/Views/EarlierReviewsView.cs",
       "label": "EarlierReviewsView.cs",
       "group": "GuidedGrade",
@@ -1506,7 +1584,7 @@
       "id": "GuidedGrade/Views/ExtractionProgressDialog.cs",
       "label": "ExtractionProgressDialog.cs",
       "group": "GuidedGrade",
-      "sha256": "341684c8660e6fd7d1b4b41b36d5c98e72885500db9702b5e851e9d490464650"
+      "sha256": "3bcf8b8b9ad3bad3d5ea43a4336deb673d5473b1627704cefcfd897383150e7d"
     },
     {
       "id": "GuidedGrade/Views/FeedbackDialView.cs",
@@ -1548,7 +1626,7 @@
       "id": "GuidedGrade/Views/InlineReviewEditView.cs",
       "label": "InlineReviewEditView.cs",
       "group": "GuidedGrade",
-      "sha256": "7beccd9048db9e182b7bc91e2ca3c449a7848064789f636ac20f2b01f2a02e76"
+      "sha256": "61887d65b90ca481a8aeb413c22ca045740d3e5a790e6868634b2e0fb3466f96"
     },
     {
       "id": "GuidedGrade/Views/JobQueueView.cs",
@@ -1557,10 +1635,16 @@
       "sha256": "bd507a1ed4100112865578c77038cb8927ea2aa48e9340b00022f6cb9a6ddf70"
     },
     {
+      "id": "GuidedGrade/Views/LogFileSettingsView.cs",
+      "label": "LogFileSettingsView.cs",
+      "group": "GuidedGrade",
+      "sha256": "b7a3816920b364c9c77af08e98119b55c85409b82d3ec444a82af68a6c7e8d9e"
+    },
+    {
       "id": "GuidedGrade/Views/LogPanelView.cs",
       "label": "LogPanelView.cs",
       "group": "GuidedGrade",
-      "sha256": "448be0486e326f08325e59ed80546a5f136254ca0d7f40bd64f17a86c3f218f5"
+      "sha256": "d691336dfec2a5a2f6bfd0beb16c784c844a6d0d88b4af91e4c88f981999213d"
     },
     {
       "id": "GuidedGrade/Views/MenuSelectorView.cs",
@@ -1572,7 +1656,7 @@
       "id": "GuidedGrade/Views/NavigationTabView.cs",
       "label": "NavigationTabView.cs",
       "group": "GuidedGrade",
-      "sha256": "909eee6eabf44980eb769885e0a83de771f33706be42b1ec5c3002a2e7d81588"
+      "sha256": "cbf343bd2190103222cb624136e5e2b678fb40c22a2d6a44850260753fc5beaf"
     },
     {
       "id": "GuidedGrade/Views/OverallReviewPanelView.cs",
@@ -1581,16 +1665,22 @@
       "sha256": "980d87988045b313f667d809e5c823bb38a38b7822fa5aac6d0c0b6e93ec26d4"
     },
     {
-      "id": "GuidedGrade/Views/PanelHeaderView.cs",
-      "label": "PanelHeaderView.cs",
+      "id": "GuidedGrade/Views/PanelIconView.cs",
+      "label": "PanelIconView.cs",
       "group": "GuidedGrade",
-      "sha256": "7cea172e7db2665dba6dfbcac70b67d76a4c29e20febca02498b6c4bd64e20b0"
+      "sha256": "9886e06f25a998672ca5fc371afa8be134978ef9af8f925bdccaa738e5279592"
     },
     {
       "id": "GuidedGrade/Views/PanelNavigationView.cs",
       "label": "PanelNavigationView.cs",
       "group": "GuidedGrade",
       "sha256": "cbad9b327b76bb8935a9ff1c825950253a0232050a0383b2ae7feb05c995f176"
+    },
+    {
+      "id": "GuidedGrade/Views/PanelToggleView.cs",
+      "label": "PanelToggleView.cs",
+      "group": "GuidedGrade",
+      "sha256": "8c157cd2ab2e6b0f42c1c1c155570ec99738346f95171f8eac8b0bbf5fa3d1d4"
     },
     {
       "id": "GuidedGrade/Views/ReviewMenuView.cs",
@@ -1620,25 +1710,31 @@
       "id": "GuidedGrade/Views/RubricImportView.cs",
       "label": "RubricImportView.cs",
       "group": "GuidedGrade",
-      "sha256": "68f9a3a60800d950282dbca54ef88fdd2b882407c7c30ce5d6da7a323991b1f6"
+      "sha256": "8973281d9d5aa279e5f635ae20f4b0745698f91aa39498e06164a32ef1856687"
     },
     {
       "id": "GuidedGrade/Views/SavedAssignmentsView.cs",
       "label": "SavedAssignmentsView.cs",
       "group": "GuidedGrade",
-      "sha256": "eb38c521f08001eb91de54b23c9a7dd684c280419df8e95a8bfe699080201ab1"
+      "sha256": "7ea772810f2bbb9f736e07e71c912f210e57203758b14bc5c2c8803e305fdd28"
+    },
+    {
+      "id": "GuidedGrade/Views/SearchBarView.cs",
+      "label": "SearchBarView.cs",
+      "group": "GuidedGrade",
+      "sha256": "3f20fe5a21a442e03e3430466acda59624cea12b6cd826580779636da4ded9aa"
     },
     {
       "id": "GuidedGrade/Views/StudentGradeEditView.cs",
       "label": "StudentGradeEditView.cs",
       "group": "GuidedGrade",
-      "sha256": "5b22b89f1086dac1b8036de8b4187cd593bbf80535ce5c7be9a06684c6ce758c"
+      "sha256": "7eb17a7a7feb27bf6d6430c9eada09bd1dac81d8a0435135dcca95af07886173"
     },
     {
       "id": "GuidedGrade/Views/StudentGradeRowView.cs",
       "label": "StudentGradeRowView.cs",
       "group": "GuidedGrade",
-      "sha256": "3518fa7aa27e83c65bc4256a393750faab7ce50e0050fa67d1e3b56f1c97a14d"
+      "sha256": "88dc65fa9e1ca454d90bdad27ce4a71d53da62a4aa778b3c09312ad363c4df49"
     },
     {
       "id": "GuidedGrade/Views/StudentsPanelView.cs",
@@ -1656,7 +1752,7 @@
       "id": "GuidedGrade/Views/ToolbarActionView.cs",
       "label": "ToolbarActionView.cs",
       "group": "GuidedGrade",
-      "sha256": "b66849c68c20e701183eb9550b319c5e9cfae22c49d49e625e3b2f3ef4d942a3"
+      "sha256": "71e1701775525cba18335c16fa4bda9b4e1085c85a7230a4911d3a91e5a534d1"
     },
     {
       "id": "GuidedGrade/Views/ToolbarLabelView.cs",
@@ -1669,6 +1765,12 @@
       "label": "ToolsPanelToolbarView.cs",
       "group": "GuidedGrade",
       "sha256": "b2094c6afbb0cfc029e0443801021b687827c6023c19e614c4d349ca18aa6e48"
+    },
+    {
+      "id": "GuidedGrade/Views/UnplacedReviewsView.cs",
+      "label": "UnplacedReviewsView.cs",
+      "group": "GuidedGrade",
+      "sha256": "44c1b5412d1201df5d3e814915244751dccc5cdeeef3efe187f94a056f913b06"
     },
     {
       "id": "GuidedGrade/Views/ViolationsPanelView.cs",
@@ -1686,7 +1788,7 @@
       "id": "GuidedGrade/Views/WorkspaceShellView.cs",
       "label": "WorkspaceShellView.cs",
       "group": "GuidedGrade",
-      "sha256": "6c8eac699ba0ac28cb320cee875766704298edf985f897e5dbccc5c0ac7259a5"
+      "sha256": "abb5884d9be66159120ab734217319c25d862d22a10d4d48cc29796df7b761a0"
     },
     {
       "id": "GuidedGrade/Views/WorkspaceStatusView.cs",
@@ -1698,7 +1800,7 @@
       "id": "GuidedGrade/Views/WorkspaceToolbarView.cs",
       "label": "WorkspaceToolbarView.cs",
       "group": "GuidedGrade",
-      "sha256": "dc6737e356d27d3706e9902969ac30645036439320f006d1d3092020ff84f1a6"
+      "sha256": "1e432434198f81eed6adc84a5fc9ca14f286f2bcc35a6c32025320bd0ffcbbeb"
     },
     {
       "id": "GuidedGrade/Windows/AssignmentSetupWindow.cs",
@@ -1716,7 +1818,7 @@
       "id": "GuidedGrade/Windows/LLMSettingsWindow.cs",
       "label": "LLMSettingsWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "88c5c86a6b3442b2b2c257e5d89c253224ef99f74bac7dae35086c1c137b1026"
+      "sha256": "3ff8282d43df4c74e5aeb71ed6389468380c6bf8ad6592d23a1954f4042aa269"
     },
     {
       "id": "GuidedGrade/Windows/RubricImportWindow.cs",
@@ -1728,13 +1830,13 @@
       "id": "GuidedGrade/Windows/SectionGradingDialog.cs",
       "label": "SectionGradingDialog.cs",
       "group": "GuidedGrade",
-      "sha256": "cefacb0cf0768839ed8f447d4fe1b2a5769823c3b64aaa43e2787aaca1ca2539"
+      "sha256": "0ae84a006e5c0b5cf8b650ddaec0b23e5cdce8a92b7cb799bd6ee2e7146232d6"
     },
     {
       "id": "GuidedGrade/Windows/SettingsWindow.cs",
       "label": "SettingsWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "32ce86ff36caf49dc060d5649b40d1b64d10e6b2ef7ba2ed3fe04da078f769e8"
+      "sha256": "346f078418ab5df70e054774b29e914a7a432cad5044ae1161b550d2542e89c4"
     },
     {
       "id": "GuidedGrade/Windows/StudentGradeEditWindow.cs",
@@ -1746,7 +1848,7 @@
       "id": "KNOWLEDGE_GRAPH.md",
       "label": "KNOWLEDGE_GRAPH.md",
       "group": "root",
-      "sha256": "cb265b774b8beda0aa1dc08a1252d2d3c642db3e5e2aef8ea64d5f092c9232fe"
+      "sha256": "a220388ef8ef051d853284c22366843e28c82ad057753b140a68fee01783b187"
     },
     {
       "id": "LLM_SETTINGS_GUIDE.md",
@@ -1758,7 +1860,7 @@
       "id": "MEMORY_LIMITS.md",
       "label": "MEMORY_LIMITS.md",
       "group": "root",
-      "sha256": "7815ed3444c724a39ed7a30d4c6fb2ceb0aaa04552a45e491485cf9b874dbfbb"
+      "sha256": "2ae9bfb3f58c9717d31c93f560406d77639c053c68ab23edd35f6ebd43f0d557"
     },
     {
       "id": "OLLAMA_SETUP.md",
@@ -1776,7 +1878,7 @@
       "id": "UI_FRAMEWORK_MIGRATION.md",
       "label": "UI_FRAMEWORK_MIGRATION.md",
       "group": "root",
-      "sha256": "42b09e7033409ec523ba6adcfd0617ec906b50952e96a25f3a29e8b13ce66072"
+      "sha256": "43d883fade2d17b9351be46ce86e888caac582140592b9afc6e4eec974500962"
     },
     {
       "id": "XAML_REMOVAL_HANDOFF.md",
@@ -1818,7 +1920,7 @@
       "id": "vendor/ui-framework/VALIDATION.md",
       "label": "VALIDATION.md",
       "group": "vendor",
-      "sha256": "d1e381db8b4ed044bda71382aa540d99fb0a209ae4d0939b3303859fc6780759"
+      "sha256": "ec17d783a41dcd8c826d66ccea08b56b7d80fc8cd23000339765d17096414830"
     },
     {
       "id": "vendor/ui-framework/history/2026-10-07-publication-audit/README.md",
@@ -2329,6 +2431,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/MainWindow.Search.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/MainWindow.StudentActions.cs",
       "kind": "contains"
     },
@@ -2399,6 +2506,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Presentation/LogSnapshotStyle.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/Presentation/NativeScrollTrack.cs",
       "kind": "contains"
     },
@@ -2420,6 +2532,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Presentation/RubricEditorRow.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Presentation/SearchBarNativeAdapter.cs",
       "kind": "contains"
     },
     {
@@ -2814,6 +2931,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/AppearanceSettingsViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/AssignmentDeductionsViewModel.cs",
       "kind": "contains"
     },
@@ -2864,6 +2986,16 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/DialogViewportViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/DocumentSearchViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/EarlierReviewsViewModel.cs",
       "kind": "contains"
     },
@@ -2904,6 +3036,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/LogFileSettingsViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/LogPanelViewModel.cs",
       "kind": "contains"
     },
@@ -2924,12 +3061,17 @@
     },
     {
       "source": "group:GuidedGrade",
-      "target": "GuidedGrade/ViewModels/PanelHeaderViewModel.cs",
+      "target": "GuidedGrade/ViewModels/PanelIconViewModel.cs",
       "kind": "contains"
     },
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/PanelNavigationViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/PanelToggleViewModel.cs",
       "kind": "contains"
     },
     {
@@ -2960,6 +3102,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/SavedAssignmentsViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/SearchBarViewModel.cs",
       "kind": "contains"
     },
     {
@@ -2999,6 +3146,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/ViewModels/UnplacedReviewsViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/ViolationsPanelViewModel.cs",
       "kind": "contains"
     },
@@ -3020,6 +3172,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/ViewModels/WorkspaceToolbarViewModel.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/AppearanceSettingsView.cs",
       "kind": "contains"
     },
     {
@@ -3070,6 +3227,16 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/ConsolePanelView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/DialogViewportView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/DocumentSearchView.cs",
       "kind": "contains"
     },
     {
@@ -3129,6 +3296,11 @@
     },
     {
       "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/LogFileSettingsView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/LogPanelView.cs",
       "kind": "contains"
     },
@@ -3149,12 +3321,17 @@
     },
     {
       "source": "group:GuidedGrade",
-      "target": "GuidedGrade/Views/PanelHeaderView.cs",
+      "target": "GuidedGrade/Views/PanelIconView.cs",
       "kind": "contains"
     },
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/PanelNavigationView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/PanelToggleView.cs",
       "kind": "contains"
     },
     {
@@ -3185,6 +3362,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/SavedAssignmentsView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/SearchBarView.cs",
       "kind": "contains"
     },
     {
@@ -3220,6 +3402,11 @@
     {
       "source": "group:GuidedGrade",
       "target": "GuidedGrade/Views/ToolsPanelToolbarView.cs",
+      "kind": "contains"
+    },
+    {
+      "source": "group:GuidedGrade",
+      "target": "GuidedGrade/Views/UnplacedReviewsView.cs",
       "kind": "contains"
     },
     {

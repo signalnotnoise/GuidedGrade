@@ -53,7 +53,9 @@ namespace GuidedGrade
             _commentPersistenceService = comments;
             _gradePersistence = new GradePersistenceService(assignments.DatabasePath);
             _studentGrades = _gradePersistence.LoadAll();
+            _sourceSearch = new(codeEditor, "Submission source");
             InitializeFrameworkShell();
+            InitializeDocumentSearch();
             InitializeJobQueuePanel();
             ApplyPanelPreferences();
             _runtimeTerminal = new RuntimeTerminalPresenter(runtimeTerminalRichTextBox);

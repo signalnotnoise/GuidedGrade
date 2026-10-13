@@ -23,6 +23,7 @@ public partial class MainWindow
     private readonly ToolTip _violationTooltip = new();
     private readonly State<string> _queueSummary = new("Queue: 0 left");
     private readonly State<int> _activePanel = new(-1);
+    private readonly State<bool> _navigationVisible = new(true);
     private readonly State<bool> _showComments = new(true);
     private readonly State<bool> _showQueue = new(true);
     private readonly State<bool> _toolsVisible = new(false);
@@ -66,7 +67,29 @@ public partial class MainWindow
         return _applicationMenu;
     }
 
-    private View BuildHeader() => new WorkspaceToolbarView(new WorkspaceToolbarViewModel(_courses, _assignments, _courseIndex, _assignmentIndex, ApplicationMenu, SelectCourse, SelectAssignment, () => WorkspaceAssignment_Click(this, new()), () => OpenFolderMenuItem_Click(this, new()), () => WorkspaceRubric_Click(this, new()), () => WorkspaceFeedback_Click(this, new()), DesignBatchReview, BuildNavigation, BuildReviewMenu)).Build();
+    private View BuildHeader() => new WorkspaceToolbarView(new WorkspaceToolbarViewModel(_courses, _assignments, _courseIndex, _assignmentIndex, ApplicationMenu, SelectCourse, SelectAssignment, () => WorkspaceAssignment_Click(this, new()), () => OpenFolderMenuItem_Click(this, new()), () => WorkspaceRubric_Click(this, new()), () => WorkspaceFeedback_Click(this, new()), DesignBatchReview, BuildNavigation, BuildReviewMenu)
+    {
+        LeftToggle = () => new PanelToggleView(new(true, _navigationVisible.Value, ToggleNavigation)).Build(),
+        RightToggle = () => new PanelToggleView(new(false, _activePanel.Value >= 0, ToggleReviewPanel)).Build()
+    }).Build();
+
+    private void ToggleNavigation()
+    {
+        _navigationVisible.Value = !_navigationVisible.Value;
+        navigationColumn.Width = new GridLength(_navigationVisible.Value ? 260 : 0);
+        navigationSplitter.Visibility = _navigationVisible.Value ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void ToggleReviewPanel()
+    {
+        if (_activePanel.Value >= 0) CloseSidePanel();
+        else
+        {
+            if (rightPanelTabs.SelectedIndex < 0 || (rightPanelTabs.SelectedIndex == 0 && !_showComments.Value) ||
+                (rightPanelTabs.SelectedIndex == 2 && !_showQueue.Value))
+                rightPanelTabs.SelectedIndex = _showComments.Value ? 0 : 1;
+            OpenSidePanel();
+        }
+    }
 
     private View BuildFileTabs() => new FileTabsView(new FileTabsViewModel(_fileTabs, _activeFile, SelectTab, CloseFileTab)).Build();
 
@@ -80,6 +103,8 @@ public partial class MainWindow
     {
         ReviewTheme.Apply(this);
         InitializeNativeControls();
+        ReviewTheme.Changed += ApplyWorkspaceColors;
+        ApplyWorkspaceColors();
         commentsDetailsTab.Content = ShellHost(() => Text("Select a student to prepare comments and feedback.").Padding(20));
         commentsDetailsTab.SizeChanged += (_, _) => _feedbackHeight.Value = Math.Max(160, commentsDetailsTab.ActualHeight * 0.5);
 
@@ -87,8 +112,9 @@ public partial class MainWindow
         {
             Host = ShellHost, StudentGrades = BuildGradeScope, FileTabs = BuildFileTabs,
             Header = BuildHeader, ToolTabs = BuildToolTabs,
-            PanelHeader = () => new PanelHeaderView(new PanelHeaderViewModel(_activePanel, CloseSidePanel)).Build(),
-            Students = listBoxStudents, Files = fileTreeView, Editor = codeEditor, Comments = commentOverlay,
+            PanelHeader = BuildNavigation,
+            NavigationColumn = navigationColumn, NavigationSplitter = navigationSplitter,
+            Students = listBoxStudents, Files = fileTreeView, Editor = codeEditor, SourceSearch = _sourceSearch, Comments = commentOverlay,
             EmptyState = emptyStateOverlay, SidePanelColumn = sidePanelColumn, SidePanelSplitter = sidePanelSplitter,
             SidePanels = rightPanelTabs, ViolationsPanel = violationsPanel, Violations = violationsList,
             ConsolePanel = runtimeTerminalPanel, Console = runtimeTerminalRichTextBox, LogPanel = _logPanel, Log = _logModel,
@@ -98,6 +124,7 @@ public partial class MainWindow
         Content = _workspaceHost = ReviewTheme.Host(shell.Build);
         Closed += (_, _) =>
         {
+            ReviewTheme.Changed -= ApplyWorkspaceColors;
             _commentLayer?.ClearComments();
             _feedbackHost?.Dispose(); _feedbackHost = null;
             _rubricHost?.Dispose(); _rubricHost = null;
@@ -106,6 +133,18 @@ public partial class MainWindow
             _shellHosts.Clear();
             _workspaceHost?.Dispose(); _workspaceHost = null;
         };
+    }
+
+    private void ApplyWorkspaceColors()
+    {
+        foreach (var control in new Control[] { codeEditor, fileTreeView, listBoxStudents, violationsList, rightPanelTabs, runtimeTerminalRichTextBox, _logModel.Source, _logModel.Snapshots })
+        {
+            control.Background = Brush(ReviewTheme.Tokens.Canvas);
+            control.Foreground = Brush(ReviewTheme.Tokens.Ink);
+        }
+        emptyStateOverlay.Background = Brush(ReviewTheme.Tokens.Canvas);
+        LogSnapshotStyle.Apply(_logModel.Snapshots);
+        ConfigureFileTree(); ConfigureViolations();
     }
 
 }

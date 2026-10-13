@@ -107,7 +107,7 @@ namespace GuidedGrade.Windows
                 Text("Published runner folder"), TextField(txtRunnerWorkerFolder).AccessibilityLabel("Published runner folder"),
                 Text("VM memory (2048â€“16384 MB)"), TextField(txtRunnerMemory).AccessibilityLabel("VM memory"),
                 HStack(Button("Save", () => Save_Click(this, new())).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", () => Cancel_Click(this, new()))).Spacing(8)
-            ).Spacing(12).Padding(20));
+            ).Spacing(12).Padding(0));
         }
 
         private async void RefreshOllamaModels_Click(object sender, RoutedEventArgs e)

@@ -33,7 +33,15 @@ internal static class InlineRubricReview
                         return (index + 1, line + 1);
             }
         }
-        return (finding.File >= 1 && finding.File <= sources.Count ? finding.File : 1, 0);
+        // An explicitly named method can locate a draft without validating its interpretation.
+        // Do not attach unmatched rubric placeholders to an arbitrary nominated/first file.
+        var description = finding.Name + "\n" + finding.Quote + "\n" + finding.Reason;
+        var methods = sources.SelectMany((source, index) => CodeSectionDetector.Extract(source, "")
+            .Where(section => Regex.IsMatch(description, @"\b" + Regex.Escape(section.Name) + @"\b",
+                RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+            .Select(section => (File: index + 1, Line: section.StartLine, Name: section.Name))).ToArray();
+        if (methods.Length == 1) return (methods[0].File, methods[0].Line);
+        return (0, 0);
     }
     internal static SectionFeedback Create(ReviewFindingEnvelope.FindingDraft finding, int line, string context, string reportId, bool autoApprove)
         => new()

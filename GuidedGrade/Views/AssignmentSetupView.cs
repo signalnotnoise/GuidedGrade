@@ -18,6 +18,6 @@ internal sealed class AssignmentSetupView(AssignmentSetupViewModel model, Action
             HStack(Button("Load assignment", load), Button("Paste grading prompt", importPrompt)).Spacing(10),
             Picker(new[] { "Instructions", "Rubric", "Deductions", "Feedback", "Class settings" }, model.Page).AccessibilityLabel("Assignment setup section"),
             Scroll(body.Padding(4)).Height(470), Text(model.Error.Value).Foreground("#FFABAB"),
-            HStack(Text(model.Rubric.TotalLabel), Button("Save assignment", save).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", cancel)).Spacing(12)).Spacing(14).Padding(20);
+            HStack(Text(model.Rubric.TotalLabel), Button("Save assignment", save).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", cancel)).Spacing(12)).Spacing(14).Padding(0);
     }
 }

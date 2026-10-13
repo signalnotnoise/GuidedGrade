@@ -207,7 +207,7 @@ internal static class NativeTheme
         border.AppendChild(content);
         var template = new ControlTemplate(controlType) { VisualTree = border };
         template.Triggers.Add(When(selectedProperty, true,
-            Set(Border.BorderBrushProperty, Brush("#50B5FF"), "tab"), Set(Control.ForegroundProperty, Brushes.White)));
+            Set(Border.BorderBrushProperty, Brush("#50B5FF"), "tab"), Set(Control.ForegroundProperty, Brush(ReviewTheme.Tokens.Ink))));
         template.Triggers.Add(When(UIElement.IsMouseOverProperty, true, Set(Border.BackgroundProperty, Brush("#344252"), "tab")));
         template.Triggers.Add(When(UIElement.IsKeyboardFocusedProperty, true, Set(Border.BorderBrushProperty, Brushes.White, "tab")));
         template.Triggers.Add(When(UIElement.IsEnabledProperty, false, Set(UIElement.OpacityProperty, 0.45)));
@@ -242,7 +242,7 @@ internal static class NativeTheme
     }
     private static SolidColorBrush Brush(string value)
     {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(ReviewTheme.ColorFor(value)));
         brush.Freeze();
         return brush;
     }

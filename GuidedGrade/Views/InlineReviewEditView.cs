@@ -12,5 +12,5 @@ internal sealed class InlineReviewEditView(InlineReviewEditViewModel model, Acti
             VStack(Text("Code line"), TextField(model.Line).AccessibilityLabel("Comment line").IsEnabled(model.CanMove)).Spacing(5)).Spacing(12),
         Text(model.Error.Value).Foreground("#FFABAB"),
         HStack(Button("Save changes", save).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", cancel)).Spacing(10)
-    ).Spacing(12).Padding(20);
+    ).Spacing(12).Padding(0);
 }

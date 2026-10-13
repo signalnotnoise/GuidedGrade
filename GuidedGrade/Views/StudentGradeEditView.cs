@@ -16,5 +16,5 @@ internal sealed class StudentGradeEditView(StudentGradeEditViewModel model, Acti
         Text(model.Error.Value).Foreground("#FFABAB"),
         HStack(Button("Save grade", () => save(false)), Button("Clear grade", () => save(true)).IsEnabled(model.CanClear),
             Button("Cancel", cancel)).Spacing(8)
-    ).Spacing(14).Padding(22);
+    ).Spacing(14).Padding(0);
 }

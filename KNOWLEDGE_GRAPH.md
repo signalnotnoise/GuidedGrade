@@ -709,12 +709,12 @@ flowchart LR
 
 ### Workspace presentation refinement (source reviewed October 7, 2026)
 
-One toolbar contains the native menus, submission/batch actions, course/assignment selectors and panel tabs. Assignment setup remains in Settings and rubric Edit assignment. NavigationTabView/ViewModel supplies shared flat underlined tabs for files, panels and console/violations through the pinned framework native adapter. An application-owned attached selected property avoids conflict with framework identity tags. ToolbarLabelView/ViewModel centers short labels vertically. NativeTheme centers button content through ContentPresenter, preserving rich native content, and uses eight-pixel scrollbars. Framework presentation gaps were reported to the authorized CUI chat; package bytes are unchanged.
+The toolbar contains native menus, course/assignment selectors, the Review menu and left/right panel icon toggles. File > Open Submissions Folder loads submissions. Feedback/Queue/Rubric tabs live in the right panel. Assignment setup remains in Settings and rubric Edit assignment. NavigationTabView/ViewModel supplies shared flat underlined tabs for files, panels and console/violations through the pinned framework native adapter. An application-owned attached selected property avoids conflict with framework identity tags. ToolbarLabelView/ViewModel centers short labels vertically. NativeTheme centers button content through ContentPresenter, preserving rich native content, and uses eight-pixel scrollbars. Framework presentation gaps were reported to the authorized CUI chat; package bytes are unchanged.
 
 ```mermaid
 flowchart LR
  Toolbar[WorkspaceToolbarView] --> Labels[ToolbarLabelView / ViewModel]
- Toolbar --> PanelTabs[PanelNavigationView]
+ RightPanel --> PanelTabs[PanelNavigationView]
  PanelTabs --> Tab[NavigationTabView / ViewModel]
  Files[FileTabsView] --> Tab
  Tools[ToolsPanelToolbarView] --> Tab
@@ -855,7 +855,7 @@ Evidence attribution source review (October 9, 2026): `OverallReviewResult.FindE
 
 ## Inline overall review decisions (source reviewed October 9, 2026)
 
-`OverallReviewService` retains local structured findings through `ReviewFindingEnvelope`. `InlineRubricReview` resolves source-quote or explicit TODO anchors and constructs individual `SectionFeedback` records. `CompleteOverallFileReview` routes those cards to their actual source file; unlocated cards show an explicit warning and need a line confirmed through Modify. All overall comments now render inline, including qualitative/historical records; stored historical combined reports are not split retroactively. The inline editor uses `InlineReviewEditWindow`, `InlineReviewEditView` and `InlineReviewEditViewModel`. Approve/Modify/Reject save per-card decisions, text, points and anchors through `CommentPersistenceService`, whose additive RubricReview JSON column and criterion-aware unique index preserve old records. Approved rubric awards and approved deductions refresh `GradePersistenceService` totals for the captured review context; pending/rejected rows do not contribute points. Existing combined-report approval UI remains for legacy pending records. General prose edits have no rubric criterion and do not contribute criterion points.
+`OverallReviewService` retains local structured findings through `ReviewFindingEnvelope`. `InlineRubricReview` resolves source-quote or explicit TODO anchors and constructs individual `SectionFeedback` records. `CompleteOverallFileReview` routes those cards to their actual source file; unlocated cards remain in the assignment-scoped Unplaced comments panel until the instructor chooses their file and line. All overall comments now render inline, including qualitative/historical records; stored historical combined reports are not split retroactively. The inline editor uses `InlineReviewEditWindow`, `InlineReviewEditView` and `InlineReviewEditViewModel`. Approve/Modify/Reject save per-card decisions, text, points and anchors through `CommentPersistenceService`, whose additive RubricReview JSON column and criterion-aware unique index preserve old records. Approved rubric awards and approved deductions refresh `GradePersistenceService` totals for the captured review context; pending/rejected rows do not contribute points. Existing combined-report approval UI remains for legacy pending records. General prose edits have no rubric criterion and do not contribute criterion points.
 
 ```mermaid
 flowchart LR
@@ -899,7 +899,7 @@ flowchart LR
 
 ## MainWindow extraction (source reviewed October 9, 2026)
 
-MainWindow.cs is now a 148-line composition/lifecycle shell. Assignment selection, grading actions, comment actions, review execution, submission browsing, file navigation/context actions, preferences, diagnostics and student actions live in focused event-adapter partials. These adapters still share the window's selection state; moving them into partial files does not itself make them independent services.
+MainWindow.cs is a small composition/lifecycle shell. Assignment selection, grading actions, comment actions, review execution, submission browsing, file navigation/context actions, preferences, diagnostics and student actions live in focused event-adapter partials. These adapters still share the window's selection state; moving them into partial files does not itself make them independent services.
 
 ReviewWorkspaceService supplies the independent behavior: it owns the 128-entry active-file-pinned comment cache, reloads persisted records after saves, tracks comments without replacing other review contexts, rejects stale overall completion captures before source reads, routes combined findings to evidence anchors while preserving pins, and calculates grades from persisted approved rubric decisions. The service has no WPF/window/dispatcher dependency. The legacy prose completion path and draft editor publication still remain in the window. Completion writes are per file; the whole multi-file batch is not one database transaction.
 
@@ -920,3 +920,98 @@ flowchart LR
     Card --> Native[InlineCommentAdorner / placement adapter]
     Adapters --> GradeEditor[StudentGradeEditView / StudentGradeEditViewModel]
 ```
+
+
+## Unplaced finding routing regression fix (source reviewed October 9, 2026)
+
+InlineRubricReview.Locate no longer returns a nominated or first file when there is no matching source quote or TODO label. A unique method definition explicitly named in the finding can provide a local anchor; it does not verify the finding or earn automatic approval. Ambiguous or absent matches return (0,0). General overall prose still uses the first file intentionally.
+
+ReviewWorkspaceService retains unplaced rubric records with LocationResolved=false in the first target's storage container, without treating it as source attribution. The inline renderer excludes these records, including older already-saved unresolved findings. UnplacedReviewsView/UnplacedReviewsViewModel display them by student/assignment context in Feedback, with a Choose file and line action using the existing copied edit, atomic row move and fresh-cache reload path. New completions open Feedback when unplaced findings remain. Choosing a location enables subsequent instructor approval; it does not establish source verification or approve a pending finding. Existing scores, pins and resolved anchors are not migrated or overwritten by this display fix.
+
+```mermaid
+flowchart LR
+    Finding[Overall rubric finding] --> Locate[Quote / TODO / unique named method]
+    Locate -->|resolved| Inline[Actual source file / inline card]
+    Locate -->|no reliable location| Pending[Persisted LocationResolved=false]
+    Pending --> Panel[UnplacedReviewsView / ViewModel]
+    Panel --> Edit[Choose file and line / InlineReviewEditWindow]
+    Edit --> Move[Atomic comment update and cache reload]
+    Move --> Inline
+```
+
+
+## Scoped document search (source reviewed October 10, 2026)
+
+MainWindow.Search routes Ctrl+F to the focused log panel or active source editor, retaining the last clicked search scope when focus is elsewhere. Selecting a source tab resets the fallback scope to source. DocumentSearchView/DocumentSearchViewModel reuse the existing AvalonEdit native island and SearchPanel: the box starts closed, opens/focuses on Ctrl+F, highlights document matches, supports native next/previous navigation and closes through Escape or its close button. Source and log queries have separate panel instances. Search installs no provider calls and does not alter review persistence.
+
+LogPanelViewModel.Source is now a read-only AvalonEdit editor, with undo retention disabled. Its selected snapshot owns the independent search panel. Search options also scan loaded snapshot source/entry labels with a 50 ms regex timeout per match; matching rows become bold/gold, and the first matching row is selected when the current row does not match. Selection refreshes source highlights using the same retained editor. Clearing/loading a log closes its search and clears the query. Search text, case/word/regex settings remain session-local. Full-source loading and existing 64 MiB/10,000-snapshot log bounds are unchanged.
+
+SearchBarView/ViewModel replace the default AvalonEdit widget with a compact pinned-framework bar. SearchBarNativeAdapter preserves the native editing content host; rendered checks verify readable query text and navigation icons. MainWindow uninstalls both native search panels on close. The native-island style-isolation gap was reported to the authorized CUI task; no vendor package bytes or versions changed.
+
+```mermaid
+flowchart LR
+    Find[Ctrl+F / focus or last clicked scope] --> File[Submission DocumentSearchViewModel]
+    Find --> Log[Log snapshot DocumentSearchViewModel]
+    File --> Panel[AvalonEdit SearchPanel / query and match renderer]
+    Log --> Panel
+    Log --> Rows[Matching history rows / choose first matching snapshot]
+    Rows --> Snapshot[Retained read-only log editor]
+    Snapshot --> Panel
+    View[DocumentSearchView / native adapter] --> Panel
+    Theme[SearchBarView / SearchBarViewModel / native field adapter] --> Panel
+```
+
+October 10, 2026 search styling: the default search widget is replaced by a reusable pinned-framework SearchBarView/ViewModel, with rounded surface, query field and quiet previous/next/close icons. Enter, Shift+Enter and Escape remain supported. The scoped native field adapter fixes inherited content-host clipping. Local rendered and functional checks pass; package bytes and versions are unchanged.
+
+## Dialog overflow and startup sizing (source reviewed October 10, 2026)
+
+ReviewWindow wraps its pinned-framework ViewHost in DialogViewportView, a native scrolling adapter with its own DialogViewportViewModel. At startup it measures content at the available width, grows the window when necessary, and clamps size/position to the primary Windows work area with a 24-DIP margin. Minimum dimensions are reduced when the work area is smaller. Excess content remains scrollable, including form action rows, after startup and user resizing. Existing inner editors and section scrolling remain independent. This applies to ReviewWindow-based assignment, import, settings, section grading, inline edit, grade edit and extraction dialogs; MainWindow and the independently built batch window retain their existing layout. Monitor-specific work areas are not yet selected.
+
+```mermaid
+flowchart LR
+    Window[ReviewWindow] --> Model[DialogViewportViewModel / work area bounds]
+    Window --> View[DialogViewportView / native ScrollViewer]
+    View --> Host[Pinned framework ViewHost / form]
+    Window --> Fit[Measure once / grow and clamp at startup]
+    View --> Overflow[Scroll excess content and action rows]
+```
+October 10, 2026 bounds regression correction: DialogViewportView disables horizontal scrolling so the framework form receives a finite available width; vertical overflow remains scrollable. The previous horizontal Auto setting measured forms with unlimited width and oversized picker popups. Shared dialogs now receive 4-DIP outer padding with superseded form-level 20/22-DIP padding removed. Batch review and the workspace shell also use 4-DIP outer spacing. A long-input, reduced-viewport test opens the assignment section picker and checks both control and popup widths against the viewport, plus reachability of Save. Package versions/bytes are unchanged.
+
+## Panel toggles and appearance (source reviewed October 10, 2026)
+
+PanelToggleView/ViewModel use shared flat toolbar styling and tooltip/automation labels for opposite-side panel icons. The left icon collapses/restores submissions navigation without replacing controls. The right icon closes/reopens the retained review panel. PanelNavigationView is hosted inside that panel; the superseded title/close header was removed after reference checks. Open submissions remains in File.
+
+AppearanceSettingsView/ViewModel exposes Dark/Light under Settings > Programming Checks. WorkspacePanelPreferences stores LightMode in workspace-panels.json (absent values default dark). Saving updates ReviewTheme tokens, framework hosts and scoped native styles, plus retained workspace editor/list/console surfaces. Weak references track hosts without retaining closed hosts; MainWindow unsubscribes its theme handler on close. Source syntax and semantic status colors remain specialized; this does not claim a contrast audit of every syntax/diagnostic color.
+
+```mermaid
+flowchart LR
+    Toolbar --> Toggles[PanelToggleView / ViewModel]
+    Toggles --> Left[Retained submission navigation]
+    Toggles --> Right[Retained review panel]
+    Right --> Tabs[PanelNavigationView / Feedback Queue Rubric]
+    Settings --> Appearance[AppearanceSettingsView / ViewModel]
+    Appearance --> Preferences[WorkspacePanelPreferences.LightMode]
+    Preferences --> Theme[ReviewTheme / light and dark tokens]
+    Theme --> Hosts[Weakly tracked framework hosts]
+    Theme --> Native[NativeTheme and retained workspace controls]
+```
+October 10, 2026 panel icon refinement (source reviewed): PanelIconView/PanelIconViewModel draw scalable rounded outline sidebar glyphs through a native vector adapter, with mirrored dividers and a subtle accent fill for expanded panels. PanelToggleView retains shared toolbar styling/tooltips; ToolbarActionView accepts optional rich icon content. The left toggle precedes File/Settings. No font-symbol dependency remains for these icons.
+
+October 10, 2026 icon styling source check: panel vectors use 1.15-DIP muted strokes, three-DIP rounded corners and a faint expanded-side accent. Icon-only ToolbarActionView content receives a rounded seven-DIP hover surface and an explicit keyboard-focus border; text toolbar actions retain their existing style. Left toggle remains first.
+
+## Configurable log file routing (source reviewed October 11, 2026)
+
+Settings > Programming Checks includes LogFileSettingsView/ViewModel for a filename (without extension, * for any name) and extension. WorkspacePanelPreferences persists LogFileName/LogFileExtension in workspace-panels.json; older preferences default to *.fslog. Save validates filename/extension before writing preferences. MatchesLog performs a case-insensitive filename-pattern match. Tree selection opens matching files in the Logs tools panel without changing the active source document. The open-log picker and automatic assignment-folder search use the same pattern; an assignment's explicit LogFilePath still takes precedence over automatic discovery. FsLogReader still requires the supported binary source-history format regardless of extension; invalid data is displayed as a log-panel diagnostic with build counts cleared.
+
+```mermaid
+flowchart LR
+    Settings[LogFileSettingsView / ViewModel] --> Preferences[WorkspacePanelPreferences / name and extension]
+    Preferences --> Match[MatchesLog / filename pattern]
+    Tree[Submission tree selection] --> Match
+    Match --> Panel[OpenLogInPanel / retained Logs panel]
+    Preferences --> Picker[Open log filter]
+    Preferences --> Discovery[Assignment folder log discovery]
+    Panel --> Reader[FsLogReader / content validation]
+```
+
+October 11, 2026 log selection contrast (source reviewed): LogSnapshotStyle owns the ListBoxItem selection surface through a bound native template, preventing OS inactive-selection backgrounds from overriding the selected foreground/background pair. Selected log rows remain white on deep blue with or without keyboard focus. Normal and search-match foregrounds use theme-aware contrast; ApplyWorkspaceColors rebuilds the snapshot style when appearance changes. BuildHistoryView now uses the theme surface instead of a fixed dark fill. Real-window inactive-selection renders/tests pass in light and dark modes.

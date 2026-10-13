@@ -9,5 +9,5 @@ internal sealed class AssignmentImportView(AssignmentImportViewModel model, Acti
         TextEditor(model.Text).Height(220).AccessibilityLabel("Grading prompt"),
         Button("Preview import", model.Parse), Text(model.Error.Value).Foreground("#FFABAB"),
         TextEditor(new Binding<string>(() => model.Preview.Value, _ => { })).Height(260).IsReadOnly(true).AccessibilityLabel("Import preview"),
-        HStack(Button("Apply import", apply).IsEnabled(model.CanApply), Button("Cancel", cancel)).Spacing(10)).Spacing(12).Padding(20));
+        HStack(Button("Apply import", apply).IsEnabled(model.CanApply), Button("Cancel", cancel)).Spacing(10)).Spacing(12).Padding(0));
 }

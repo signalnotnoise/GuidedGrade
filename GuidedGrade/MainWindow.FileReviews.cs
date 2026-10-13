@@ -73,6 +73,8 @@ public partial class MainWindow
         }
         _savedReviewRevision.Value++;
         if (completed.UpdateGrade) RefreshRubricGrade(context);
+        if (Services.ReviewContext.Matches(context, CurrentFeedbackKey()) && _reviewWorkspace.Unplaced(context).Length > 0)
+            WorkspaceFeedback_Click(this, new());
     }
     private void RefreshRubricGrade(string context)
     {

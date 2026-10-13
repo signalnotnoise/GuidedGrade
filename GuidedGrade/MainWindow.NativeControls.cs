@@ -34,6 +34,8 @@ public partial class MainWindow
     internal readonly TabItem rubricDetailsTab = new() { Header = "Rubric" };
     internal readonly TabItem queueDetailsTab = new() { Header = "Job queue" };
     private readonly ColumnDefinition sidePanelColumn = new() { Width = new(0) };
+    private readonly ColumnDefinition navigationColumn = new() { Width = new(260) };
+    private readonly GridSplitter navigationSplitter = new() { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly GridSplitter sidePanelSplitter = new() { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
     private readonly RowDefinition toolsPanelRow = new() { Height = new(0) };
     private readonly Grid toolsPanelContent = new() { Visibility = Visibility.Collapsed };
@@ -138,5 +140,5 @@ public partial class MainWindow
     {
         var item = new MenuItem { Header = title, ToolTip = tip }; item.Click += action; return item;
     }
-    private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
+    private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(ReviewTheme.ColorFor(color)));
 }

@@ -52,6 +52,67 @@ public class FrameworkMigrationTests
     });
 
     [TestMethod]
+    public void DocumentSearchIsHiddenUntilOpenedAndFindsMatchesIndependently() => RunSta(() =>
+    {
+        var editor=new ICSharpCode.AvalonEdit.TextEditor { Text="needle first\nneedle second\n" };
+        using var search=new GuidedGrade.ViewModels.DocumentSearchViewModel(editor,"Source");
+        var log=new GuidedGrade.ViewModels.LogPanelViewModel();
+        using var host=GuidedGrade.Presentation.ReviewTheme.Host(new GuidedGrade.Views.DocumentSearchView(search).Build);
+        Layout(host,800,300);
+        try
+        {
+            Assert.IsTrue(search.Panel.IsClosed); Assert.IsTrue(log.Search.Panel.IsClosed);
+            search.Open(); Layout(host,800,300);
+            Descendants<TextBox>(search.Panel).Last().Text="needle"; Flush();
+            Assert.IsFalse(search.Panel.IsClosed); Assert.IsTrue(log.Search.Panel.IsClosed);
+            search.Panel.FindNext(); Assert.AreEqual("needle",editor.SelectedText);
+            var first=editor.SelectionStart; search.Panel.FindNext(); Assert.AreNotEqual(first,editor.SelectionStart);
+            search.Panel.FindPrevious(); Assert.AreEqual(first,editor.SelectionStart);
+            Assert.IsTrue(editor.TextArea.TextView.BackgroundRenderers.Any(renderer=>renderer.GetType().Namespace=="ICSharpCode.AvalonEdit.Search"));
+            log.Source.Text="other needle"; log.Search.Open(); log.Search.Panel.SearchPattern="other"; Flush();
+            log.Search.Panel.FindNext(); Assert.AreEqual("other",log.Source.SelectedText);
+            Assert.AreEqual("needle",search.Panel.SearchPattern);
+            Capture(host,"document-search",800,300);
+            search.Close(); Assert.IsTrue(search.Panel.IsClosed); Assert.IsFalse(log.Search.Panel.IsClosed);
+        }
+        finally { log.Search.Dispose(); }
+    });
+
+    [TestMethod]
+    public void LogSearchHighlightsMatchingSnapshotsAndClearsOnNewLog() => RunSta(() =>
+    {
+        var path=Path.GetTempFileName();
+        var model=new GuidedGrade.ViewModels.LogPanelViewModel();
+        Window? searchWindow=null;
+        try
+        {
+            using(var writer=new BinaryWriter(File.Create(path)))
+            {
+                writer.Write(0x474C5346u); writer.Write(2f); writer.Write(1u);
+                var name=System.Text.Encoding.ASCII.GetBytes("Game.cpp"); writer.Write((uint)name.Length); writer.Write(name);
+                foreach(var source in new[] { "needle in old build", "different latest build" })
+                {
+                    writer.Write(1700000000ul);
+                    var content=System.Text.Encoding.ASCII.GetBytes(source).Select(value=>unchecked((byte)(value+128))).ToArray();
+                    writer.Write((uint)content.Length); writer.Write(content);
+                }
+            }
+            using var host=GuidedGrade.Presentation.ReviewTheme.Host(new GuidedGrade.Views.LogPanelView(model).Build);
+            searchWindow=new Window { Content=host,Width=1000,Height=450,ShowActivated=false,Left=-10000,Top=-10000 }; searchWindow.Show();
+            Layout(host,1000,400); model.Load(path); Layout(host,1000,400);
+            Assert.AreEqual("different latest build",model.Source.Text);
+            model.Search.Open(); Layout(host,1000,400); Descendants<TextBox>(model.Search.Panel).Last().Text="needle"; Flush(); Layout(host,1000,400);
+            Assert.AreEqual("needle in old build",model.Source.Text);
+            var matches=model.Snapshots.Items.Cast<object>().Count(entry=>(bool)entry.GetType().GetProperty("MatchesSearch")!.GetValue(entry)!);
+            Assert.AreEqual(1,matches); model.Search.Panel.FindNext(); Assert.AreEqual("needle",model.Source.SelectedText);
+            Capture(host,"log-search",1000,400);
+            model.Clear("New student"); Assert.IsTrue(model.Search.Panel.IsClosed);
+            Assert.AreEqual("",model.Search.Panel.SearchPattern); Assert.AreEqual(0,model.Snapshots.Items.Count);
+        }
+        finally { searchWindow?.Close(); model.Search.Dispose(); File.Delete(path); }
+    });
+
+    [TestMethod]
     public void WindowInputDispatcherDeliversPhysicalKeysToOwnedWindow() => RunSta(() =>
     {
         var text = new TextBox();
@@ -523,6 +584,33 @@ public class FrameworkMigrationTests
     });
 
     [TestMethod]
+    public void SavedUnlocatedFindingAppearsInUnplacedPanelInsteadOfFirstFileOverlay() => RunSta(() =>
+    {
+        var directory=Path.Combine(Path.GetTempPath(),"UnplacedReviews-"+Guid.NewGuid()); Directory.CreateDirectory(directory);
+        var student=new Student("Alex","Rivera","1",directory);
+        var source=Path.Combine(directory,"Graphics.h"); File.WriteAllText(source,"class Graphics {};\n");
+        var database=Path.Combine(directory,"reviews.db"); var store=new CommentPersistenceService(database);
+        var assignment=new GradingAssignment { Course="PG2",Title="Lab",Rubric=[new("Part B-1",15)] };
+        var context=ReviewContext.Key(directory,assignment,source);
+        store.SaveComments(source,[InlineRubricReview.Create(new(1,"Part B-1",15,null,false,0,"","Check your board."),0,context,"report",false)]);
+        var window=new GuidedGrade.MainWindow(new AssignmentPersistenceService(database),store);
+        try
+        {
+            window.SetReviewAssignment(assignment); window.listBoxStudents.Items.Add(student); window.listBoxStudents.SelectedItem=student;
+            var host=(FrameworkElement)window.Content; var file=new FileSystemItem(source,false); window.fileTreeView.Items.Add(file);
+            Layout(host,1200,800); ((TreeViewItem)window.fileTreeView.ItemContainerGenerator.ContainerFromItem(file)).IsSelected=true;
+            Layout(host,1200,800); Assert.AreEqual(0,Descendants<InlineCommentAdorner>(host).Count());
+            typeof(GuidedGrade.MainWindow).GetMethod("WorkspaceFeedback_Click",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(window,[window,new RoutedEventArgs()]);
+            Layout(host,1200,800);
+            var panel=(FrameworkElement)window.commentsDetailsTab.Content; Layout(panel,400,600);
+            Assert.IsTrue(Descendants<Button>(panel).Any(button=>AutomationProperties.GetName(button)=="Place review: Part B-1"));
+            Assert.AreEqual(1,store.LoadComments(source).Count,"Unplaced findings must remain saved and editable.");
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory,true); }
+    });
+
+    [TestMethod]
     public void CommentDropCoordinatesResolveDocumentLineAfterScrolling() => RunSta(() =>
     {
         var editor = new ICSharpCode.AvalonEdit.TextEditor
@@ -832,10 +920,40 @@ public class FrameworkMigrationTests
     });
 
     [TestMethod]
+    public void AssignmentDialogScrollsToActionsWhenViewportIsShort() => RunSta(() =>
+    {
+        var database = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
+        var window = new AssignmentSetupWindow(new AssignmentPersistenceService(database));
+        try
+        {
+            var viewport = (ScrollViewer)window.Content;
+            window.Model.Details.Requirements.Value = new string('x', 4000);
+            Layout(viewport, 780, 550);
+            Assert.AreEqual(new Thickness(4), viewport.Padding);
+            Assert.AreEqual(0d, viewport.ScrollableWidth, "Dialog content must be measured at the viewport width.");
+            var picker = Descendants<ComboBox>(viewport).Single(control => AutomationProperties.GetName(control) == "Assignment setup section");
+            Assert.IsTrue(picker.ActualWidth <= viewport.ViewportWidth);
+            picker.IsDropDownOpen = true; Flush();
+            var popup = Descendants<System.Windows.Controls.Primitives.Popup>(picker).Single();
+            Assert.IsTrue(((FrameworkElement)popup.Child).ActualWidth <= viewport.ViewportWidth + 2,
+                "Dropdown must stay within the constrained form width.");
+            picker.IsDropDownOpen = false; Flush();
+            Assert.IsTrue(viewport.ScrollableHeight > 0, "Overflow must be scrollable instead of clipped.");
+            viewport.ScrollToBottom(); Flush(); Layout(viewport, 780, 550);
+            var save = Descendants<Button>(viewport).Single(button => Equals(button.Content, "Save assignment"));
+            var bounds = save.TransformToAncestor(viewport).TransformBounds(new Rect(save.RenderSize));
+            Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= viewport.ActualHeight,
+                "Save must be reachable inside the reduced viewport.");
+            Capture(viewport, "assignment-small-screen-actions", 780, 550);
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(database); }
+    });
+
+    [TestMethod]
     public void DeclarativeFormsRenderRetainInputAndDisposeTheirHosts() => RunSta(() =>
     {
         var window = new SettingsWindow();
-        var host = (ViewHost)window.Content;
+        var host = (ViewHost)((ScrollViewer)window.Content).Content;
         Layout(host, 700, 780);
         var input = Descendants<TextBox>(host).Single(control => AutomationProperties.GetName(control) == "New violation");
         input.Text = "Migration test term";
@@ -855,7 +973,7 @@ public class FrameworkMigrationTests
             .Any(control => AutomationProperties.GetName(control) == "Console model wait timeout"));
         Assert.IsTrue(Descendants<CheckBox>((FrameworkElement)provider.Content)
             .Any(control => Equals(control.Content, "Ask before grading")));
-        var providerHost = (ViewHost)provider.Content;
+        var providerHost = (ViewHost)((ScrollViewer)provider.Content).Content;
         Layout(providerHost, 700, 780);
         var providerPicker = Descendants<ComboBox>(providerHost).Single(control => AutomationProperties.GetName(control) == "AI provider");
         providerPicker.SelectedIndex = 1;
@@ -890,6 +1008,99 @@ public class FrameworkMigrationTests
         assignment.Close();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         File.Delete(database);
+    });
+
+    [TestMethod]
+    public void LogSelectionKeepsReadableColorsWithoutKeyboardFocusInBothThemes() => RunSta(() =>
+    {
+        var original = GuidedGrade.Services.WorkspacePanelPreferences.Load().LightMode;
+        try
+        {
+            foreach (var light in new[] { false, true })
+            {
+                GuidedGrade.Presentation.ReviewTheme.SetLightMode(light);
+                var list = new ListBox { ItemsSource = new[] { "Build 3 | StudentWork.h", "Build 2 | StudentWork.h" }, SelectedIndex = 0 };
+                GuidedGrade.Presentation.LogSnapshotStyle.Apply(list);
+                var window = new Window { Content = list, Width = 340, Height = 200, ShowActivated = false, Left = -10000, Top = -10000 };
+                window.Show(); Layout(list, 320, 160);
+                var row = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+                Assert.IsFalse(System.Windows.Controls.Primitives.Selector.GetIsSelectionActive(row));
+                Assert.AreEqual("#FF005A8C", row.Background.ToString());
+                Assert.AreEqual("#FFFFFFFF", row.Foreground.ToString());
+                Assert.AreEqual(row.Background.ToString(), Descendants<Border>(row).First().Background.ToString());
+                Capture(list, light ? "log-selection-light" : "log-selection-dark", 320, 160);
+                window.Close();
+            }
+        }
+        finally { GuidedGrade.Presentation.ReviewTheme.SetLightMode(original); }
+    });
+
+    [TestMethod]
+    public void LogFilePreferencesMatchConfiguredNameAndExtension()
+    {
+        var preferences = new GuidedGrade.Services.WorkspacePanelPreferences();
+        Assert.IsTrue(preferences.MatchesLog("Lab1.fslog"));
+        Assert.IsFalse(preferences.MatchesLog("Lab1.cpp"));
+        preferences.LogFileName = "Lab1"; preferences.LogFileExtension = "log";
+        preferences.ValidateLogSettings();
+        Assert.IsTrue(preferences.MatchesLog("LAB1.LOG"));
+        Assert.IsFalse(preferences.MatchesLog("Lab2.log"));
+        Assert.IsFalse(preferences.MatchesLog("Lab1.fslog"));
+        var restored = System.Text.Json.JsonSerializer.Deserialize<GuidedGrade.Services.WorkspacePanelPreferences>(System.Text.Json.JsonSerializer.Serialize(preferences))!;
+        Assert.AreEqual("Lab1.log", restored.LogPattern);
+        preferences.LogFileName = "../Lab1";
+        Assert.ThrowsException<ArgumentException>(() => preferences.ValidateLogSettings());
+    }
+
+    [TestMethod]
+    public void SelectingConfiguredLogOpensLogsWithoutReplacingSource() => RunSta(() =>
+    {
+        var database = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".history");
+        File.WriteAllText(path, "invalid log contents");
+        var window = new GuidedGrade.MainWindow(new AssignmentPersistenceService(database), new CommentPersistenceService(database));
+        try
+        {
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            typeof(GuidedGrade.MainWindow).GetField("_panelPreferences", flags)!.SetValue(window,
+                new GuidedGrade.Services.WorkspacePanelPreferences { LogFileName = "*", LogFileExtension = ".history" });
+            window.codeEditor.Text = "retained source";
+            var args = new RoutedPropertyChangedEventArgs<object>(null!, new GuidedGrade.Models.FileSystemItem(path, false));
+            typeof(GuidedGrade.MainWindow).GetMethod("FileTreeView_SelectedItemChanged", flags)!.Invoke(window, [window.fileTreeView, args]);
+            Assert.AreEqual("retained source", window.codeEditor.Text);
+            var selected = (UI_Framework.State<bool>)typeof(GuidedGrade.MainWindow).GetField("_logSelected", flags)!.GetValue(window)!;
+            Assert.IsTrue(selected.Value, "Even invalid matching logs must route to the log panel for diagnostics.");
+        }
+        finally { window.Close(); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(database); File.Delete(path); }
+    });
+
+    [TestMethod]
+    public void PanelTogglesPreserveEditorAndThemeChangesRetainedControls() => RunSta(() =>
+    {
+        var database = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
+        var window = new GuidedGrade.MainWindow(new AssignmentPersistenceService(database), new CommentPersistenceService(database));
+        var originalTheme = GuidedGrade.Services.WorkspacePanelPreferences.Load().LightMode;
+        try
+        {
+            var root = (FrameworkElement)window.Content;
+            Layout(root, 1200, 800);
+            var editor = window.codeEditor;
+            Assert.IsFalse(Descendants<Button>(root).Any(button => Equals(button.Content, "Open submissions")));
+            var left = Descendants<Button>(root).Single(button => AutomationProperties.GetName(button) == "Toggle submissions panel");
+            left.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush(); Layout(root, 1200, 800);
+            Assert.AreSame(editor, window.codeEditor);
+            var right = Descendants<Button>(root).Single(button => AutomationProperties.GetName(button) == "Toggle review panel");
+            right.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Flush(); Layout(root, 1200, 800);
+            Assert.IsTrue(Descendants<Button>(root).Any(button => AutomationProperties.GetName(button) == "Rubric panel"));
+            GuidedGrade.Presentation.ReviewTheme.SetLightMode(true); Flush(); Layout(root, 1200, 800);
+            Assert.AreEqual("#FFF5F6F8", editor.Background.ToString());
+            Assert.AreEqual("#FF20242A", editor.Foreground.ToString());
+            Capture(root, "workspace-light-panels", 1200, 800);
+            GuidedGrade.Presentation.ReviewTheme.SetLightMode(false); Flush(); Layout(root, 1200, 800);
+            Assert.AreEqual("#FF1B1E23", editor.Background.ToString());
+            Capture(root, "workspace-dark-panels", 1200, 800);
+        }
+        finally { window.Close(); GuidedGrade.Presentation.ReviewTheme.SetLightMode(originalTheme); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(database); }
     });
 
     [TestMethod]
@@ -959,7 +1170,7 @@ public class FrameworkMigrationTests
         var dialog = new GuidedGrade.Views.ExtractionProgressDialog();
         using var first = dialog.AddOperation("first", "First archive", 5);
         using var second = dialog.AddOperation("second", "Second archive", 3);
-        var host = (ViewHost)dialog.Content;
+        var host = (ViewHost)((ScrollViewer)dialog.Content).Content;
         Layout(host, 500, 520);
         var bar = Descendants<ProgressBar>(host).First();
         dialog.UpdateOperation("first", 2, "Extracting file...");

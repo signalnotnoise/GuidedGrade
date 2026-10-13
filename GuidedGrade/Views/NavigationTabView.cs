@@ -20,5 +20,5 @@ internal sealed class NavigationTabView(NavigationTabViewModel model)
   AutomationProperties.SetName(tab, model.AccessibilityLabel);
   tab.Click += (_, _) => model.Activate();
   return tab;
- }).Id(model.AccessibilityLabel + "-" + model.Selected);
+ }).Id(model.AccessibilityLabel + "-" + model.Selected + ReviewTheme.Tokens.Canvas);
 }

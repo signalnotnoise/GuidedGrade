@@ -31,6 +31,7 @@ namespace GuidedGrade
 
         private void SelectTab(FileTab btn)
         {
+            _lastSearchWasLog = false;
             _selectedTabButton = btn;
             _activeFile.Value = btn.Tag;
 
@@ -60,7 +61,8 @@ namespace GuidedGrade
             if (!_fileComments.TryGetValue(filePath, out var comments))
                 return;
 
-            foreach (var comment in comments.Where(c => (MatchesCurrentReview(c) || c.ReviewContext.Length == 0) && c.ReviewStatus != Models.FeedbackReviewStatus.Rejected))
+            foreach (var comment in comments.Where(c => (MatchesCurrentReview(c) || c.ReviewContext.Length == 0) &&
+                c.ReviewStatus != Models.FeedbackReviewStatus.Rejected && c.RubricReview is not { LocationResolved: false }))
             {
                 _commentLayer?.AddComment(comment, comment.StartLine, comment.EndLine, earlierReview: _currentAssignment != null && comment.ReviewContext.Length == 0);
             }
@@ -138,8 +140,14 @@ namespace GuidedGrade
             // Only open files, not directories
             // Directories just expand/collapse in the tree
             // Solution files are launched from the right-click menu instead of the editor.
-            if (!selectedItem.IsDirectory && !selectedItem.IsSolution)
+            if (!selectedItem.IsDirectory)
             {
+                if (_panelPreferences.MatchesLog(selectedItem.FullPath))
+                {
+                    OpenLogInPanel(selectedItem.FullPath);
+                    return;
+                }
+                if (selectedItem.IsSolution) return;
                 // Recycling can restore selection without changing the active file.
                 // Reopening it would reset the retained editor's document and caret.
                 if (_selectedTabButton?.Tag is string activePath &&
