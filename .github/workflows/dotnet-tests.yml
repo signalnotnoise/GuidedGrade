@@ -1,0 +1,21 @@
+name: .NET tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore GuidedGrade.Tests
+      - run: dotnet build GuidedGrade.Runner --no-restore
+      # Physical desktop input tests require an interactive Windows desktop.
+      - run: dotnet test GuidedGrade.Tests --no-restore --filter "FullyQualifiedName!~FrameworkMigrationTests" --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/*.trx

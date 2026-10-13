@@ -35,7 +35,7 @@ public sealed class ExtractionProgressDialog : ReviewWindow
             Text(active == 0 ? "No active extractions" : $"{active} active extraction{(active == 1 ? "" : "s")}").FontSize(20),
             VStack(_operations.Values.Select(OperationCard).ToArray()).Spacing(12),
             Button(active == 0 ? "Close" : "Cancel all", Close)
-        ).Spacing(16).Padding(20));
+        ).Spacing(16).Padding(0));
     }
 
     private View OperationCard(ExtractionOperation operation)

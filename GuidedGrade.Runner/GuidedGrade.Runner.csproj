@@ -14,6 +14,8 @@
     <Compile Include="../GuidedGrade/Services/RunnableSubmissionDetector.cs" Link="Services/RunnableSubmissionDetector.cs" />
     <Compile Include="../GuidedGrade/Services/NativeDependencyStager.cs" Link="Services/NativeDependencyStager.cs" />
     <Compile Include="../GuidedGrade/Services/InteractiveProcessSession.cs" Link="Services/InteractiveProcessSession.cs" />
+    <Compile Include="../GuidedGrade/Services/WindowInputAction.cs" Link="Services/WindowInputAction.cs" />
+    <Compile Include="../GuidedGrade/Services/WindowInputDispatcher.cs" Link="Services/WindowInputDispatcher.cs" />
     <Compile Include="../GuidedGrade/Services/IInteractiveConsoleSession.cs" Link="Services/IInteractiveConsoleSession.cs" />
     <Compile Include="../GuidedGrade/Services/PEHeaderReader.cs" Link="Services/PEHeaderReader.cs" />
   </ItemGroup>

@@ -4,6 +4,11 @@ namespace GuidedGrade.Services;
 
 internal static class ConsoleInputPolicy
 {
+    internal static bool RequiresWindowControls(string context) =>
+        Regex.IsMatch(context, @"\b(?:WASD|arrow\s+keys)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)) &&
+        Regex.IsMatch(context, @"\b(?:spacebar|mouse|click)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)) &&
+        Regex.IsMatch(context, @"\b(?:ESC|Escape)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+
     private static readonly Regex MenuOption = new(
         @"^\s*(?:\[(?<key>\d+|[A-Za-z])\]|(?<key>\d+|[A-Za-z])[).])\s*(?<label>\S.*)\s*$",
         RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
@@ -22,10 +27,15 @@ internal static class ConsoleInputPolicy
             reason = "The current prompt reads one integer per line. Send one number, not a list, label or sentence.";
             return false;
         }
-        var options = cursorContext.Split('\n').Select(line => (Line: line.Trim(), Match: MenuOption.Match(line)))
+        var lines = cursorContext.Split('\n');
+        var options = lines.Select((line, index) => (Line: line.Trim(), Match: MenuOption.Match(line), Index: index))
             .Where(option => option.Match.Success).ToArray();
         // A single numbered sentence is not enough evidence of a choice menu.
         if (options.Length < 2) return true;
+        var trailing = string.Join(" ", lines.Skip(options[^1].Index + 1)).Trim();
+        if (trailing.Length > 0 && !Regex.IsMatch(trailing,
+            @"^(?:[_>:?\s]+|(?:(?:please\s+)?(?:enter|select|choose)\s+)?(?:(?:your|an?|the)\s+)?(?:menu\s+option|option\s+choice|option|choice|selection)\s*[:?>_ ]*)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100))) return true;
         var candidate = resolved.Trim();
         var matches = options.Where(option =>
             candidate.Equals(option.Match.Groups["key"].Value, StringComparison.OrdinalIgnoreCase)

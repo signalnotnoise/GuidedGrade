@@ -1,10 +1,61 @@
 # GuidedGrade dependency knowledge graph
 
-Latest affected-path source review: September 29, 2026 (PR #2 review: both legacy data roots, diagnostics conflict preservation and runner credential default; GuidedGrade product, project, assembly and namespace rename; automatic roaming/local product-data migration; process exit-code propagation; shared provider HTTP ownership; runner credential defaults and benchmark provenance; packaged application-owned COM cleanup, failure reporting and ordered shutdown; file-tree virtualization and active-file selection retention retained). Reviewed C# startup, shell composition, native control ownership, declarative file tabs/pickers/navigation/status, code-built native styles, panel state, persistence paths and disposal. All application-owned XAML has been removed. Nullable contracts and student folder validation were also reviewed; discovery skips malformed entries, and missing Ollama content retains the existing no-response fallback.
+Latest affected-path source review: October 9, 2026 (overall reviews score supplied template files together, keep verified suggested grades when some rows are unverified, and ignore empty/invented deductions; persistent student grades
 
-Source-reviewed map of the working tree, updated September 23, 2026 (restored File/Settings menus and numbered workflow toolbar; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
+Source-reviewed map of the working tree, updated October 9, 2026 (MainWindow service/view extraction, inline finding placement and compact workspace toolbar, focused panel views/view models and native File/Settings menus; UI-framework hosts/state/lifecycle, native dark styles, review toolbar and collapsed review cards, retained native islands and extraction cancellation, file Clear review persistence/cache invalidation, native post-build paths and Console diagnostics, explicit overall/section feedback menus, overall rubric prompts, saved execution preferences and run-only worker path reviewed; job scheduling, provider cancellation, GPU-memory fallback, pinned workspace tabs, visibility persistence and section detection reviewed). Arrows are labeled with the relationship: calls/uses, data flow, ownership, or implementation. This maps the application components and support tools rather than every method. Grouped nodes expand in the component tables below.
+
+## Maintenance services and validation (October 9, 2026)
+
+Manual and batch overall review preparation now resides in `ReviewOrchestrator`, with anonymous selected-file packets and rejection of missing/oversized input. `LlmCompletionService` routes both overall and section requests to Ollama or Azure; direct OpenAI remains unimplemented, is hidden in settings, and cannot fall through to Ollama. `ProtectedSettingsStore` migrates plaintext API keys and writes current-user DPAPI ciphertext atomically. `BoundedTextReader` enforces byte limits without source truncation. `CodeSectionDetector` handles multiline method signatures with a regex timeout and comment/string brace handling; it remains a heuristic, not a C++ parser. `SubmissionFolderLoader` owns bounded folder-tree traversal and immediate student-folder discovery, exposing skipped-folder warnings to the shell. ReviewWorkspaceService now owns the bounded comment cache, inline completion routing/replacement and approved-rubric grade calculation. MainWindow retains event adapters, legacy prose publication and feedback-editor coordination; it is not a complete removal of shell responsibilities.
+
+`ReviewDraftStore` saves instructor-edited drafts in the assignments database and retains 64 cached contexts. File comments retain 128 cache entries with the active file pinned; review generation tokens retain 4,096 entries, and eviction makes captured work stale. Persisted records are not deleted by cache eviction. Import deduplication markers remain session-local. Windows CI builds the runner and runs tests except `FrameworkMigrationTests`, which require an interactive desktop. Existing Linux graph validation remains separate. Workflow execution in GitHub Actions is not yet verified locally.
+
+```mermaid
+flowchart LR
+    Manual[Manual overall review] --> Review[ReviewOrchestrator]
+    Batch[Batch overall review] --> Review
+    Review --> Reads[BoundedTextReader]
+    Review --> Validation[OverallReviewService]
+    Validation --> Route[LlmCompletionService]
+    Section[SectionGradingService] --> Route
+    Route --> Ollama[OllamaService]
+    Route --> Azure[AzureOpenAIService]
+    Settings[LLMSettings] --> Protection[ProtectedSettingsStore / DPAPI]
+    Window[MainWindow] --> Detect[CodeSectionDetector]
+    Window --> Folders[SubmissionFolderLoader]
+    Window --> Drafts[ReviewDraftStore / SQLite]
+    Drafts --> Cache[BoundedCache]
+    Tests[Windows CI] --> Regression[Headless tests and runner integration]
+```
 
 ## Application overview
+
+October 6, 2026 graph-tooling source review: [offline searchable file/project map](docs/knowledge-graph/graph.html)
+and [canonical JSON](docs/knowledge-graph/graph.json) supplement this manually reviewed runtime map.
+`scripts/update-knowledge-graph.py` extracts supported file nodes, directory membership,
+relative documentation links and declared XML project/package references. It does not infer C# call paths.
+The staged-input pre-commit hook updates only generated outputs; GitHub Actions validates freshness.
+First-time setup stages the extractor and renderer together. If the renderer is absent
+from the index, generation stops before writing outputs and explains staging or
+`--worktree` preview options (source reviewed October 6, 2026).
+Worktree previews include non-ignored new source files without staging existing application changes.
+October 6 viewer source review: the HTML embeds pinned MIT Three.js 0.160.1
+and its license from scripts/knowledge-graph-vendor, excluded from graph nodes.
+It supports pan/zoom/fit, filters, selected-edge highlighting, relationship navigation
+and neighborhood filtering. A native node selector/inspector works without WebGL.
+The renderer and vendor assets use the same index/worktree input mode as extraction.
+
+```mermaid
+flowchart LR
+    Index[Git index] --> Extract[Python graph extractor]
+    Preview[Worktree preview] --> Extract
+    Extract --> JSON[graph.json]
+    JSON --> HTML[Offline graph.html]
+    Vendor[Pinned Three.js and MIT license] --> HTML
+    Hook[Pre-commit hook] --> Extract
+    Hook --> Stage[Stage graph outputs only]
+    CI[GitHub Actions] --> Check[Fixture tests and stale-output check]
+```
 
 ```mermaid
 flowchart LR
@@ -23,65 +74,83 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    UI["MainWindow · coordinates navigation and grading"]
-    Import["Import · ZIPs, students and source files"]
-    Editor["AvalonEdit · source and inline feedback"]
-    Rules["Violation checks · configured source rules"]
-    Queue["AiTestQueue · one solution test at a time"]
-    Jobs["LlmJobQueue.Shared · assignments before general requests"]
-    JobPanel["Right-side Job queue tab · counts, status, cancel, free-form tasks"]
-    Execute["SubmissionExecutionService · builds and tests"]
-    Agent["ConsoleDriverAgent · reads prompts and types input"]
-    Grade["SectionGradingService · rubric feedback"]
-    Model["Ollama / Azure · model completions"]
-    Store["SQLite · assignments and comments"]
-    Terminal["Terminal presenter · bounded live output"]
-    Reports["Text reports · saved execution evidence"]
+    UI["MainWindow Ã‚Â· coordinates navigation and grading"]
+    Import["Import Ã‚Â· ZIPs, students and source files"]
+    Editor["AvalonEdit Ã‚Â· source and inline feedback"]
+    Rules["Violation checks Ã‚Â· configured source rules"]
+    Queue["AiTestQueue Ã‚Â· one solution test at a time"]
+    Jobs["LlmJobQueue.Shared Ã‚Â· assignments before general requests"]
+    JobPanel["Right-side Job queue tab Ã‚Â· counts, status, cancellation and free-form tasks"]
+    Execute["SubmissionExecutionService Ã‚Â· builds and tests"]
+    Agent["ConsoleDriverAgent Ã‚Â· reads prompts and types input"]
+    Grade["SectionGradingService Ã‚Â· rubric feedback"]
+    Model["Ollama / Azure Ã‚Â· model completions"]
+    Store["SQLite Ã‚Â· assignments, student grades and comments"]
+    GradeRecords["GradePersistenceService Ã‚Â· captured review scope"]
+    Totals["GradeTotals Ã‚Â· earned / possible for current course"]
+    GradeUI["MainWindow.Grades Ã‚Â· row badges, footer and grade editor"]
+    UI --> GradeUI
+    GradeUI -->|instructor saves or clears| GradeRecords
+    GradeRecords -->|StudentGrades in assignments.db| Store
+    GradeUI -->|cached records| Totals
+    Totals -->|points and percentage| GradeUI
+    Terminal["Terminal presenter Ã‚Â· bounded live output"]
+    Reports["Text reports Ã‚Â· saved execution evidence"]
     Panels["Stable Comments / Job queue / Rubric tab host"]
-    Preferences["WorkspacePanelPreferences · per-user JSON visibility"]
+    Preferences["WorkspacePanelPreferences Ã‚Â· per-user JSON visibility"]
     UI -->|selects content without replacing host| Panels
     Panels -->|retains queue controls| JobPanel
     UI -->|loads and applies Settings choices| Preferences
     UI -->|loads| Import
     UI -->|displays| Editor
+    Editor -->|Approve persists status and imports once| ApprovedDraft["Matching Comments draft and live editor binding"]
     UI -->|scans source| Rules
     UI -->|enqueues metadata| Queue
+    UI --> BatchDesign["MainWindow.BatchReview Ã‚Â· file-list designer and preview"]
+    BatchDesign --> BatchPlan["BatchReviewPlan Ã‚Â· per-student paths and sequential loop"]
+    BatchPlan -->|optional leading **/; newest modified match within student folder| NestedPaths["Recursive suffix resolution Ã‚Â· skip links; newest timestamp wins"]
+    BatchDesign -->|one captured batch delegate| Queue
+    BatchPlan -->|optional build/run once per student| Execute
+    BatchPlan -->|clear selected file reviews, invalidate old responses| BatchClear["ClearBatchFileReview and ReviewDraftCleanup"]
+    BatchPlan -->|one combined overall request per student| BatchOverall["OverallFeedbackPrompt and CompleteOverallFileReview"]
     Queue -->|runs UI-supplied job| Execute
     Execute -->|drives session| Agent
-    Agent -->|assignment request| Jobs
-    JobPanel -->|general request| Jobs
+    Agent -->|redacted console and testing instructions| Jobs
+    JobPanel -->|user-authored free-form request| Jobs
     UI -->|shows snapshots and cancels jobs| JobPanel
     Jobs -->|one provider request at a time| Model
     Execute -->|reports output| Terminal
-    Execute -->|returns runtime evidence to UI| Grade
+    UI -->|after execution: captured criteria and source only| Grade
     Grade -->|assignment request| Jobs
     Grade -->|feedback returned through UI| Editor
     UI -->|loads and saves| Store
+    Store -->|reviewed-file locations ordered by saved time| SavedNavigation["Student selection / Comments links / queue open-review action"]
+    SavedNavigation -->|exact student and assignment context| Editor
     UI -->|saves runtime evidence| Reports
 ```
 
 `LlmJobQueue.Shared` serializes provider requests process-wide; assignments precede waiting general jobs without interrupting active requests. The right-side queue tab shows solution jobs and model requests separately; its status indicator counts both levels separately. `AiTestQueue` wraps another scheduler instance to preserve whole-test execution/disposal ordering and solution-path deduplication. Cancelling a solution propagates to execution and runtime grading. Cancelling an individual model request does not cancel unrelated requests or the entire grading batch.
 
-`MainWindow` is the main coordination point. Queue jobs are delegates supplied by it: `AiTestQueue` does not itself reference execution or grading services. Runtime reports reach section grading through that delegate, after execution and disposal complete.
+`MainWindow` is the main coordination point. Queue jobs are delegates supplied by it: `AiTestQueue` does not itself reference execution or grading services. Runtime reports remain local. After execution and disposal, the delegate grades captured files using criteria and source only.
 
 ## Execution and isolation
 
 ```mermaid
 flowchart TD
-    Exec["SubmissionExecutionService · execution workflow"]
-    Detect["RunnableSubmissionDetector · identifies runnable source"]
-    Policy["SubmissionExecutionPolicy · saved local authorization or prompt"]
-    Stage["AiTestStaging · working copy"]
-    Build["SubmissionBuilder · selects compiler and command"]
-    Process["ProcessRunner · drains build stdout/stderr"]
+    Exec["SubmissionExecutionService Ã‚Â· execution workflow"]
+    Detect["RunnableSubmissionDetector Ã‚Â· identifies runnable source"]
+    Policy["SubmissionExecutionPolicy Ã‚Â· saved local authorization or prompt"]
+    Stage["AiTestStaging Ã‚Â· working copy"]
+    Build["SubmissionBuilder Ã‚Â· selects compiler and command"]
+    Process["ProcessRunner Ã‚Â· drains build stdout/stderr"]
     Tools["MSBuild / dotnet / C++ / Java / Python"]
-    Session["InteractiveProcessSession · child I/O and cleanup"]
-    Contract["IInteractiveConsoleSession · common interface"]
-    Agent["ConsoleDriverAgent · adaptive console interaction"]
-    VM["HyperVRunner · packages inputs and sends requests"]
-    Bridge["HyperVBridge.ps1 · creates and removes VM"]
-    Worker["Runner Program.cs · guest JSON command loop"]
-    Watch["HyperVWatchdog.ps1 · emergency VM cleanup"]
+    Session["InteractiveProcessSession Ã‚Â· child I/O and cleanup"]
+    Contract["IInteractiveConsoleSession Ã‚Â· common interface"]
+    Agent["ConsoleDriverAgent Ã‚Â· adaptive console interaction"]
+    VM["HyperVRunner Ã‚Â· packages inputs and sends requests"]
+    Bridge["HyperVBridge.ps1 Ã‚Â· creates and removes VM"]
+    Worker["Runner Program.cs Ã‚Â· guest JSON command loop"]
+    Watch["HyperVWatchdog.ps1 Ã‚Â· emergency VM cleanup"]
     Exec -->|detects submission| Detect
     Exec -->|local mode checks| Policy
     Exec -->|local AI testing copies| Stage
@@ -118,29 +187,29 @@ The guest worker compiles shared execution sources directly; it does not load th
 | `IInteractiveConsoleSession` | Allows the console agent to use the local session and Hyper-V proxy through the same API. |
 | `HyperVRunner` | Validates configuration, packages input archives and drives the bridge protocol; exposes guest status/output to the agent. |
 | `GuidedGrade.Runner/Program.cs` | Handles build/start/poll/input/close/kill JSON commands in the worker process. |
-| `ConsoleDriverAgent` | Alternates observing output and asking the model for the next input; tracks findings, bounded turns and runner termination. |
+| `ConsoleDriverAgent` | Uses local menu planning or a model choice from redacted console output and testing instructions, validates the result, and sends one input line to the running program. |
 | `ConsoleScreen` | Maintains a bounded readable projection of cursor-positioned terminal output for the agent; separates current screen/cursor context from history. See [console interaction](CONSOLE_INTERACTION.md). |
-| `ConsoleInputPolicy` | Converts displayed menu labels to keys and validates single integers when the matching C++ input-read source provides evidence; failed validation requests one model correction. |
-| `ConsoleSourceContext` | Selects input-reading source excerpts for the console-agent prompt, including companion headers discovered by the execution service. |
+| `ConsoleInputPolicy` | Converts displayed menu labels to keys and validates single integers when the matching C++ input-read source provides evidence; failed validation allows one model correction before stopping inconclusively. |
+| `ConsoleSourceContext` | Retained source-excerpt utility with test coverage; console model requests use output and testing instructions instead of source excerpts. |
 | `NativeExitCodes` | Classifies/describes Windows exit codes for reports. |
-| `SubmissionExecutionPolicy` | Accepts the saved Local preference with prompts disabled, or asks for per-operation consent. Isolation failure never grants local execution. |
+| `SubmissionExecutionPolicy` | Accepts the saved Local preference with ConfirmLocalExecution disabled, or asks for per-operation consent; the explicit local-test menu preserves that preference. Isolation failure never grants local execution. |
 | `AdversarialInputPlanner` | Prompt/parser and default cases for adversarial inputs. Currently has no production caller in the WPF source; it is not the active console driver. |
 
 ## Output and memory ownership
 
 ```mermaid
 flowchart TD
-    Child["Student process · stdout/stderr or ConPTY"]
-    Capture["InteractiveProcessSession · pumps output"]
-    Ring["BoundedTextBuffer · 64,000-char tail per stream"]
-    Agent["Console agent / report · bounded snapshots"]
-    Mail["BoundedConsoleProgress · 16,000 chars / 128 chunks"]
-    Render["RuntimeTerminalPresenter · 100 ms batches"]
-    Doc["RichTextBox · 100,000 chars / 256 runs, no undo"]
-    Compiler["Compiler process · build output"]
-    Build["ProcessRunner · first 8,000 chars per pipe"]
-    BuildReport["Build result · retained output and truncation notice"]
-    Limits["OutputLimits · shared budgets"]
+    Child["Student process Ã‚Â· stdout/stderr or ConPTY"]
+    Capture["InteractiveProcessSession Ã‚Â· pumps output"]
+    Ring["BoundedTextBuffer Ã‚Â· 64,000-char tail per stream"]
+    Agent["Console agent / report Ã‚Â· bounded snapshots"]
+    Mail["BoundedConsoleProgress Ã‚Â· 16,000 chars / 128 chunks"]
+    Render["RuntimeTerminalPresenter Ã‚Â· 100 ms batches"]
+    Doc["RichTextBox Ã‚Â· 100,000 chars / 256 runs, no undo"]
+    Compiler["Compiler process Ã‚Â· build output"]
+    Build["ProcessRunner Ã‚Â· first 8,000 chars per pipe"]
+    BuildReport["Build result Ã‚Â· retained output and truncation notice"]
+    Limits["OutputLimits Ã‚Â· shared budgets"]
     Child -->|emits| Capture
     Capture -->|retains tail| Ring
     Ring -->|slices by absolute cursor| Agent
@@ -161,49 +230,49 @@ For Hyper-V, the worker sends bounded output through its JSON protocol and `Hype
 
 ```mermaid
 flowchart TD
-    UI["MainWindow · assembles context and handles review"]
-    Context["RelatedFileResolver · headers and companion source"]
-    Grade["SectionGradingService · rubric prompt and parsed feedback"]
-    Sanitize["StudentDataSanitizer · removes identifiers"]
-    Agent["ConsoleDriverAgent · next-input prompt"]
-    Route["LlmCompletionService · provider selection"]
-    Jobs["LlmJobQueue.Shared · priority and cancellation"]
-    Ollama["OllamaService · local model HTTP calls"]
-    Azure["AzureOpenAIService · Azure HTTP calls"]
-    Feedback["SectionFeedback · issues, suggestions and review state"]
-    Overlay["InlineCommentLayer + Adorner · review controls"]
-    Comments["CommentPersistenceService · SQLite comments"]
-    Assignment["AssignmentPersistenceService · SQLite rubric library"]
-    Settings["LLMSettings · provider, execution and model settings"]
+    UI["MainWindow Ã‚Â· assembles context and handles review"]
+    Context["RelatedFileResolver Ã‚Â· headers and companion source"]
+    Grade["SectionGradingService Ã‚Â· rubric prompt and parsed feedback"]
+    Sanitize["StudentDataSanitizer Ã‚Â· removes identifiers"]
+    Agent["ConsoleDriverAgent Ã‚Â· validated next input"]
+    Jobs["LlmJobQueue.Shared Ã‚Â· priority and cancellation"]
+    Ollama["OllamaService Ã‚Â· local model HTTP calls"]
+    Azure["AzureOpenAIService Ã‚Â· Azure HTTP calls"]
+    Feedback["SectionFeedback Ã‚Â· issues, suggestions and review state"]
+    Overlay["InlineCommentLayer + Adorner Ã‚Â· review controls"]
+    Comments["CommentPersistenceService Ã‚Â· SQLite comments"]
+    Assignment["AssignmentPersistenceService Ã‚Â· SQLite rubric library"]
+    Settings["LLMSettings Ã‚Â· provider, execution and model settings"]
     UI -->|resolves dependencies| Context
-    UI -->|explicit section action: source and rubric; runtime path adds report| Grade
+    UI -->|explicit section action: source and rubric only| Grade
     UI -->|explicit overall action: captured assignment and checked source files| Overall[OverallFeedbackPrompt]
     Overall -->|combined rubric review prompt| Ollama
     Overall -->|combined rubric review prompt| Azure
     Grade -->|sanitizes prompt context| Sanitize
-    Errors["LlmHttpErrors · bounded server error details"]
+    Errors["LlmHttpErrors Ã‚Â· bounded server error details"]
     Ollama -->|GPU out-of-memory: one CPU retry in same job| Ollama
     Ollama -->|formats failed HTTP responses| Errors
     Azure -->|formats failed HTTP responses| Errors
     Ollama -->|enqueues HTTP delegate| Jobs
     Azure -->|enqueues HTTP delegate| Jobs
-    UI -->|free-form prompt through LlmCompletionService| Route
     Grade -->|selected provider| Ollama
     Grade -->|selected provider| Azure
-    Screen["ConsoleScreen · readable current terminal state"]
+    Screen["ConsoleScreen Ã‚Â· readable current terminal state"]
     Agent -->|feeds received terminal updates| Screen
     Screen -->|screen and cursor context| Agent
-    InputPolicy["ConsoleInputPolicy · menu keys and input validation"]
-    SourceContext["ConsoleSourceContext · input-reading excerpts"]
+    InputPolicy["ConsoleInputPolicy Ã‚Â· menu keys and input validation"]
     Agent -->|checks before typing| InputPolicy
-    Agent -->|builds prompt context| SourceContext
-    Agent -->|requests validated JSON action| Route
+    Agent -->|redacted screen and testing instructions| Route[LlmCompletionService]
+    UI -->|explicit user-authored free-form prompt| Route
     Route -->|selected provider| Ollama
     Route -->|selected provider| Azure
     Azure -->|request-local API key and URL| AzureHttp[Process-owned Azure HttpClient]
     Ollama -->|request-local URL and model| OllamaHttp[Process-owned Ollama HttpClient]
     Settings -.->|configures| Grade
-    Settings -.->|configures| Route
+    Settings -->|saved ConfirmGrading| Confirm[GradingConfirmation]
+    UI -->|one confirmation per requested batch| Confirm
+    Confirm -->|approved or prompting disabled| Grade
+    Settings -->|ConsoleModelWaitSeconds within overall deadline| Agent
     Grade -->|returns| Feedback
     UI -->|renders feedback| Overlay
     UI -->|Clear review deletes file records| Comments
@@ -212,7 +281,7 @@ flowchart TD
     Overlay -->|approve, reject, regenerate events| UI
     UI -->|loads and saves feedback| Comments
     UI -->|loads and saves assignment definitions| Assignment
-    DataPaths["AppDataPaths · GuidedGrade roaming/local roots"] --> Comments
+    DataPaths["AppDataPaths Ã‚Â· GuidedGrade roaming/local roots"] --> Comments
     DataPaths --> Assignment
     Legacy["LabFeedbackWPF and Lab Feedback WPF legacy directories"] -->|move missing data on access| DataPaths
 ```
@@ -223,10 +292,10 @@ flowchart TD
 | `OverallFeedbackPrompt` | Captures assignment requirements and rubric instructions for one combined review of checked files; requests criterion scores and one total, or qualitative feedback when no rubric exists. Includes sanitized source supplied by MainWindow. |
 | `SectionGradingService` | Sanitizes source, builds a rubric-based prompt, calls the selected provider and parses `SectionFeedback`. |
 | `StudentDataSanitizer` | Redacts student identifiers, emails and personal paths; supplies anonymous display names. |
-| `LlmCompletionService` | Routes console-agent completion requests using `LLMSettings`. Section grading calls provider services directly. |
-| `OllamaService` / `AzureOpenAIService` | HTTP adapters with one process-lifetime client per provider, reused across grading, settings checks and console turns. Pooled connections have a five-minute lifetime; cookies are disabled. Azure API keys are request-local. Injected test clients remain caller-owned. Model memory is outside the WPF output budgets. |
+| `LlmCompletionService` | Routes console-choice and user-authored free-form requests; section grading calls provider services directly. |
+| `OllamaService` / `AzureOpenAIService` | HTTP adapters with one process-lifetime client per provider, reused across grading, console choices, user tasks and settings checks. Pooled connections have a five-minute lifetime; cookies are disabled. Azure API keys are request-local. Injected test clients remain caller-owned. Model memory is outside the WPF output budgets. |
 | `AppDataPaths` | Owns `%APPDATA%/GuidedGrade` and `%LOCALAPPDATA%/GuidedGrade`; migrates both legacy product directories on access and preserves conflicting files in their original locations. |
-| `CommentPersistenceService` | Stores feedback keyed to files/sections, including review state, in `section-comments.db`. |
+| `CommentPersistenceService` | Stores feedback keyed to file, ReviewContext, section and line range, including review state, in `section-comments.db`. |
 | `AssignmentPersistenceService` | Stores course/assignment requirements and rubric definitions in SQLite. |
 | `InlineCommentLayer` | Positions feedback alongside AvalonEdit lines and relays review events. |
 | `InlineCommentAdorner` | Owns a disposable framework ViewHost with expanded/approved state, bounded scrollable details and approve/regenerate/reject events. |
@@ -235,16 +304,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    UI["MainWindow · folder/file navigation"]
-    Zip["ZipFileHandler · validates and extracts ZIPs"]
-    Progress["ExtractionProgressDialog · progress and cancellation"]
-    Student["Student / Assignment · submission folders"]
-    File["FileHandler · discovers source, parses logs/results"]
-    Tree["FileSystemItem · checked/expanded tree nodes"]
-    Config["ViolationsConfigService · terms and file patterns"]
-    Match["ViolationsMatcher · source matches and context"]
-    Highlight["ViolationHighlighter · AvalonEdit backgrounds"]
-    GradeView["GradingView · scores, deductions and feedback text"]
+    UI["MainWindow Ã‚Â· folder/file navigation"]
+    Zip["ZipFileHandler Ã‚Â· validates and extracts ZIPs"]
+    Progress["ExtractionProgressDialog Ã‚Â· progress and cancellation"]
+    Student["Student / Assignment Ã‚Â· submission folders"]
+    File["FileHandler Ã‚Â· discovers source, parses logs/results"]
+    Tree["FileSystemItem Ã‚Â· checked/expanded tree nodes"]
+    Config["ViolationsConfigService Ã‚Â· terms and file patterns"]
+    Match["ViolationsMatcher Ã‚Â· source matches and context"]
+    Highlight["ViolationHighlighter Ã‚Â· AvalonEdit backgrounds"]
+    GradeView["GradingView Ã‚Â· scores, deductions and feedback text"]
     UI -->|owns and disposes declarative panels| Host[ViewHost from SignalNotNoise.UI.Wpf]
     Forms[ReviewWindow settings and grading forms] -->|owns and disposes| Host
     Theme[ReviewTheme] -->|tokens and inherited colors| Host
@@ -265,15 +334,15 @@ flowchart TD
 | UI or model | What it represents / does |
 | --- | --- |
 | `App.cs` | Explicit STA entry point creates Application/MainWindow and uses OnMainWindowClose shutdown. ReviewTheme supplies the app palette; no generated startup or XAML load remains. |
-| `MainWindow` | Owns the editor, navigation, solution queue, grading commands, comment cache and runtime terminal. `MainWindow.JobQueue.cs` refreshes the independent right-side queue tab and count indicator, routes cancellation, and submits free-form tasks. |
+| `MainWindow` | Owns the editor, navigation, solution queue, grading commands, comment cache and runtime terminal. `MainWindow.JobQueue.cs` refreshes the independent right-side queue tab and count indicator, routes cancellation and submits user-authored free-form tasks. |
 | `LlmJobQueue` | Thread-safe assignment/general priority scheduler, used process-wide by providers and separately by the solution wrapper. Bounded active/pending count and completed snapshots; cancellation tokens reach HTTP calls. |
 | `SettingsWindow` | Edits violation terms and scanned file patterns. |
 | `LLMSettingsWindow` | Edits/test-connects model providers and configures execution mode, worker folder and VM inputs. |
-| `AssignmentSetupWindow` | Edits/saves course requirements and rubric items. |
+| `AssignmentSetupWindow` | Coordinates dedicated setup views/view models, saved selection and previewed local prompt imports. |
 | `SectionGradingDialog` | Selects rubric items for a section. |
 | `ExtractionProgressDialog` | Framework operation cards with native progress bars; cancellation on close; worker-owned token sources. Sources: `Views/ExtractionProgressDialog.cs`, `Views/ExtractionOperation.cs`. |
 | `GradingView` | Declarative score, deduction and remarks view in `Views/GradingView.cs`; native HTML editors and sliders retain specialized editing behavior. Produces feedback HTML. |
-| `Student` | Student identity and folder, with folder discovery/parsing. Validates the Last_First-ID folder format; discovery skips invalid folders and continues loading valid students, logging validation failures to Debug. |
+| `Student` | Student identity and folder, with folder discovery/parsing. Defaults to Last_First-ID parsing, skipping invalid folders. Per-course folder-name mode instead lists every immediate directory by its literal name with no fabricated ID. |
 | `Assignment` | Submission assignment folder discovery and consolidation. Distinct from the rubric definition below. |
 | `GradingAssignment` / `RubricItem` | Course, requirements, rubric criteria, points and grading totals. |
 | `SectionFeedback` / `FeedbackReviewStatus` | Per-section findings, suggested code/score and pending/approved/rejected state. |
@@ -303,17 +372,18 @@ flowchart TD
 This graph is a documentation snapshot. Update it when a service is added, a call path changes, or memory ownership moves. Remaining memory work is concentrated in `MainWindow`'s feedback cache/eager tree and whole-file reads in `FileHandler`/source-context construction.
 
 ### Menu coverage planner
-ConsoleDriverAgent uses ConsoleScreen.MenuContext to supply visible rows through the cursor to ConsoleMenuCoverage. ConsoleMenuCoverage tracks selections per heading and option list, schedules exit choices last, and returns coverage summaries to the agent report. ConsoleInputPolicy validates the chosen key before InteractiveProcessSession sends it. The model handles prompts that the planner does not recognize.
+ConsoleDriverAgent uses ConsoleScreen.MenuContext to supply visible rows through the cursor to ConsoleMenuCoverage. ConsoleMenuCoverage tracks selections per heading and option list, schedules exit choices last, and returns coverage summaries to the agent report. ConsoleInputPolicy validates the chosen key before InteractiveProcessSession sends it. Unrecognized prompts are sent to the model as redacted console context with testing instructions. Validated model input is sent to the running program; invalid replies, timeout or uncertainty stop inconclusively.
 
 
 ## Review workspace and feedback flow
 
 ```mermaid
 flowchart LR
-    Selection[Student + assignment + file] --> Workspace[MainWindow.Workspace]
+    Selection[Student + lab folder + assignment + file] --> Workspace[MainWindow.Workspace]
     SQLite[(section-comments.db)] --> Persistence[CommentPersistenceService]
     Persistence --> Load[LoadCommentsForFile]
-    Load --> Approved[Approved feedback import]
+    Load --> Filter[Match saved review context]
+    Filter --> Approved[Approved feedback import]
     Approved --> Text[SavedFeedbackText]
     Selection --> Target[Draft destination captured before async work]
     Target --> Routing[Completion routing by captured draft key]
@@ -335,7 +405,7 @@ flowchart LR
     Tools[MainWindow.ToolsPanel] --> Console[Bounded runtime terminal]
     Tools --> Violations[Violation list]
     Close[Close last file / empty editor] --> Clear[Clear inline comment overlay]
-    Late[Late comment rendering] --> Guard[Require originating file to remain selected]
+    Late[Late comment rendering] --> Guard[Require originating file and review context]
     Guard --> Overlay[Inline comment overlay]
 ```
 
@@ -363,7 +433,7 @@ New section-score columns use REAL affinity. Existing SQLite INTEGER-affinity co
 - Batch and queued grading capture the destination draft before awaiting work. Results for another selection remain in that draft rather than opening the currently selected student's panel.
 - Approval persists status without republishing feedback. Generated sections and restored approved sections share import tracking and SavedFeedbackText.
 - Empty-editor transitions clear inline overlays. RenderCommentsForFile ignores late results for a file that is no longer selected.
-- Draft edits remain session-only; section persistence is still file-keyed rather than assignment-keyed. See FEEDBACK_WORKSPACE.md for remaining limitations.
+- Draft edits remain session-only; section persistence includes the originating student/lab/assignment context alongside the file and section. See FEEDBACK_WORKSPACE.md for remaining limitations.
 
 ### Maintenance
 Update affected diagrams and component descriptions in the same change as dependency, workflow, persistence, or memory-ownership changes. Document implemented behavior separately from planned work. The date above records the latest source-checked update, not an automated synchronization guarantee.
@@ -374,7 +444,7 @@ Ollama reads HTTP error bodies before throwing. A server error explicitly mentio
 
 ### Pinned workspace panels (September 17, 2026)
 
-`MainWindow.Panels.cs` applies per-user Comments and Job queue visibility from `WorkspacePanelPreferences`, stored in `%APPDATA%/GuidedGrade/workspace-panels.json`. Both default to visible; missing or unreadable settings fall back to defaults. Settings saves visibility independently of folder violation configuration. The right rail stays visible when content collapses; Comments, Job queue, and Rubric select dedicated tab content. Workspace navigation no longer replaces `sidePanelContent.Child`. Hidden queue visibility also hides its status-bar shortcut, without cancelling jobs. Hidden comments still collect draft updates. Inline comments are clipped to the editor viewport.
+`MainWindow.Panels.cs` applies per-user Comments and Job queue visibility from `WorkspacePanelPreferences`, stored in `%APPDATA%/GuidedGrade/workspace-panels.json`. Both default to visible; missing or unreadable settings fall back to defaults. Settings saves visibility independently of folder violation configuration. The horizontal panel selector stays visible when content collapses; Comments, Job queue, and Rubric select dedicated tab content. Workspace navigation no longer replaces `sidePanelContent.Child`. Hidden queue visibility also hides its status-bar shortcut, without cancelling jobs. Hidden comments still collect draft updates. Inline comments are clipped to the editor viewport.
 
 `AppDataPaths` owns the renamed roaming and local product directories. On access it checks `LabFeedbackWPF` first, then `Lab Feedback WPF` (the former COM-cleanup diagnostics root). Each legacy directory is moved to `GuidedGrade` when the destination is absent; otherwise missing files are moved recursively while conflicts remain in their original location and are reported through `Trace`. Existing GuidedGrade files take precedence, followed by files from `LabFeedbackWPF`; repeated access preserves retained conflicts. `LLMSettings` rewrites saved guest credential and worker paths rooted under the previous `LabFeedbackWPF` local directory when their migrated destinations exist. SQLite databases, LLM settings, workspace panel preferences, test reports, runner workspaces and cleanup diagnostics all resolve through this shared owner.
 
@@ -386,7 +456,7 @@ Run resolves existing output without invoking a compiler. The guest worker suppo
 
 ### Explicit feedback scope (source reviewed September 20, 2026)
 
-File-tree overall and section actions have separate handlers; assignment selection no longer silently switches overall analysis into section grading. Overall results use `PresentGeneratedFeedback` and the captured draft key; they do not populate per-section persistence or auto-apply grades. The explicit section path requires a rubric and reports files with no detected sections instead of grading whole files. Runtime grading retains its existing fallback; unused current-file helpers were removed. Function detection is still a line-oriented heuristic requiring the opening brace on the signature line. See FEEDBACK_WORKSPACE.md for the complete scope and persistence behavior.
+File-tree overall and section actions have separate handlers; assignment selection no longer silently switches overall analysis into section grading. Overall results use the captured context for both persistent overall file cards and PresentGeneratedFeedback; they do not auto-apply grades. The explicit section path requires a rubric and reports files with no detected sections instead of grading whole files. Runtime grading retains its existing fallback; unused current-file helpers were removed. Function detection is still a line-oriented heuristic requiring the opening brace on the signature line. See FEEDBACK_WORKSPACE.md for the complete scope and persistence behavior.
 
 ### Native build failure handling (source reviewed September 20, 2026)
 
@@ -437,7 +507,7 @@ labels/glyphs, independent close actions, and dense feedback/expanded reviews.
 
 ### Workspace visual refinement (source reviewed September 23, 2026)
 
-`MainWindow.Framework.cs` restores File/Settings menus beside the saved course/assignment pickers, followed by the Assignment review heading and numbered Assignment, Open submissions, Review with rubric and Feedback workflow actions. The menu retains its native instance across reactive updates; its existing handlers open the same settings and assignment dialogs.
+`MainWindow.Framework.cs` restores File/Settings menus beside the saved course/assignment pickers, followed by compact Assignment setup, Open submissions and Batch review actions and a horizontal Feedback/Job queue/Rubric selector. The menu retains its native instance across reactive updates; its existing handlers open the same settings and assignment dialogs.
 `ReviewTheme` applies code-built resources from `Presentation/NativeTheme.cs` to native windows, framework hosts, and the
 detached file context menu, supplying dark menu, scrollbar, and tool-tab presentation while retaining
 WPF controls and commands. File tree width starts at 260 pixels and is resizable. InlineCommentAdorner starts collapsed,
@@ -507,3 +577,441 @@ pin is `[0.1.0-alpha.3-local.2]`.
 ### Runner setup credential location (source reviewed September 29, 2026)
 
 `Setup-RunnerTemplate.ps1` defaults guest credentials to the executing user's local app-data directory under `GuidedGrade\runner-guest.xml`, accepts an explicit `CredentialPath`, and reports the full path in `setup-status.json`. `New-RunnerAnswerMedia.ps1` exports the credentials for the executing Windows account; setup and runtime should use that same account.
+
+## Queued review isolation and payload boundary (October 5, 2026)
+
+ReviewContext identifies the student folder, course/title and submitted lab folder (the first directory below the student folder, with nested source directories grouped into that lab). MainWindow captures this key before asynchronous work. Section batches also snapshot the rubric, settings, file list, identifier-redaction inputs and search root before yielding. Related-file lookup excludes candidates outside that root. Mixed-lab checked-file reviews are rejected with guidance to select one lab; solution tests restrict checked paths to the selected solution's lab. Student changes detach old editor tabs; file/assignment changes refresh inline cards and drafts.
+
+SQLite migration adds ReviewContext with an empty legacy default and extends the unique index. Existing records are preserved without guessing their assignment: legacy records display only with no assignment selected. New overall replacement, section replacement, rendering and approved-feedback import respect context. Clear review remains explicitly file-wide across contexts. The cache retains all contexts for a file; drafts and import markers still have no eviction or durable edited-draft storage.
+
+Grading payloads contain requirements/rubric criteria and sanitized source text, generic numbered file labels and fixed grading instructions. Student names/IDs, original filenames, course/title, local routing keys, extracted type indexes and runtime reports are not added as metadata. Known identifiers and email/personal-path patterns are redacted in criteria and source; this is not a proof that arbitrary personal information embedded in code can always be recognized. HTTP contract tests inspect both Ollama and Azure request bodies. Interactive testing is an explicit exception: the console driver sends redacted output/history and testing instructions to request one next input, validates it, and writes it to the program input stream. Source remains available for local input validation but is omitted from console-choice requests. Free-form tasks send the text the user deliberately enters, without automatically attaching student files or metadata. Settings connection tests use synthetic criteria/source.
+
+### Request preferences (October 5, 2026)
+
+LLMSettings persists ConsoleModelWaitSeconds (default 30), ConfirmLocalExecution (default true) and ConfirmGrading (default true). AI Provider settings validates the model wait as an integer from 1 through 90 seconds. Invalid saved values use 30 seconds at runtime. ConsoleDriverAgent passes the captured timeout to its per-decision cancellation source; queue waiting and a model correction each remain within the overall 90-second session deadline. This setting does not alter grading HTTP timeouts or memory bounds.
+
+Both settings windows expose separate local-execution and grading confirmation toggles. Saving Programming Checks no longer unconditionally disables local confirmation, and Test with AI locally no longer unconditionally enables it. Manual build/run and queued tests consult the saved local preference. GradingConfirmation gates overall reviews, section batches, selected-section grading, regeneration and post-test grading once per user request; an enabled prompt can be declined before queuing work. Setup, validation, error and completion messages remain independent.
+
+Student-grade persistence (October 6): MainWindow.Grades owns the loaded grade dictionary, saves via GradePersistenceService, and refreshes reactive row/footer views. StudentGradeRow adapts the existing native ListBox selection and recycling to framework-rendered rows, disposing hosts on unload/replacement. Final grades use ReviewContext student/course/assignment/lab keys; they are entered by the instructor and remain separate from AI feedback and programming log scores. GradeTotals sums all recorded earned/possible points for the selected student's current course; ungraded submissions and other courses are excluded. The assignment badge is for the active lab, identified in the submissions header. Editing requires a selected assignment and a file inside the selected student's folder. Grade keys and scores stay local and are not model input. Rename/move migration, category weights, and automatic final-grade extraction from feedback are not implemented.
+
+October 6 approval-transfer source review: CommentLayer_ApproveRequested now persists approval and calls RestoreApprovedFeedback immediately. RestoreApprovedFeedback updates both the scoped draft dictionary and its existing editor state, including when another file shares the lab context. Pending/rejected records are not restored into drafts; existing generated-draft behavior is unchanged. ReviewContext.Matches compares Windows folder/root components without case sensitivity while retaining exact course/assignment separation. SQLite comment reads and replacement deletes also ignore file-path case. PersistCommentsForFile leaves unloaded records untouched; explicit Clear review still deletes them.
+
+October 6 batch source review: MainWindow.BatchReview owns the declarative designer/preview and disposes its host on close. BatchReviewPlan validates relative file lists and same-lab test entry points, snapshots targets, and iterates students serially within one AiTestQueue job. MainWindow captures rubric/settings, identifiers and ReviewContext routing independently of current selection; execution uses saved mode/confirmation policy and writes local reports. GradeFileWithRuntimeReportAsync captures clear-review versions, saves each successful section immediately, optionally approves it and imports the captured student's draft, and refreshes active inline cards. Failure continues to the next student; whole-batch cancellation stops further work and preserves saved comments. Model payload and console privacy rules remain unchanged. Batch configuration/progress are session-only; named recipes and durable resume are not implemented.
+
+October 6 nested batch-path source review: BatchReviewPlan.ValidatePattern allows a leading **/ with a literal relative suffix. Resolve searches only under the current student's folder, skips reparse points, scans all matching paths and selects the newest LastWriteTimeUtc, breaking ties by alphabetical path order, and reports missing/search failures per student. Preview lists resolved paths; queued execution receives exact paths, not patterns. Existing physical ReviewContext routing and same-lab validation remain in place. General glob syntax is not implemented.
+
+October 6 batch replacement source review (supersedes the earlier section-based batch description): ProcessStudentAsync clears the specified files, optionally executes the project once, then reviews files serially. MainWindow.BatchReview uses OverallFeedbackPrompt with one sanitized file per request and CompleteOverallFileReview with captured approval/draft options. ClearBatchFileReview deletes all contexts for only those files, advances generation counters, removes intact generated draft blocks through ReviewDraftCleanup, and resets file import markers; instructor-edited draft text remains. Build/run defaults off and disabled entry paths are ignored during preview. Generation failures after clearing do not restore old reviews. Batch no longer calls GradeFileWithRuntimeReportAsync; individual solution-test grading retains that section-based path.
+
+October 6 batch-display source review: CommentPersistenceService.GetReviewedFiles reads non-rejected file/context locations in saved-time order. MainWindow.Workspace filters them to the selected student's folder and exact assignment/lab context, skips missing files, and opens the most recent matching file on student selection or a Comments request without an active file. Saved-file links refresh after overall results; Job queue exposes the same navigation. Batch completion refreshes the selected review without changing assignments. InlineCommentLayer makes restored cards visible before measuring; overall-file cards use the first visible source line when their line-one anchor is off-screen. Section cards remain line-anchored. Read-only inspection confirmed recent real batch records were present and approved; no user review database writes were performed during diagnosis.
+
+October 6 latest-submission source review: BatchReviewPlan.Resolve now chooses the greatest file modification timestamp (UTC) across all recursive matches; equal timestamps use ordinal case-insensitive path order. Preview displays each chosen path and its UTC modification time. Recursive entry-point resolution stays within the selected review lab. Exact paths are unchanged; multiple review patterns still must resolve within one lab. The captured preview paths are not reselected when execution starts.
+
+October 7 class-folder source review: AssignmentSetupWindow saves the class-wide folder-name toggle through AssignmentPersistenceService into CourseFolderSettings in assignments.db (case-insensitive course key). Missing settings, including PG1 and DSA, default to strict student naming. MainWindow reloads an open folder list on class selection and saved setup, retaining selection by path where possible. No change to review/grade keys or lab-root semantics.
+
+```mermaid
+flowchart LR
+    Setup[Assignment setup class toggle] --> Store[CourseFolderSettings in assignments.db]
+    Store --> Reload[MainWindow.ReloadSubmissionFolders]
+    Reload --> Discover[Student.GetStudentsFromFolders]
+    Discover --> Strict[Default Last_First-ID parsing]
+    Discover --> Names[Optional immediate folder names]
+```
+
+October 7 native PDB collision review: SubmissionBuilder no longer passes a solution-wide IntDir override. Native solution builds retain each project's intermediate paths and use /m:1; direct C++ project builds also use /m:1. Existing OutDir handling remains for unattended post-build copies. C1041 diagnostics explain file locking, separate intermediates, /FS and retrying outside synchronized folders. External locks and project-defined conflicting directories can still fail; no student project files are rewritten.
+
+```mermaid
+flowchart LR
+    NativeBuild[SubmissionBuilder native MSBuild] --> Serial[One MSBuild worker /m:1]
+    Serial --> Intermediate[Project-defined intermediate directories]
+    NativeBuild --> Failure[C1041 actionable diagnostic]
+```
+
+October 7 native launch-directory fix: ResolveWorkingDirectory first maps the launched executable name to a matching .sln project display name and its existing .vcxproj path before the filename heuristic. This handles Lab1.exe from CaveMatchingGame.vcxproj even when the solution output directory points under Practice. Direct project launches still use their project folder. Manual Run reports the full executable and working-directory paths. This fixes relative source/asset lookup for mapped projects; it does not establish that student initialization or graphics loops are correct.
+
+```mermaid
+flowchart LR
+    Exe[Executable basename] --> Alias[Matching solution project display name]
+    Alias --> Project[Project path from solution]
+    Project --> Working[Native process working directory]
+```
+
+October 7 build diagnostic review: SubmissionBuilder.Combine adds actionable prior-process/file-lock guidance for executable LNK1104 errors; it preserves failure status and never terminates external programs.
+
+October 7 shared-dependency staging review: local AI testing checks literal relative Import paths in vcxproj files for the immediate sibling Shared tree. When referenced, AiTestStaging copies only the submission and Shared into a unique run directory, preserving their sibling layout. Shared/bin DLL and LIB dependencies are retained; compiled executables and incremental artifacts remain excluded. Other repository folders are not copied. Without such an import, existing submission-only staging remains. Dynamic MSBuild imports and other sibling dependency names are not resolved. Staged build failures now require staging/toolchain/dependency/lock checks before attribution to student source. Unique dependency runs currently remain on disk after completion.
+
+```mermaid
+flowchart LR
+    Imports[Literal relative vcxproj imports] --> Shared[Referenced immediate sibling Shared]
+    Shared --> Run[Unique local staging run]
+    Submission[Submission directory] --> Run
+    Run --> Build[MSBuild with preserved sibling layout]
+```
+
+October 7 recording-driven console-agent review: the captured SDL game displayed WASD/arrows, spacebar and ESC while the model invented a numbered exit and typed literal key names. ConsoleDriverAgent stops for that combined control signature only when the session cannot deliver window events. Local sessions now allow model-selected key/click actions. It sends no GUI screens or guessed physical controls to the model. This guard is based on displayed text. Remote VM sessions remain console-only; visual verification remains unsupported. Prompt instructions explicitly forbid implicitly numbered choices and physical-key names in stdin. ConsoleInputPolicy does not constrain a new item/name question to stale menu numbers above it. Menu coverage and validation recognize simple article-bearing prompts such as Choose an option.
+
+```mermaid
+flowchart LR
+    Screen[Reconstructed console screen] --> Controls[Combined game-control text check]
+    Controls --> Manual[Inconclusive manual-Run guidance]
+    Screen --> Prompt[Current prompt and menu validation]
+    Prompt --> Input[One validated console input]
+```
+
+October 7 structured assignment setup source review: AssignmentSetupWindow hosts AssignmentSetupView and AssignmentSetupViewModel. Instructions, rubric, deductions, feedback preferences and class settings each have dedicated View and ViewModel classes. Saved assignment selection, grading-prompt import preview and rubric-only import also use separate views/view models. Setup uses the pinned declarative framework. Prompt import is local and recognizes points-first rows such as **10pts:** and **-10pt deduction:**; it previews replacement, rejects stale previews, removes recognized boilerplate and preserves other instruction text for review. Arbitrary prompt formats are not semantically interpreted.
+
+AssignmentOptions in assignments.db stores deduction rules and feedback preferences alongside legacy SavedAssignments; the two assignment writes are transactional. Legacy records default to an empty deduction list and direct-address feedback. Class folder settings remain shared across the class. Queued snapshots deep-copy deduction/preference data. Overall prompts use the structured preferences; section prompts retain their existing parseable section-response format while receiving tone/evidence/deduction rules. Policy violations and starter-code removal imports require instructor confirmation: the model is asked to flag them rather than apply penalties automatically. These are prompt instructions, not a computed-score enforcement engine; grades remain instructor-entered. No class/title/name metadata is added to model requests.
+
+```mermaid
+flowchart LR
+    Window[AssignmentSetupWindow] --> View[AssignmentSetupView]
+    View --> VM[AssignmentSetupViewModel]
+    VM --> Pages[Details / Rubric / Deductions / Feedback / Class views and view models]
+    Import[AssignmentImportView and ViewModel] --> Parser[Local AssignmentPromptImporter]
+    Parser --> VM
+    VM --> DB[SavedAssignments + AssignmentOptions]
+    DB --> Snapshot[ReviewContext snapshot]
+    Snapshot --> Prompt[AssignmentGradingInstructions]
+    Prompt --> Overall[Overall feedback]
+    Prompt --> Section[Section grading]
+```
+
+### Minimal review workspace (source reviewed October 7, 2026)
+
+The compact toolbar and horizontal panel selector replace the large workflow banner and separate right navigation rail. The editor retains at least 300 pixels in the native splitter layout; the side panel starts at 380 pixels and opens within 35% of the window (minimum 300). Rubric points and deductions appear first; full assignment instructions use an optional toggle. Feedback drafts, job queue actions, native editor/file tree, grade persistence and console behavior retain their existing coordinators.
+
+Each extracted component has a matching file in Views and ViewModels: WorkspaceToolbar, PanelNavigation, PanelHeader, WorkspaceStatus, ToolsPanelToolbar, FileTabs, WorkspaceEmptyState, ReviewRubric, FeedbackPanel, JobQueue, StudentsPanel, SubmissionFilesPanel, ConsolePanel and ViolationsPanel. StudentGradeRow and GradeBadge also have separate reusable views/models. Models expose reactive bindings and actions; MainWindow still coordinates persistence and native control lifetime.
+
+```mermaid
+flowchart LR
+  Shell[MainWindow native layout] --> Toolbar[WorkspaceToolbarView / ViewModel]
+  Shell --> Selector[PanelNavigationView / ViewModel]
+  Shell --> Files[StudentsPanel and SubmissionFilesPanel]
+  Shell --> Tabs[FileTabsView / ViewModel]
+  Shell --> Panels[PanelHeaderView / ViewModel]
+  Panels --> Rubric[ReviewRubricView / ViewModel]
+  Panels --> Feedback[FeedbackPanelView / ViewModel]
+  Panels --> Queue[JobQueueView / ViewModel]
+  Shell --> Tools[ConsolePanel and ViolationsPanel]
+  Shell --> Status[WorkspaceStatusView / ViewModel]
+```
+
+### Database save refresh (source reviewed October 7, 2026)
+
+After successful grade saves/deletes, MainWindow reloads all grade records before notifying grade bindings, keeping course totals synchronized with persisted grades. Comment saves/deletes reload the affected file and notify saved-review links; approval restores feedback from that persisted snapshot and redraws inline cards. Assignment setup reloads the saved assignment and course settings, then the shell reloads course/assignment selectors while retaining the saved selection. Persistence refresh does not replace independent unsaved feedback drafts. There is no automatic polling or cross-process change subscription; refresh is tied to application writes.
+
+```mermaid
+flowchart LR
+ Save[Successful database mutation] --> Read[Read affected persisted records]
+ Read --> Cache[Replace corresponding model snapshot]
+ Cache --> Notify[Reactive revision or state update]
+ Notify --> UI[Grade badges / review links / assignment selectors]
+```
+
+### Workspace presentation refinement (source reviewed October 7, 2026)
+
+The toolbar contains native menus, course/assignment selectors, the Review menu and left/right panel icon toggles. File > Open Submissions Folder loads submissions. Feedback/Queue/Rubric tabs live in the right panel. Assignment setup remains in Settings and rubric Edit assignment. NavigationTabView/ViewModel supplies shared flat underlined tabs for files, panels and console/violations through the pinned framework native adapter. An application-owned attached selected property avoids conflict with framework identity tags. ToolbarLabelView/ViewModel centers short labels vertically. NativeTheme centers button content through ContentPresenter, preserving rich native content, and uses eight-pixel scrollbars. Framework presentation gaps were reported to the authorized CUI chat; package bytes are unchanged.
+
+```mermaid
+flowchart LR
+ Toolbar[WorkspaceToolbarView] --> Labels[ToolbarLabelView / ViewModel]
+ RightPanel --> PanelTabs[PanelNavigationView]
+ PanelTabs --> Tab[NavigationTabView / ViewModel]
+ Files[FileTabsView] --> Tab
+ Tools[ToolsPanelToolbarView] --> Tab
+ Tab --> Adapter[WpfUI.Native + NativeTheme selected-tab style]
+```
+
+### Course and assignment menu selectors (source reviewed October 7, 2026)
+
+WorkspaceToolbar uses reusable MenuSelectorView/ViewModel native adapters for Course and Assignment, sharing NativeTheme menu presentation with File and Settings. Headers show the current selection; submenu entries mark the selected item and invoke the existing selection handlers. Empty menus explain that no saved entries exist. Adapter identity includes options and selection so successful database refreshes update menu content.
+
+```mermaid
+flowchart LR
+ Toolbar[WorkspaceToolbarView] --> Selector[MenuSelectorView / ViewModel]
+ Selector --> Native[WpfUI.Native Menu / MenuItem]
+ Native --> Handlers[SelectCourse / SelectAssignment]
+```
+
+### Contextual Review menu (source reviewed October 7, 2026)
+
+ReviewMenuView/ViewModel displays a native menu only after assignment selection. It groups batch, selected-text review, overall review of checked source files, clear checked-file reviews, and clear all assignment reviews. Enabled states are evaluated when opening the menu from the current editor/tree selection. CommentPersistenceService.DeleteAssignmentReviews deletes matching course/title contexts transactionally, optionally restricted to checked files, including rejected reviews. Other assignments and legacy unscoped reviews remain; grade records are unaffected. The coordinator invalidates pending completions for cleared file generations, refreshes persisted file caches, redraws inline cards and removes intact generated draft blocks while preserving instructor edits.
+
+```mermaid
+flowchart LR
+ Toolbar[WorkspaceToolbar] --> Menu[ReviewMenuView / ViewModel]
+ Menu --> Existing[Batch / selection / overall handlers]
+ Menu --> Clear[MainWindow.ClearAssignmentReviews]
+ Clear --> DB[CommentPersistenceService.DeleteAssignmentReviews]
+ DB --> Refresh[Persisted caches / inline cards / draft cleanup]
+```
+
+### Earlier section review recovery (source reviewed October 7, 2026)
+
+File/assignment reselection now reloads persisted comments instead of relying on an existing cache. Saved-review discovery includes unscoped legacy records only for files contained in the selected student folder. With an assignment selected, these comments appear as read-only inline cards labeled Earlier review / assignment not recorded, and EarlierReviewsView/ViewModel displays them separately in Feedback. They are not imported into the assignment draft or grade and are not assigned a guessed context. Existing unassigned review workflows retain approval controls. Scoped comments still require exact student/course/assignment/submission identity; rejected comments remain hidden. No user database migration or edits were performed for this compatibility fix.
+
+```mermaid
+flowchart LR
+ Selection[File or assignment selection] --> DB[Reload saved comments]
+ DB --> Scoped[Matching assignment comments]
+ DB --> Legacy[Unscoped earlier comments]
+ Scoped --> Inline[Inline cards / approved feedback]
+ Legacy --> ReadOnly[Labeled read-only inline cards]
+ Legacy --> Panel[EarlierReviewsView / ViewModel]
+```
+
+Model-driven local window events (source reviewed October 7, 2026): ConsoleDriverAgent accepts structured key/click decisions in addition to console lines/wait/close/stop. The LLM receives testing instructions and sanitized console history plus transport capability instructions; no source, screen pixels or window titles are supplied. WindowInputAction validates a bounded key vocabulary (letters/digits, arrows, Space/Escape/Enter/Tab; no system chords) and normalized click coordinates. InteractiveProcessSession resolves its launched process ID; WindowInputDispatcher finds a visible unowned window belonging to it, verifies foreground ownership and uses SendInput for key down/up or mouse move/down/up. Focus/delivery errors stop inconclusively. The configurable response timeout and 90-second session limit still apply. Click positions must come from testing instructions; visually dependent outcomes remain unverified. HyperVRunner remains console-only. Runner builds link the shared event types, but remote event transport is not implemented.
+
+```mermaid
+flowchart LR
+ Console[Console output + testing instructions] --> Model[LLM structured decision]
+ Model --> Validate[WindowInputAction validation]
+ Validate --> Session[InteractiveProcessSession own process ID]
+ Session --> Dispatch[WindowInputDispatcher focus + ownership checks]
+ Dispatch --> Events[Windows SendInput key/click events]
+ Events --> App[Launched program window]
+```
+
+October 7 runtime-role correction: the console model system instruction explicitly assigns the runtime operator role, labels assignment prose as reference-only runtime expectations, and forbids switching to grading or requesting source. A stop response claiming missing code/files gets one bounded corrective retry using the same source-free payload; actual focus or interaction limitations still stop. This reduces role confusion but does not guarantee model compliance.
+
+October 7 physical-key parser correction: WindowInputAction accepts equivalent explicit key names (Spacebar/Space, Escape/ESC, Return/Enter and ArrowUp/Up etc.) only for structured key actions; system chords remain rejected. ConsoleDriverAgent reports distinct empty-response, incomplete/malformed JSON and invalid-event errors, with a bounded sanitized model-response sample for failed decisions. The configured local model returned action=key/input=spacebar in a synthetic live controls check, matching the prior parser rejection. No fallback event or additional source payload was introduced.
+
+October 7 window coverage refinement: runtime prompts distinguish initial/unchanged console output from new output and retain full-session movement/selection coverage separately from bounded action history. For advertised game controls, early ESC is rejected with a corrective model retry until assignment-required runtime paths have been accounted for in the model coverage ledger; the final turn still permits cleanup. C# never substitutes keys. This tracks delivered controls, not visually verified outcomes. The model can stop inconclusively when visual evidence is needed.
+
+October 7 assignment-driven coverage: the fixed movement quota is replaced by a model-provided path/status/evidence ledger retained across turns. The operator must enumerate and test all reachable assignment-required paths before exit, retain unfinished paths and separate tested/failed/untested/blocked outcomes. Early game ESC with absent coverage or untested paths receives a corrective retry; blocked outcomes permit cleanup but are explicitly reported inconclusive. Final-turn cleanup remains allowed. The ledger is model-reported, not proof of exhaustive control-flow or visual coverage.
+
+October 8 grading prompt import correction (source reviewed): AssignmentPromptImporter supports both points-first and label-first colon rows, including criterion names containing colons, optional trailing point units and negative penalties. Malformed-row detection requires a numeric points prefix, so numbered prose mentioning points is retained rather than rejected. Output/feedback/response format headings delimit output instructions. The importer remains a deterministic text parser, not semantic rubric extraction.
+
+October 8 COP2334 prompt format verification: label-first rubric rows also accept percentage / explicit point pairs such as 15% / 15 pts, using the explicit point value. Multi-file requirement prose and unspecified deduction notes remain instructions; no numeric penalty is invented. Output-format sections and following submission placeholders are excluded. Instructor-role preambles are stripped from assignment requirements.
+
+Source review 2026-10-09: Shared AssignmentGradingInstructions guides overall and section reviews to locate rubric work via TODO:// labels, TODO section comments, and section-named methods, then verify implementations across supplied files. Markers alone establish neither completion nor missing work. A definition in another supplied file is evidence; unverified is reserved for source that is not in any supplied file, not for a missing live run.
+
+Source reviewed 2026-10-09: BatchReviewPlan.ProcessStudentAsync clears each selected file, optionally builds/runs once, then submits all selected file contents in one combined overall review per student. One shared review is attached to the selected files through CompleteOverallFileReview. Manual overall review already combines checked files. Overall prompts treat those files as the complete submission, including fill-in templates: implementations in another supplied file are scored, and a missing live run does not make source-visible work unverified. Rubric losses stay in the score breakdown; deductions are configured penalties. These are model instructions, not deterministic score validation.
+
+Source reviewed 2026-10-08: The bottom Logs tab uses LogPanelView/LogPanelViewModel through the pinned framework native adapter for source history list/text controls. FsLogReader implements the supplied ResultsDecoder v2 FSLG layout: named files, Unix-second timestamp groups, uint32-sized snapshots with byte-offset-128 decoding using the local ANSI code page. It validates signatures, versions, chunk boundaries and limits (32 MB input, 256 names, 10,000 snapshots). The viewer retains one loaded document as decoded strings, releases its stream after loading, and clears old content on assignment/student refresh. Historical timestamps and source are local viewer data and are not added to LLM payloads or treated as build counts/grades. Log options uses native menu styling alongside the bottom tab navigation.
+Assignment setup stores optional relative ReviewFilePaths and LogFilePath in AssignmentOptions JSON; existing records default to empty. Saved paths are validated (optional **/ prefix, no absolute/parent paths), copied into queued snapshots, and prefill batch file selection. Logs resolves the saved .fslog path within the current student folder using newest-match resolution. Without a configured path, it searches the nearest project/solution directory of the active file; no project context yields no automatic log. Manual Open remains available. A configured assignment log can load without opening a source file. Only selected review-file contents and grading criteria are sent to models; path configuration and decoded log history are not sent.
+
+```mermaid
+flowchart LR
+    AssignmentDetailsView --> AssignmentDetailsViewModel
+    AssignmentDetailsViewModel --> AssignmentOptions[AssignmentOptions JSON: review and log paths]
+    AssignmentOptions --> BatchFiles[Batch review file selection]
+    AssignmentOptions --> LogRouting[Current student log resolution]
+    LogRouting --> FsLogReader
+    FsLogReader --> LogPanelViewModel
+    LogPanelViewModel --> LogPanelView
+    LogPanelView --> BottomLogs[Bottom Logs tab]
+```
+
+Source reviewed 2026-10-08: WorkspaceStatusView and BuildGradeStatus use reusable ToolbarActionView/ToolbarActionViewModel for flat, keyboard-accessible queue, assignment-grade and violations actions; ToolbarLabelView aligns passive build and course-total labels to the same 32-pixel row. Native adapters preserve existing actions and grade enabled/color state without outlined button backgrounds.
+
+Source reviewed 2026-10-08: The bottom tools tabs and status actions share one ToolsPanelToolbarView row docked below panel content. Console, violation count and Logs navigation, icon log-options menu, queue/build/grade status and icon collapse action are consolidated. Navigation and toolbar actions expose tooltips and retained automation names. Violation count appears once in its navigation tab. Separate component views/view models remain.
+
+Source reviewed 2026-10-08: FsLogSnapshot preserves its serialized timestamp-group ordinal as BuildNumber; FsLogDocument.BuildCount counts those groups, including groups sharing a timestamp, rather than multiplying by file count. FileHandler.ParseFile now decodes fslog instead of parsing binary data as build-output text. LogPanel shows high-contrast source/history, recorded build counts, elapsed span, largest gap and a BuildHistoryView/BuildHistoryViewModel timeline with hover details and click-to-select snapshots. Timeline time spacing includes breaks, not measured active work time. ANSI decoded history remains local and one bounded log is retained; timeline renders marks without creating a control per build.
+CourseReviewRules stores instructor-defined rules keyed by course in SQLite, loaded into assignments and immutable review snapshots. Assignment setup Class settings offers a PG2-only preset for no lambdas, header/.cpp separation with getter/setter exceptions and reference/const use from Part B. No preset is automatically enabled. Shared grading instructions ask for verified source evidence and scope checks; they are model review guidance, not deterministic C++ AST checks and do not add entries to the lexical Violations count automatically. Numeric penalties require separately configured assignment deductions.
+
+```mermaid
+flowchart LR
+    ClassSettingsView --> ClassSettingsViewModel
+    ClassSettingsViewModel --> CourseReviewRules[(CourseReviewRules by course)]
+    CourseReviewRules --> AssignmentGradingInstructions
+    FsLogReader --> BuildHistoryViewModel
+    BuildHistoryViewModel --> BuildHistoryView
+    BuildHistoryView --> LogPanelView
+```
+
+Source reviewed 2026-10-08: Bottom Builds visibility binds to LogPanelViewModel.IsLoaded and its count to RecordedBuildCount reactive state, independent of legacy parsed-result counters. Clear and load failures reset both states. Selection refresh resolves the current assignment log even when the log panel is hidden if a log was loaded, preventing prior-student counts from persisting. A successfully loaded empty log displays zero builds; absence/failure hides the indicator.
+
+Source reviewed 2026-10-08: Assignment feedback settings include independently persisted DetailLevel (1 very brief to 5 thorough; default standard) and ReadingLevel (middle school, high school, college, technical; default high school). FeedbackDialView/FeedbackDialViewModel provides a rotary native-adapter control with drag, wheel and arrow/Home/End input; the reading-level menu uses toolbar menu styling. AssignmentFeedbackViewModel loads/saves these through AssignmentOptions feedback JSON, and ReviewContext snapshots them. Shared grading prompts describe language and explanation depth while preserving rubric/evidence requirements. Changes apply to subsequent generated reviews, not already-saved comments.
+
+Source reviewed 2026-10-08: Very brief/Brief feedback prompt rules now limit each rubric justification to 12/20 words and the feedback paragraph to 35/60 words, forbid duplicate Detailed Review and Evidence/Comments blocks, and prioritize saved length preferences over verbose assignment output-format prose. OverallFeedbackPrompt repeats a final length check and asks models to retain exact rubric rows/maxima and reconcile totals. These are generation instructions, not a deterministic word-count or scoring validator. Dial changes must be saved with the assignment and apply to subsequent requests.
+
+Source reviewed 2026-10-08: Overall feedback records are hidden from inline overlays and displayed in the Feedback side panel. Restore/import identity for overall reports uses assignment context, section label and report text, excluding file path, so the same combined report stored against several files restores once. Section-specific reviews retain file/line identity. Pending overall reports have a separate OverallReviewPanelView/ViewModel with approval action in the side panel. Per-file overall persistence is retained for file discovery and clearing; this is presentation/import deduplication, not a new assignment-review database schema.
+
+Source reviewed 2026-10-09: Both manual and batch multi-file rubric reviews use OverallReviewService and OverallReviewResult rather than accepting free-form model totals. Criterion IDs map to exact configured rubric rows; C# rejects missing/duplicate rows and invalid ranges, calculates totals from earned points and configured penalties, and keeps instructor-confirmation penalties pending. Missing deduction arrays and invented deductions when none are configured are ignored. Verified findings need a source excerpt that exists in the supplied files (whitespace-tolerant, any supplied file). Unsupported rows stay unverified and are omitted from the suggested total; remaining verified rows still produce a suggested grade. The final grade is withheld only when no criterion has matching evidence. Renderer enforces saved brief paragraph/justification word caps and enabled output sections. Source-quote matching proves the excerpt exists, not the correctness of model interpretation; semantic review still requires instructor oversight. No-rubric qualitative requests retain the text path.
+Ollama combined structured reviews explicitly set temperature zero and estimate context needs from prompt characters plus output headroom, with an 8,192-token minimum and 32,768-token ceiling. Oversize estimates reject the request before HTTP; CPU fallback retains the context setting. Estimates are not tokenizer-accurate and do not prove all code is attended to. Azure receives the same JSON contract through its existing completion transport; schema enforcement is local validation, not provider constrained decoding. File payloads retain anonymous IDs/extensions and explicit end boundaries; no student paths or log history are added.
+Replacing an overall file review removes matching intact old generated draft blocks, including legacy combined-report prefixes, before presenting the new review. Instructor-edited blocks remain. Multi-file completion persists one shared result per selected file for discovery while the side panel imports the shared report once.
+
+```mermaid
+flowchart LR
+    ManualOverall[Manual multi-file review] --> OverallReviewService
+    BatchOverall[Batch student review] --> OverallReviewService
+    OverallReviewService --> Provider[Ollama schema / Azure JSON contract]
+    Provider --> OverallReviewResult
+    OverallReviewResult --> Evidence[Exact excerpt and rubric-range validation]
+    Evidence --> Totals[C sharp score calculation and formatting]
+    Totals --> SideFeedback[Overall side-panel feedback]
+```
+
+Source reviewed 2026-10-09: OverallReviewResult.SchemaFor constrains rubric row count and allowed IDs to the captured assignment and allows an empty deductions array. OverallReviewService retries one malformed structured response with numeric mismatch diagnostics using the original sanitized source, never re-echoing model text. If the second response is otherwise parseable but missing/duplicating rows, only uniquely returned criteria are retained; missing/conflicting rows become explicitly unverified, generic incomplete feedback replaces the model summary, and the suggested grade includes only verified rows. Invalid JSON and impossible points still fail without publishing. Invented deduction IDs fail unless no deduction rules are configured or the second attempt drops them. No zero scores are fabricated for absent model findings.
+
+Source reviewed 2026-10-09: After the single correction attempt, an invalid structured response is retained as raw editable feedback with a needs-instructor-review warning rather than discarded. Batch auto-approval is disabled for these drafts and withheld-grade results. They remain pending overall side-panel feedback for editing/approval; no numeric grade record is saved automatically. Transport failures still report errors. This supersedes earlier documentation stating all invalid second replies fail without publishing.
+
+Source reviewed 2026-10-09: Invalid structured reviews are formatted as normal editable rubric/feedback drafts rather than raw JSON. ReviewWarningEnvelope separates normal display text from diagnostics for transport to completion; CompleteOverallFileReview strips the envelope and stores warning details in overall SectionFeedback.Issues using existing persistence. Warning-bearing results remain pending. ReviewWarningView/ViewModel displays a tooltip warning symbol and click-open details dialog next to the pending overall draft. Details identify missing/duplicate criteria, out-of-range score mapping and source quotes that do not match. Diagnostics remain outside exported student-facing feedback text. Unparseable replies retain editable prose with a separate warning. No suggested numeric final grade is manufactured for invalid drafts.
+
+Source reviewed 2026-10-09: ReviewerRoleView/ReviewerRoleViewModel adds a per-assignment editable reviewer-role field and reset action under Feedback preferences. AssignmentFeedbackOptions.ReviewerRole persists in existing AssignmentOptions JSON, defaults to an experienced C++ instructor for older/blank settings, and is deep-copied into queued snapshots. Shared AssignmentGradingInstructions includes the role for manual, batch and section reviews; overall prompt sanitization covers its text. The role controls teaching perspective and tone; app-side rubric validation/calculation and privacy handling remain independent. Role changes apply only to subsequently generated reviews after saving the assignment.
+
+Evidence attribution source review (October 9, 2026): `OverallReviewResult.FindEvidenceFile` checks the nominated file first, then the remaining supplied files, returning the actual 1-based match or zero. Rubric and applied-deduction references display this resolved file number, including whitespace-normalized cross-file matches; absent quotes remain unverified. Matching an excerpt does not prove the model’s interpretation is correct.
+
+
+## Inline overall review decisions (source reviewed October 9, 2026)
+
+`OverallReviewService` retains local structured findings through `ReviewFindingEnvelope`. `InlineRubricReview` resolves source-quote or explicit TODO anchors and constructs individual `SectionFeedback` records. `CompleteOverallFileReview` routes those cards to their actual source file; unlocated cards remain in the assignment-scoped Unplaced comments panel until the instructor chooses their file and line. All overall comments now render inline, including qualitative/historical records; stored historical combined reports are not split retroactively. The inline editor uses `InlineReviewEditWindow`, `InlineReviewEditView` and `InlineReviewEditViewModel`. Approve/Modify/Reject save per-card decisions, text, points and anchors through `CommentPersistenceService`, whose additive RubricReview JSON column and criterion-aware unique index preserve old records. Approved rubric awards and approved deductions refresh `GradePersistenceService` totals for the captured review context; pending/rejected rows do not contribute points. Existing combined-report approval UI remains for legacy pending records. General prose edits have no rubric criterion and do not contribute criterion points.
+
+```mermaid
+flowchart LR
+    Review[OverallReviewService] --> Packet[ReviewFindingEnvelope]
+    Packet --> Completion[CompleteOverallFileReview]
+    Completion --> Locate[InlineRubricReview]
+    Locate --> Cards[InlineCommentAdorner / InlineCommentLayer]
+    Cards --> Modify[InlineReviewEditWindow]
+    Modify --> View[InlineReviewEditView]
+    View --> Model[InlineReviewEditViewModel]
+    Cards --> Decisions[Approve / Modify / Reject handlers]
+    Decisions --> Store[CommentPersistenceService / RubricReview metadata]
+    Store --> Totals[Approved rubric points minus approved deductions]
+    Totals --> Grades[GradePersistenceService / assignment and course badges]
+```
+
+
+Inline placement source review (October 9, 2026): each comment has a native drag handle and a Pin/Unpin action through reusable `CommentPlacementView`/`CommentPlacementViewModel`. Drag/drop is confined to the current editor’s comments, uses AvalonEdit pointer-to-document mapping, previews the target with the caret and scrolls near viewport edges. `CommentPlacementService` moves the anchor and confirms previously unresolved locations without changing awarded points or approval. Pin state is persisted in the additive SQLite IsPinned column. Pinned locations cannot be dragged or changed through Modify; wording and points remain editable. Pinned whole-file cards stay at their recorded code line instead of following the visible viewport. Ordinary overall-review replacement preserves pinned cards and suppresses replacement findings for those pinned rubric/deduction IDs. Explicit clear-review and batch-clear operations retain their existing deletion semantics. This is a saved line anchor, not semantic tracking across external source rewrites. Drag/drop handlers reuse the native AvalonEdit island; no package changes are required.
+
+```mermaid
+flowchart LR
+    Handle[CommentPlacementView / native drag handle] --> Drop[InlineCommentLayer / AvalonEdit document hit test]
+    Pin[Pin and Unpin action] --> Placement[CommentPlacementService]
+    Drop --> Placement
+    Placement --> Shell[MainWindow placement handler]
+    Shell --> Storage[CommentPersistenceService / IsPinned and line range]
+    Storage --> Reload[Reload persisted cards]
+```
+
+
+Cross-file comment placement (source reviewed October 9, 2026): Modify now offers destination files from the loaded submission tree and open tabs, restricted to the same captured student/assignment submission context. InlineReviewEditViewModel validates the chosen file and line using bounded source reads. The dialog edits a copy, so Cancel cannot mutate the stored card. CommentPersistenceService.MoveComment updates the existing row in one SQLite transaction; destination collisions roll back without losing or overwriting either review. Pinned cards cannot change file or line. MainWindow.CommentPlacement reloads both caches after a successful write and opens the destination at its saved line. Drag/drop remains within the current editor; cross-file moves use Modify. Submission files themselves are never moved.
+
+```mermaid
+flowchart LR
+    Modify[InlineReviewEditView / destination file and line] --> Validation[InlineReviewEditViewModel / bounded line validation]
+    Validation --> Move[CommentPersistenceService.MoveComment / atomic row update]
+    Move --> Refresh[MainWindow.CommentPlacement / reload both file caches]
+    Refresh --> Destination[Open destination tab at saved line]
+```
+
+
+## MainWindow extraction (source reviewed October 9, 2026)
+
+MainWindow.cs is a small composition/lifecycle shell. Assignment selection, grading actions, comment actions, review execution, submission browsing, file navigation/context actions, preferences, diagnostics and student actions live in focused event-adapter partials. These adapters still share the window's selection state; moving them into partial files does not itself make them independent services.
+
+ReviewWorkspaceService supplies the independent behavior: it owns the 128-entry active-file-pinned comment cache, reloads persisted records after saves, tracks comments without replacing other review contexts, rejects stale overall completion captures before source reads, routes combined findings to evidence anchors while preserving pins, and calculates grades from persisted approved rubric decisions. The service has no WPF/window/dispatcher dependency. The legacy prose completion path and draft editor publication still remain in the window. Completion writes are per file; the whole multi-file batch is not one database transaction.
+
+WorkspaceShellView/WorkspaceShellViewModel own layout composition and the native splitter/editor/tree/terminal adapters. MainWindow.Framework constructs the model and retains lifecycle disposal of ViewHosts; native control instances remain stable. InlineCommentView/InlineCommentViewModel now own the reusable card presentation and expansion/approval state, while InlineCommentAdorner remains its native placement/event adapter. StudentGradeEditView/StudentGradeEditViewModel/StudentGradeEditWindow replace the window's embedded grade form. Grade validation and save errors live in its model, with the captured context supplied by the shell. All new views use the pinned framework; native adapters preserve specialized WPF behavior. No vendor package bytes or versions changed.
+
+Unused legacy file-tab population, status-log parsing and violation-line parsing helpers were removed after reference checks; active assignment-scoped log loading is unchanged. Existing active diagnostic scanning still lives in MainWindow.Diagnostics; this extraction does not claim it has been moved into a service.
+
+```mermaid
+flowchart LR
+    Shell[MainWindow / composition and lifetime] --> LayoutModel[WorkspaceShellViewModel]
+    LayoutModel --> Layout[WorkspaceShellView / stable native layout]
+    Shell --> Adapters[Focused MainWindow event adapters]
+    Adapters --> Review[ReviewWorkspaceService / cache and completion]
+    Review --> Storage[CommentPersistenceService]
+    Review --> Grade[Approved rubric grade calculation]
+    Grade --> Badges[Grade persistence and badge refresh]
+    Layout --> Card[InlineCommentView / InlineCommentViewModel]
+    Card --> Native[InlineCommentAdorner / placement adapter]
+    Adapters --> GradeEditor[StudentGradeEditView / StudentGradeEditViewModel]
+```
+
+
+## Unplaced finding routing regression fix (source reviewed October 9, 2026)
+
+InlineRubricReview.Locate no longer returns a nominated or first file when there is no matching source quote or TODO label. A unique method definition explicitly named in the finding can provide a local anchor; it does not verify the finding or earn automatic approval. Ambiguous or absent matches return (0,0). General overall prose still uses the first file intentionally.
+
+ReviewWorkspaceService retains unplaced rubric records with LocationResolved=false in the first target's storage container, without treating it as source attribution. The inline renderer excludes these records, including older already-saved unresolved findings. UnplacedReviewsView/UnplacedReviewsViewModel display them by student/assignment context in Feedback, with a Choose file and line action using the existing copied edit, atomic row move and fresh-cache reload path. New completions open Feedback when unplaced findings remain. Choosing a location enables subsequent instructor approval; it does not establish source verification or approve a pending finding. Existing scores, pins and resolved anchors are not migrated or overwritten by this display fix.
+
+```mermaid
+flowchart LR
+    Finding[Overall rubric finding] --> Locate[Quote / TODO / unique named method]
+    Locate -->|resolved| Inline[Actual source file / inline card]
+    Locate -->|no reliable location| Pending[Persisted LocationResolved=false]
+    Pending --> Panel[UnplacedReviewsView / ViewModel]
+    Panel --> Edit[Choose file and line / InlineReviewEditWindow]
+    Edit --> Move[Atomic comment update and cache reload]
+    Move --> Inline
+```
+
+
+## Scoped document search (source reviewed October 10, 2026)
+
+MainWindow.Search routes Ctrl+F to the focused log panel or active source editor, retaining the last clicked search scope when focus is elsewhere. Selecting a source tab resets the fallback scope to source. DocumentSearchView/DocumentSearchViewModel reuse the existing AvalonEdit native island and SearchPanel: the box starts closed, opens/focuses on Ctrl+F, highlights document matches, supports native next/previous navigation and closes through Escape or its close button. Source and log queries have separate panel instances. Search installs no provider calls and does not alter review persistence.
+
+LogPanelViewModel.Source is now a read-only AvalonEdit editor, with undo retention disabled. Its selected snapshot owns the independent search panel. Search options also scan loaded snapshot source/entry labels with a 50 ms regex timeout per match; matching rows become bold/gold, and the first matching row is selected when the current row does not match. Selection refreshes source highlights using the same retained editor. Clearing/loading a log closes its search and clears the query. Search text, case/word/regex settings remain session-local. Full-source loading and existing 64 MiB/10,000-snapshot log bounds are unchanged.
+
+SearchBarView/ViewModel replace the default AvalonEdit widget with a compact pinned-framework bar. SearchBarNativeAdapter preserves the native editing content host; rendered checks verify readable query text and navigation icons. MainWindow uninstalls both native search panels on close. The native-island style-isolation gap was reported to the authorized CUI task; no vendor package bytes or versions changed.
+
+```mermaid
+flowchart LR
+    Find[Ctrl+F / focus or last clicked scope] --> File[Submission DocumentSearchViewModel]
+    Find --> Log[Log snapshot DocumentSearchViewModel]
+    File --> Panel[AvalonEdit SearchPanel / query and match renderer]
+    Log --> Panel
+    Log --> Rows[Matching history rows / choose first matching snapshot]
+    Rows --> Snapshot[Retained read-only log editor]
+    Snapshot --> Panel
+    View[DocumentSearchView / native adapter] --> Panel
+    Theme[SearchBarView / SearchBarViewModel / native field adapter] --> Panel
+```
+
+October 10, 2026 search styling: the default search widget is replaced by a reusable pinned-framework SearchBarView/ViewModel, with rounded surface, query field and quiet previous/next/close icons. Enter, Shift+Enter and Escape remain supported. The scoped native field adapter fixes inherited content-host clipping. Local rendered and functional checks pass; package bytes and versions are unchanged.
+
+## Dialog overflow and startup sizing (source reviewed October 10, 2026)
+
+ReviewWindow wraps its pinned-framework ViewHost in DialogViewportView, a native scrolling adapter with its own DialogViewportViewModel. At startup it measures content at the available width, grows the window when necessary, and clamps size/position to the primary Windows work area with a 24-DIP margin. Minimum dimensions are reduced when the work area is smaller. Excess content remains scrollable, including form action rows, after startup and user resizing. Existing inner editors and section scrolling remain independent. This applies to ReviewWindow-based assignment, import, settings, section grading, inline edit, grade edit and extraction dialogs; MainWindow and the independently built batch window retain their existing layout. Monitor-specific work areas are not yet selected.
+
+```mermaid
+flowchart LR
+    Window[ReviewWindow] --> Model[DialogViewportViewModel / work area bounds]
+    Window --> View[DialogViewportView / native ScrollViewer]
+    View --> Host[Pinned framework ViewHost / form]
+    Window --> Fit[Measure once / grow and clamp at startup]
+    View --> Overflow[Scroll excess content and action rows]
+```
+October 10, 2026 bounds regression correction: DialogViewportView disables horizontal scrolling so the framework form receives a finite available width; vertical overflow remains scrollable. The previous horizontal Auto setting measured forms with unlimited width and oversized picker popups. Shared dialogs now receive 4-DIP outer padding with superseded form-level 20/22-DIP padding removed. Batch review and the workspace shell also use 4-DIP outer spacing. A long-input, reduced-viewport test opens the assignment section picker and checks both control and popup widths against the viewport, plus reachability of Save. Package versions/bytes are unchanged.
+
+## Panel toggles and appearance (source reviewed October 10, 2026)
+
+PanelToggleView/ViewModel use shared flat toolbar styling and tooltip/automation labels for opposite-side panel icons. The left icon collapses/restores submissions navigation without replacing controls. The right icon closes/reopens the retained review panel. PanelNavigationView is hosted inside that panel; the superseded title/close header was removed after reference checks. Open submissions remains in File.
+
+AppearanceSettingsView/ViewModel exposes Dark/Light under Settings > Programming Checks. WorkspacePanelPreferences stores LightMode in workspace-panels.json (absent values default dark). Saving updates ReviewTheme tokens, framework hosts and scoped native styles, plus retained workspace editor/list/console surfaces. Weak references track hosts without retaining closed hosts; MainWindow unsubscribes its theme handler on close. Source syntax and semantic status colors remain specialized; this does not claim a contrast audit of every syntax/diagnostic color.
+
+```mermaid
+flowchart LR
+    Toolbar --> Toggles[PanelToggleView / ViewModel]
+    Toggles --> Left[Retained submission navigation]
+    Toggles --> Right[Retained review panel]
+    Right --> Tabs[PanelNavigationView / Feedback Queue Rubric]
+    Settings --> Appearance[AppearanceSettingsView / ViewModel]
+    Appearance --> Preferences[WorkspacePanelPreferences.LightMode]
+    Preferences --> Theme[ReviewTheme / light and dark tokens]
+    Theme --> Hosts[Weakly tracked framework hosts]
+    Theme --> Native[NativeTheme and retained workspace controls]
+```
+October 10, 2026 panel icon refinement (source reviewed): PanelIconView/PanelIconViewModel draw scalable rounded outline sidebar glyphs through a native vector adapter, with mirrored dividers and a subtle accent fill for expanded panels. PanelToggleView retains shared toolbar styling/tooltips; ToolbarActionView accepts optional rich icon content. The left toggle precedes File/Settings. No font-symbol dependency remains for these icons.
+
+October 10, 2026 icon styling source check: panel vectors use 1.15-DIP muted strokes, three-DIP rounded corners and a faint expanded-side accent. Icon-only ToolbarActionView content receives a rounded seven-DIP hover surface and an explicit keyboard-focus border; text toolbar actions retain their existing style. Left toggle remains first.
+
+## Configurable log file routing (source reviewed October 11, 2026)
+
+Settings > Programming Checks includes LogFileSettingsView/ViewModel for a filename (without extension, * for any name) and extension. WorkspacePanelPreferences persists LogFileName/LogFileExtension in workspace-panels.json; older preferences default to *.fslog. Save validates filename/extension before writing preferences. MatchesLog performs a case-insensitive filename-pattern match. Tree selection opens matching files in the Logs tools panel without changing the active source document. The open-log picker and automatic assignment-folder search use the same pattern; an assignment's explicit LogFilePath still takes precedence over automatic discovery. FsLogReader still requires the supported binary source-history format regardless of extension; invalid data is displayed as a log-panel diagnostic with build counts cleared.
+
+```mermaid
+flowchart LR
+    Settings[LogFileSettingsView / ViewModel] --> Preferences[WorkspacePanelPreferences / name and extension]
+    Preferences --> Match[MatchesLog / filename pattern]
+    Tree[Submission tree selection] --> Match
+    Match --> Panel[OpenLogInPanel / retained Logs panel]
+    Preferences --> Picker[Open log filter]
+    Preferences --> Discovery[Assignment folder log discovery]
+    Panel --> Reader[FsLogReader / content validation]
+```
+
+October 11, 2026 log selection contrast (source reviewed): LogSnapshotStyle owns the ListBoxItem selection surface through a bound native template, preventing OS inactive-selection backgrounds from overriding the selected foreground/background pair. Selected log rows remain white on deep blue with or without keyboard focus. Normal and search-match foregrounds use theme-aware contrast; ApplyWorkspaceColors rebuilds the snapshot style when appearance changes. BuildHistoryView now uses the theme surface instead of a fixed dark fill. Real-window inactive-selection renders/tests pass in light and dark modes.

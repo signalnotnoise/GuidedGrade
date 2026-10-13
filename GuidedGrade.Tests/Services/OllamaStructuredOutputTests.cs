@@ -40,7 +40,7 @@ public class OllamaStructuredOutputTests
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
             Assert.AreEqual(4, schema.GetProperty("required").GetArrayLength());
             Assert.IsFalse(schema.GetProperty("additionalProperties").GetBoolean());
-            CollectionAssert.AreEqual(new[] { "type", "wait", "close", "stop" },
+            CollectionAssert.AreEqual(new[] { "type", "key", "click", "wait", "close", "stop" },
                 schema.GetProperty("properties").GetProperty("action").GetProperty("enum")
                     .EnumerateArray().Select(x => x.GetString()).ToArray());
         }
@@ -49,6 +49,21 @@ public class OllamaStructuredOutputTests
         using var plain = JsonDocument.Parse(handler.Body!);
         Assert.IsFalse(plain.RootElement.TryGetProperty("format", out _));
         Assert.IsFalse(plain.RootElement.TryGetProperty("options", out _));
+    }
+
+    [TestMethod]
+    public async Task OverallReviewsRequestStructuredOutputAndExplicitContextBudget()
+    {
+        using var handler = new CaptureHandler(); using var client = new HttpClient(handler);
+        var service = new OllamaService(client, "test-model");
+        await service.CompleteAsync("system", "# MACHINE REVIEW CONTRACT", responseSchema: OverallReviewResult.Schema);
+        using var request = JsonDocument.Parse(handler.Body!);
+        Assert.AreEqual(8192, request.RootElement.GetProperty("options").GetProperty("num_ctx").GetInt32());
+        Assert.AreEqual(0, request.RootElement.GetProperty("options").GetProperty("temperature").GetInt32());
+        Assert.IsTrue(request.RootElement.GetProperty("format").GetProperty("properties").TryGetProperty("criteria", out _));
+        handler.Body = null;
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.CompleteAsync("system", "# MACHINE REVIEW CONTRACT" + new string('x',100000), responseSchema: OverallReviewResult.Schema));
+        Assert.IsNull(handler.Body);
     }
 
     private sealed class CaptureHandler : HttpMessageHandler

@@ -32,6 +32,7 @@ public class ClearReviewTests
             var comments = service.LoadComments("One.cs");
             Assert.AreEqual(1, comments.Count);
             Assert.IsFalse(comments[0].IsOverallReview);
+            Assert.AreEqual("", comments[0].ReviewContext, "Legacy data must not be assigned to the currently selected lab.");
             Assert.AreEqual(2.5, comments[0].SuggestedScore);
             comments.Add(new SectionFeedback { IsOverallReview = true, SectionName = "Overall file review", StartLine = 1, EndLine = 1, Explanation = "Full report" });
             service.SaveComments("One.cs", comments);

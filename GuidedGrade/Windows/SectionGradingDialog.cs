@@ -25,7 +25,7 @@ public sealed class SectionGradingDialog : ReviewWindow
             Text("Rubric items"),
             VStack(_items.Select((item, index) => Toggle($"{item.Name} ({item.MaxPoints} pts)", _selected[index]).Id(index.ToString())).ToArray()).Spacing(10),
             HStack(Button("Grade", Grade).ButtonStyle(ButtonStyleKind.Primary), Button("Cancel", () => DialogResult = false)).Spacing(10)
-        ).Spacing(14).Padding(20)));
+        ).Spacing(14).Padding(0)));
     }
 
     private void Grade()

@@ -60,10 +60,31 @@ Release build completed with zero warnings and all 189 tests passed.
 
 ## Release status and rollback
 
-The technical editor-performance blocker is cleared. Public publication still
-requires committing the framework source and running the complete release
-workflow from that immutable revision. Do not publish packages built from this
-dirty tree.
+The technical editor-performance blocker is cleared. The corresponding public
+release `0.1.0-alpha.3` was published on September 26, 2026 from committed source
+`520173d` through Publish NuGet run 6:
+https://github.com/signalnotnoise/ui-framework/actions/runs/36231322862
+The framework release record states that visible typing, installed IME,
+screen-reader and repeated open/close acceptance passed before publication.
+Both NuGet package indices were rechecked on October 7, 2026.
+
+This app still pins `[0.1.0-alpha.3-local.2]`. Its package bytes and recorded
+source provenance are unchanged. Moving the app to the public package is a
+separate dependency change requiring restore, app tests and paired comparison;
+publication alone does not establish that this app has migrated.
 
 Rollback metadata for `0.1.0-alpha.3-local.1` is under `history/local.4`; the
 older exact packages remain beside this candidate.
+
+October 7 workspace refinement: the pinned package lacks declarative tab/link styling and explicit vertical text alignment used by toolbar labels. Application-owned native adapters provide these presentations; NavigationTab uses an attached selected property independent of framework identity tags. Scoped centered ContentPresenter button styling preserves rich content. Reported to the authorized CUI task. No package bytes or performance claims changed.
+
+
+October 9, 2026 scoped-search integration: DocumentSearchView retains AvalonEdit 6.3.1.120 SearchPanel through the existing native adapter. Inherited app field/button templates initially obscured its query/glyphs in a real-window render; DocumentSearchTheme applies native styles only to that widget's field/buttons. A style-isolation integration gap was reported to the authorized CUI task, with no claim that the core package is defective. Functional search/highlight/navigation and rendered UI checks passed locally. This does not establish framework performance clearance. Existing UI-framework package versions and bytes are unchanged.
+
+October 10, 2026 search styling: the default search widget is replaced by a reusable pinned-framework SearchBarView/ViewModel, with rounded surface, query field and quiet previous/next/close icons. Enter, Shift+Enter and Escape remain supported. The scoped native field adapter fixes inherited content-host clipping. Local rendered and functional checks pass; package bytes and versions are unchanged.
+
+October 10, 2026 dialog overflow: ReviewWindow uses reusable DialogViewportView/ViewModel to preserve scrolling around pinned-framework forms. Startup content measurement grows dialogs within the primary screen work area; overflow and action rows remain reachable when resized smaller. A reduced-height assignment render/test verifies Save is reachable after scrolling. Existing inner editors remain independently scrollable. No vendor package bytes changed.
+
+October 10, 2026 bounds regression correction: DialogViewportView disables horizontal scrolling so the framework form receives a finite available width; vertical overflow remains scrollable. The previous horizontal Auto setting measured forms with unlimited width and oversized picker popups. Shared dialogs now receive 4-DIP outer padding with superseded form-level 20/22-DIP padding removed. Batch review and the workspace shell also use 4-DIP outer spacing. A long-input, reduced-viewport test opens the assignment section picker and checks both control and popup widths against the viewport, plus reachability of Save. Package versions/bytes are unchanged.
+
+October 10, 2026 panel/appearance update: left/right toolbar icons collapse retained panels; Open Submissions Folder remains in File. Feedback/Queue/Rubric tabs live inside the right panel. AppearanceSettingsView/ViewModel saves Dark/Light through WorkspacePanelPreferences.LightMode, default dark, and applies theme tokens to framework hosts and native workspace surfaces. Host tracking uses weak references; MainWindow releases its theme subscription on close. Toggle/theme renders and retained-editor tests verify both modes; vendor bytes remain unchanged.
