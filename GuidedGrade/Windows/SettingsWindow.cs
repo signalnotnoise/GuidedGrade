@@ -14,6 +14,8 @@ namespace GuidedGrade.Windows
     {
         private readonly ViolationsConfigService _configService;
         private readonly string? _openedDirectoryPath;
+        private readonly ViewModels.AppearanceSettingsViewModel _appearance;
+        private readonly ViewModels.LogFileSettingsViewModel _logFiles;
 
         public List<string> Violations { get; private set; }
         public List<string> FilePatterns { get; private set; }
@@ -30,8 +32,13 @@ namespace GuidedGrade.Windows
             Violations = _configService.LoadViolations(openedDirectoryPath);
             FilePatterns = new List<string>(_configService.FilePatterns);
 
-            _execution.Value = LLMSettings.Load().ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
+            var settings = LLMSettings.Load();
+            _execution.Value = settings.ExecutionMode == SubmissionExecutionMode.Local ? 1 : 0;
+            _confirmLocal.Value = settings.ConfirmLocalExecution;
+            _confirmGrading.Value = settings.ConfirmGrading;
             var panels = WorkspacePanelPreferences.Load();
+            _appearance = new(panels.LightMode);
+            _logFiles = new(panels);
             _comments.Value = panels.ShowComments;
             _queue.Value = panels.ShowQueue;
             LoadLists();
@@ -50,6 +57,8 @@ namespace GuidedGrade.Windows
         private readonly State<int> _violationIndex = new(-1);
         private readonly State<int> _patternIndex = new(-1);
         private readonly State<int> _execution = new(0);
+        private readonly State<bool> _confirmLocal = new(true);
+        private readonly State<bool> _confirmGrading = new(true);
         private readonly State<bool> _comments = new(true);
         private readonly State<bool> _queue = new(true);
         private readonly State<int> _revision = new(0);
@@ -59,6 +68,8 @@ namespace GuidedGrade.Windows
             _ = _revision.Value;
             return Scroll(VStack(
                 Text("Programming checks").FontSize(22),
+                new Views.AppearanceSettingsView(_appearance).Build(),
+                new Views.LogFileSettingsView(_logFiles).Build(),
                 Text("Violation terms"), Picker(Violations, _violationIndex).AccessibilityLabel("Violation terms"),
                 FlexRow(TextField(_newViolation).AccessibilityLabel("New violation"), Button("Add", AddViolation).Flex(0)),
                 HStack(Button("Remove selected", () => btnRemoveViolation_Click(this, new())).IsEnabled(_violationIndex.Value >= 0),
@@ -68,12 +79,14 @@ namespace GuidedGrade.Windows
                 HStack(Button("Remove selected", () => btnRemovePattern_Click(this, new())).IsEnabled(_patternIndex.Value >= 0),
                     Button("Reset patterns", () => btnResetPatterns_Click(this, new()))).Spacing(8),
                 Text("Build and run on"), Picker(new[] { "VM (Hyper-V)", "Local computer" }, _execution).AccessibilityLabel("Execution environment"),
-                Text("Local code uses your Windows permissions without repeated prompts. Configure the VM in AI Provider settings.").FontSize(13),
+                Toggle("Ask before each local build or run", _confirmLocal),
+                Toggle("Ask before grading", _confirmGrading),
+                Text("Local code uses your Windows permissions. Configure model timeouts and the VM in AI Provider settings.").FontSize(13),
                 Toggle("Show Comments", _comments), Toggle("Show Job queue", _queue),
                 Text("Hiding a tab keeps feedback and running jobs.").FontSize(13),
                 HStack(Button("Save", () => btnSave_Click(this, new())).ButtonStyle(ButtonStyleKind.Primary),
                     Button("Cancel", () => btnCancel_Click(this, new()))).Spacing(8)
-            ).Spacing(12).Padding(20));
+            ).Spacing(12).Padding(0));
         }
 
         private void LoadLists()
@@ -159,9 +172,12 @@ namespace GuidedGrade.Windows
             {
                 var execution = LLMSettings.Load();
                 execution.ExecutionMode = _execution.Value == 1 ? SubmissionExecutionMode.Local : SubmissionExecutionMode.HyperV;
-                execution.ConfirmLocalExecution = false;
+                execution.ConfirmLocalExecution = _confirmLocal.Value;
+                execution.ConfirmGrading = _confirmGrading.Value;
                 execution.Save();
-                new WorkspacePanelPreferences { ShowComments = _comments.Value == true, ShowQueue = _queue.Value == true }.Save();
+                new WorkspacePanelPreferences { ShowComments = _comments.Value == true, ShowQueue = _queue.Value == true, LightMode = _appearance.LightMode,
+                    LogFileName = _logFiles.Name.Value.Trim(), LogFileExtension = _logFiles.Extension.Value.Trim() }.Save();
+                ReviewTheme.SetLightMode(_appearance.LightMode);
             }
             catch (Exception ex)
             {

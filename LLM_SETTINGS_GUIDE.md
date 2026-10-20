@@ -6,7 +6,7 @@ You now have a complete **LLM configuration system** with GUI!
 
 ## 📍 How to Access
 
-**Tools → LLM Configuration...**
+**Settings → AI Provider**
 
 ## ⚙️ Features
 
@@ -14,10 +14,17 @@ You now have a complete **LLM configuration system** with GUI!
 Choose between:
 - **Ollama** (Local, free, private)
 - **Azure OpenAI** (Cloud, powerful, paid)
-- **OpenAI** (Coming soon)
+- Direct OpenAI is unavailable and is hidden from the provider picker. Unsupported saved providers are rejected rather than routed to Ollama.
 
 ### 2. Ollama Settings
 - **Server URL**: Default `http://localhost:11434`
+- **Context window (tokens)**: Default `65536`, saved as `OllamaContextTokens`.
+  Set it in AI Provider settings. Every native `/api/chat` request sends this as
+  `options.num_ctx`, including structured reviews, console requests, and CPU
+  fallback. It does not change Ollama's global context or Rusty's context.
+  The settings field accepts 1,024 to 262,144 tokens; the model and hardware must
+  support the selected size. Combined reviews reject estimated oversize input
+  rather than sending a partial submission. The estimate is not an exact token count.
 - **Model dropdown**: Pre-populated with popular models
   - qwen2.5:3b (fastest, recommended)
   - qwen3.5:9b
@@ -35,10 +42,8 @@ Choose between:
 - **Deployment Name**: Your model deployment
 - **Test Connection button**: Validates credentials
 
-### 4. OpenAI Settings (Placeholder)
-- **API Key**: For direct OpenAI access
-- **Model**: gpt-4, gpt-4o, gpt-3.5-turbo, etc.
-- Coming soon!
+### 4. Credential storage
+Azure credentials are encrypted using Windows DPAPI for the current Windows user. Existing plaintext API keys are migrated when settings load successfully. Settings writes use an atomic file replacement. Encrypted credentials cannot be transferred to another Windows account; re-enter the key if the settings window reports that it cannot unlock credentials.
 
 ### 5. Requirements Template
 - **Default requirements text** that gets sent to the LLM
@@ -74,13 +79,13 @@ Secure storage for:
    - **Ollama**: Click "Refresh Available Models", select one, Save
    - **Azure**: Enter endpoint, API key, deployment, Test, Save
 3. **Click Save**
-4. **Analyze files**: Right-click → Analyze Selected Files with LLM
+4. **Analyze files**: Review → Overall review
 5. **No more prompts!** It uses your saved settings automatically
 
 ### Daily Usage
 
 1. **Check files** you want analyzed ☑
-2. **Right-click** in tree → Analyze Selected Files with LLM
+2. Select files, then **Review → Overall review**
 3. **App automatically uses** your configured provider & model
 4. **Get feedback!**
 
@@ -167,12 +172,12 @@ ollama pull qwen2.5:3b
 ┌─────────────────────────────────────┐
 │ LLM Configuration                   │
 ├─────────────────────────────────────┤
-│ Provider: ○ Ollama ○ Azure ○ OpenAI │
+│ Provider: ○ Ollama ○ Azure         │
 ├─────────────────────────────────────┤
 │ [Provider-specific settings]        │
 │   - Ollama: URL + Model dropdown    │
 │   - Azure: Endpoint + Key + Deploy  │
-│   - OpenAI: Key + Model             │
+│   - DPAPI credential storage             │
 │                                     │
 │ [Test/Refresh Buttons]              │
 │ Status: ✓ Ready                     │
@@ -205,3 +210,9 @@ You can now:
 - ✅ No more hardcoded credentials!
 
 **Ready to use!** Configure via Tools → LLM Configuration, then analyze away! 🚀
+
+## Request preferences (October 5, 2026)
+
+Open Settings > AI Provider to configure Console model wait timeout. It accepts whole seconds from 1 to 90 and defaults to 30. It controls each interactive console decision, including waiting in the shared model queue, and is still capped by the remaining overall 90-second test budget. It does not change grading response timeouts.
+
+Ask before each local build or run is respected by Build, Build and Run, Run, Test with AI and Test with AI locally. The explicit local command changes only the environment for that request. Ask before grading controls the start confirmation for overall reviews, section batches, selected sections, regeneration and post-test grading. Both toggles are also available in Settings > Programming Checks. Save to persist them; settings take effect for newly started requests. Old settings default to asking, and invalid saved timeout values fall back to 30 seconds.

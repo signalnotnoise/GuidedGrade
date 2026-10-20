@@ -25,14 +25,17 @@ namespace GuidedGrade.Services
         private readonly string _baseUrl;
         private readonly string _model;
         private readonly HttpClient _httpClient;
+        private readonly int _contextTokens;
 
         /// <summary>
         /// Creates a new Ollama service instance.
         /// </summary>
         /// <param name="baseUrl">Ollama server URL (default: http://localhost:11434)</param>
         /// <param name="model">Model name (e.g., "qwen2.5:3b", "codellama:7b")</param>
-        public OllamaService(string baseUrl = "http://localhost:11434", string model = "qwen2.5:3b")
+        public OllamaService(string baseUrl = "http://localhost:11434", string model = "qwen2.5:3b", int contextTokens = 65536)
         {
+            if (contextTokens <= 0) throw new ArgumentOutOfRangeException(nameof(contextTokens));
+            _contextTokens = contextTokens;
             _baseUrl = baseUrl.TrimEnd('/');
             _model = model;
             _httpClient = SharedClient;
@@ -56,8 +59,10 @@ namespace GuidedGrade.Services
                 prompt, cancellationToken, priority: LlmJobPriority.Assignment, jobTitle: jobTitle);
         }
 
-        internal OllamaService(HttpClient client, string model)
+        internal OllamaService(HttpClient client, string model, int contextTokens = 65536)
         {
+            if (contextTokens <= 0) throw new ArgumentOutOfRangeException(nameof(contextTokens));
+            _contextTokens = contextTokens;
             _baseUrl = "http://localhost:11434";
             _model = model;
             _httpClient = client;
@@ -68,6 +73,10 @@ namespace GuidedGrade.Services
 
         private async Task<string> CompleteCoreAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken, JsonElement? responseSchema)
         {
+            var combinedReview = userPrompt.Contains("# MACHINE REVIEW CONTRACT", StringComparison.Ordinal);
+            var estimatedContext = Math.Max(8192, ((systemPrompt.Length + userPrompt.Length) / 3 + 4096 + 4095) / 4096 * 4096);
+            if (combinedReview && estimatedContext > _contextTokens)
+                throw new InvalidOperationException("The combined review exceeds the supported context budget. Reduce unrelated source files or review a smaller assignment scope; no partial submission was sent.");
             var request = new OllamaChatRequest
             {
                 Model = _model,
@@ -78,8 +87,9 @@ namespace GuidedGrade.Services
                 },
                 Stream = false,
                 Format = responseSchema,
-                Options = responseSchema.HasValue ? new { temperature = 0 } : null
+                Options = new Dictionary<string, object> { ["num_ctx"] = _contextTokens }
             };
+            if (combinedReview || responseSchema.HasValue) request.Options["temperature"] = 0;
 
             var jsonOptions = new JsonSerializerOptions
             {
@@ -99,8 +109,7 @@ namespace GuidedGrade.Services
                     if (attempt == 0 && (int)response.StatusCode >= 500 && LlmHttpErrors.IsGpuMemoryFailure(responseBody))
                     {
                         System.Diagnostics.Debug.WriteLine($"Ollama GPU memory failure for {_model}; retrying this request once on CPU.");
-                        var options = new Dictionary<string, object> { ["num_gpu"] = 0 };
-                        if (responseSchema.HasValue) options["temperature"] = 0;
+                        var options = new Dictionary<string, object>(request.Options) { ["num_gpu"] = 0 };
                         request.Options = options;
                         continue;
                     }
@@ -156,14 +165,14 @@ namespace GuidedGrade.Services
             var sb = new StringBuilder();
 
             sb.AppendLine("# ASSIGNMENT REQUIREMENTS");
-            sb.AppendLine(requirements);
+            sb.AppendLine(StudentDataSanitizer.Sanitize(requirements));
             sb.AppendLine();
 
             sb.AppendLine("# SUBMITTED CODE");
             var index = 1;
             foreach (var file in files)
             {
-                sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(file.Name, index: index)} ===");
+                sb.AppendLine($"=== {"file-" + index} ===");
                 sb.AppendLine(StudentDataSanitizer.Sanitize(file.Content));
                 sb.AppendLine();
                 index++;
@@ -204,7 +213,7 @@ namespace GuidedGrade.Services
         private class OllamaChatRequest
         {
             public JsonElement? Format { get; set; }
-            public object? Options { get; set; }
+            public Dictionary<string, object> Options { get; set; } = new();
             public required string Model { get; set; }
             public required List<OllamaMessage> Messages { get; set; }
             public bool Stream { get; set; }

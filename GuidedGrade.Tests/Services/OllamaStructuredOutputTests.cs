@@ -40,7 +40,7 @@ public class OllamaStructuredOutputTests
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
             Assert.AreEqual(4, schema.GetProperty("required").GetArrayLength());
             Assert.IsFalse(schema.GetProperty("additionalProperties").GetBoolean());
-            CollectionAssert.AreEqual(new[] { "type", "wait", "close", "stop" },
+            CollectionAssert.AreEqual(new[] { "type", "key", "click", "wait", "close", "stop" },
                 schema.GetProperty("properties").GetProperty("action").GetProperty("enum")
                     .EnumerateArray().Select(x => x.GetString()).ToArray());
         }
@@ -48,7 +48,41 @@ public class OllamaStructuredOutputTests
         await service.CompleteAsync("system", "feedback");
         using var plain = JsonDocument.Parse(handler.Body!);
         Assert.IsFalse(plain.RootElement.TryGetProperty("format", out _));
-        Assert.IsFalse(plain.RootElement.TryGetProperty("options", out _));
+        Assert.AreEqual(65536, plain.RootElement.GetProperty("options").GetProperty("num_ctx").GetInt32());
+        Assert.IsFalse(plain.RootElement.GetProperty("options").TryGetProperty("temperature", out _));
+    }
+
+    [TestMethod]
+    public async Task OverallReviewsRequestStructuredOutputAndExplicitContextBudget()
+    {
+        using var handler = new CaptureHandler(); using var client = new HttpClient(handler);
+        var service = new OllamaService(client, "test-model");
+        await service.CompleteAsync("system", "# MACHINE REVIEW CONTRACT", responseSchema: OverallReviewResult.Schema);
+        using var request = JsonDocument.Parse(handler.Body!);
+        Assert.AreEqual(65536, request.RootElement.GetProperty("options").GetProperty("num_ctx").GetInt32());
+        Assert.AreEqual(0, request.RootElement.GetProperty("options").GetProperty("temperature").GetInt32());
+        Assert.IsTrue(request.RootElement.GetProperty("format").GetProperty("properties").TryGetProperty("criteria", out _));
+        handler.Body = null;
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.CompleteAsync("system", "# MACHINE REVIEW CONTRACT" + new string('x',200000), responseSchema: OverallReviewResult.Schema));
+        Assert.IsNull(handler.Body);
+    }
+
+    [TestMethod]
+    public async Task SavedContextRoutesToNativeRequestsWithoutChangingServerSettings()
+    {
+        using var handler = new CaptureHandler(); using var client = new HttpClient(handler);
+        var settings = new GuidedGrade.Models.LLMSettings { OllamaContextTokens = 16384 };
+        await LlmCompletionService.CompleteAsync(settings, "system", "prompt", client: client);
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.AreEqual("/api/chat", handler.Path);
+        Assert.AreEqual(16384, body.RootElement.GetProperty("options").GetProperty("num_ctx").GetInt32());
+    }
+
+    [TestMethod]
+    public void InvalidContextCannotSilentlyUseTheGlobalDefault()
+    {
+        using var handler = new CaptureHandler(); using var client = new HttpClient(handler);
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => new OllamaService(client, "test-model", 0));
     }
 
     private sealed class CaptureHandler : HttpMessageHandler

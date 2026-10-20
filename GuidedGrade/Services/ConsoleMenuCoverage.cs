@@ -19,7 +19,7 @@ internal sealed class ConsoleMenuCoverage
         if (options.Length < 2) return null;
         // Do not interpret a previous menu above a new item/name/quantity question as active.
         var trailing = string.Join(" ", lines.Skip(options[^1].Index + 1)).Trim();
-        if (trailing.Length > 0 && !Regex.IsMatch(trailing, @"^(?:[_>:?\s]+|(?:(?:please\s+)?(?:enter|select|choose)\s+)?(?:your\s+)?(?:option\s+choice|option|choice|selection)\s*[:?>_ ]*)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100))) return null;
+        if (trailing.Length > 0 && !Regex.IsMatch(trailing, @"^(?:[_>:?\s]+|(?:(?:please\s+)?(?:enter|select|choose)\s+)?(?:(?:your|an?|the)\s+)?(?:menu\s+option|option\s+choice|option|choice|selection)\s*[:?>_ ]*)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100))) return null;
         var entries = options.Select(x => (Key: x.Match.Groups["key"].Value, Label: x.Match.Groups["label"].Value)).ToArray();
         if (entries.Select(x => x.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count() != entries.Length) return null;
         var heading = lines.Take(options[0].Index).LastOrDefault(line => !string.IsNullOrWhiteSpace(line))?.Trim() ?? "(untitled menu)";

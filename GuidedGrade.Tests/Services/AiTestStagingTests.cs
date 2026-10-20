@@ -7,6 +7,40 @@ namespace GuidedGrade.Tests.Services;
 public class AiTestStagingTests
 {
     [TestMethod]
+    public async Task StageSharedDependencyPreservesImportsWithoutCopyingOtherRepositoryFolders()
+    {
+        var fixture = Path.Combine(Path.GetTempPath(), "GuidedGradeTests", Guid.NewGuid().ToString("N"));
+        var week = Path.Combine(fixture, "repo", "Week1");
+        var shared = Path.Combine(fixture, "repo", "Shared");
+        Directory.CreateDirectory(Path.Combine(week, "Practice"));
+        Directory.CreateDirectory(Path.Combine(shared, "PropertySheets"));
+        Directory.CreateDirectory(Path.Combine(shared, "bin"));
+        Directory.CreateDirectory(Path.Combine(fixture, "repo", "Private"));
+        try
+        {
+            File.WriteAllText(Path.Combine(fixture, "repo", "Private", "notes.txt"), "unrelated");
+            File.WriteAllText(Path.Combine(shared, "bin", "runtime.dll"), "dependency");
+            File.WriteAllText(Path.Combine(shared, "bin", "stale.exe"), "excluded");
+            File.WriteAllText(Path.Combine(shared, "PropertySheets", "Shared.props"), "<Project><PropertyGroup><FoundShared>true</FoundShared></PropertyGroup></Project>");
+            File.WriteAllText(Path.Combine(week, "Practice", "Practice.vcxproj"), """
+                <Project><Import Project="..\..\Shared\PropertySheets\Shared.props" />
+                  <Target Name="Check"><Error Condition="'$(FoundShared)' != 'true'" Text="Missing dependency" /></Target>
+                </Project>
+                """);
+            var staged = AiTestStaging.StageWithSharedDependencies(week, Path.Combine(fixture, "staging"));
+            var run = Path.GetDirectoryName(staged)!;
+            Assert.IsTrue(File.Exists(Path.Combine(run, "Shared", "bin", "runtime.dll")));
+            Assert.IsFalse(File.Exists(Path.Combine(run, "Shared", "bin", "stale.exe")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(run, "Private")));
+            var result = await ProcessRunner.RunAsync("dotnet", $"msbuild \"{Path.Combine(staged, "Practice", "Practice.vcxproj")}\" /t:Check /nologo", staged, null, TimeSpan.FromSeconds(20));
+            Assert.AreEqual(0, result.ExitCode, result.StandardOutput + result.StandardError);
+            var next = AiTestStaging.StageWithSharedDependencies(week, Path.Combine(fixture, "staging"));
+            Assert.AreNotEqual(staged, next);
+        }
+        finally { Directory.Delete(fixture, true); }
+    }
+
+    [TestMethod]
     public void Stage_CopiesSolutionContents()
     {
         var source = Path.Combine(Path.GetTempPath(), "GuidedGradeTests", "src-" + Guid.NewGuid().ToString("N"));

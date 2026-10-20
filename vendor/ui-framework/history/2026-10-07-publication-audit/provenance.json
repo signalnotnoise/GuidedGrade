@@ -1,0 +1,64 @@
+{
+  "version": "0.1.0-alpha.3-local.2",
+  "sourceRevision": "2db7a9a6cdde0fa52c458a9206219348f4ae0bcd",
+  "sourceDirty": true,
+  "purpose": "Local integration candidate with production application-owned WPF COM cleanup; public publication requires committed release validation",
+  "frameworkTestsPassed": 101,
+  "consumerTestsPassed": 189,
+  "visualAssertionsPassed": 15,
+  "stressAssertionsPassed": 21,
+  "packageSmokePassed": true,
+  "lifecycleChecksPassed": 49,
+  "nativeObjectsReleased": 1100,
+  "wrongThreadReleases": 0,
+  "frameworkPerformance": {
+    "baselineRevision": "78c88fb901c202e3c2e49b6de300d1ce2369e00b",
+    "samples": 7,
+    "passed": true,
+    "releaseEligible": true,
+    "checksPassed": 32,
+    "checksTotal": 32,
+    "editorUpdateChangePercent": -2.08,
+    "editorUpdateAllocationChangePercent": -3.29
+  },
+  "consumerComparison": {
+    "consumerRevision": "3c5aea06eaac8b7f2587691c13b748c29c7a0c58",
+    "consumerDirty": true,
+    "baselineVersion": "0.1.0-alpha.3-local.1",
+    "candidateVersion": "0.1.0-alpha.3-local.2",
+    "samples": 15,
+    "warmupPairsPerScenario": 1,
+    "sdk": "10.0.401",
+    "passed": true,
+    "checksPassed": 28,
+    "checksTotal": 28
+  },
+  "editorDiagnostic": {
+    "runtime": "10.0.12",
+    "rows": 1000,
+    "operations": 50,
+    "textWrites": 10000,
+    "normalFinalStepMilliseconds": [
+      13049.44,
+      13381.39,
+      12727.63
+    ],
+    "policyFinalStepMilliseconds": [
+      223.85,
+      185.83,
+      198.65
+    ]
+  },
+  "publicReleaseEligible": false,
+  "publicationBlocker": "The validated local package was built from an uncommitted working tree. Commit and run the complete release workflow before publication.",
+  "files": [
+    {
+      "sha256": "B4C9D952E14382873677764239D970BF2CBDA0D3AA6C16F273522DA9122BC3AC",
+      "name": "SignalNotNoise.UI.0.1.0-alpha.3-local.2.nupkg"
+    },
+    {
+      "sha256": "05D56830AFD71ADB7228D2139579B629F74D9636F616ED2C3429E18166CB6C4A",
+      "name": "SignalNotNoise.UI.Wpf.0.1.0-alpha.3-local.2.nupkg"
+    }
+  ]
+}

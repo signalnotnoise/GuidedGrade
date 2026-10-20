@@ -1,4 +1,4 @@
-﻿using GuidedGrade.Models;
+using GuidedGrade.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +32,12 @@ namespace GuidedGrade.Services
                 return results;
             }
 
-            var lines = File.ReadAllLines(filepath);
+            if (Path.GetExtension(filepath).Equals(".fslog", StringComparison.OrdinalIgnoreCase))
+            {
+                var log = FsLogReader.Read(filepath);
+                return [new Result("Builds from " + Path.GetFileName(filepath), log.BuildCount)];
+            }
+            var lines = BoundedTextReader.Read(filepath).Split('\n');
             var extension = Path.GetExtension(filepath).ToLower();
             var filename = Path.GetFileName(filepath).ToLower();
 
@@ -189,7 +194,7 @@ namespace GuidedGrade.Services
             var resultsPath = SearchFile(assignmentPath, "results.json");
             if (string.IsNullOrEmpty(resultsPath)) return null;
 
-            var json = File.ReadAllText(resultsPath);
+            var json = BoundedTextReader.Read(resultsPath);
             return System.Text.Json.JsonSerializer.Deserialize<LabResults>(json);
         }
     }

@@ -72,7 +72,7 @@ namespace GuidedGrade.Services
 
             if (!build.Succeeded || string.IsNullOrWhiteSpace(build.CommandFileName))
             {
-                sb.AppendLine("The program could not be executed. Treat build errors as evidence of problems.");
+                sb.AppendLine("The program could not be executed. Check staging, dependencies, toolchain and file locks before attributing build failures to student source. Inability to execute alone is not grounds for a deduction.");
                 return sb.ToString();
             }
 
@@ -104,8 +104,8 @@ namespace GuidedGrade.Services
 
             sb.AppendLine();
             sb.AppendLine(session.UsesConPty
-                ? "Live console agent: the model watches the ConPTY console, then types the next line."
-                : "Live console agent: the model watches stdout/stderr, then types the next line.");
+                ? "Live console agent: the model watches the ConPTY console, then chooses the next console line or local window event."
+                : "Live console agent: the model watches stdout/stderr, then chooses the next console line or local window event.");
 
             if (!session.Started)
             {
@@ -126,7 +126,8 @@ namespace GuidedGrade.Services
                 requirements,
                 plannerSource,
                 progress,
-                cancellationToken);
+                cancellationToken,
+                identifiers);
 
             sb.AppendLine($"Testing time budget expired: {drive.TimedOut} | Stopped by runner: {drive.StoppedByRunner} | Crash: {drive.Crashed} | Infinite loop: {drive.InfiniteLoop} | Exit: {NativeExitCodes.Describe(drive.ExitCode)}");
             if (!string.IsNullOrWhiteSpace(drive.Error))
@@ -229,7 +230,7 @@ namespace GuidedGrade.Services
                     startInfo,
                     NativeDependencyStager.GetDllDirectories(submission.RootDirectory, build.CommandFileName));
                 Process.Start(startInfo);
-                return $"Started {Path.GetFileName(build.CommandFileName)}.";
+                return $"Started {Path.GetFileName(build.CommandFileName)}.\nProgram: {build.CommandFileName}\nWorking directory: {build.WorkingDirectory}";
             }
             catch (Exception ex)
             {
@@ -317,7 +318,7 @@ namespace GuidedGrade.Services
                         continue;
 
                     sb.AppendLine($"=== {StudentDataSanitizer.SafeDisplayName(Path.GetFileName(sourcePath), identifiers, index)} ===");
-                    sb.AppendLine(StudentDataSanitizer.Sanitize(File.ReadAllText(sourcePath), identifiers));
+                    sb.AppendLine(StudentDataSanitizer.Sanitize(BoundedTextReader.Read(sourcePath), identifiers));
                     index++;
                     // A solution file does not itself contain #includes. Resolve headers from its source files too.
                     if (companions.Count < 8)
@@ -345,7 +346,7 @@ namespace GuidedGrade.Services
 
         private static RunnableSubmission StageSubmission(RunnableSubmission submission)
         {
-            var dest = AiTestStaging.Stage(submission.RootDirectory);
+            var dest = AiTestStaging.StageWithSharedDependencies(submission.RootDirectory);
             var stagedEntry = AiTestStaging.RemapPath(submission.EntryPath, submission.RootDirectory, dest);
             var staged = RunnableSubmissionDetector.Detect(stagedEntry);
             if (staged == null)

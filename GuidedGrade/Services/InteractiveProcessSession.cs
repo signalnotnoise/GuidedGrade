@@ -98,6 +98,16 @@ namespace GuidedGrade.Services
         public bool Started { get; }
         public string? Error { get; }
         public bool UsesConPty => _pty != null;
+        public bool SupportsWindowInput => OperatingSystem.IsWindows() && Started;
+        public Task SendWindowInputAsync(WindowInputAction action, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (HasExited) throw new InvalidOperationException("The program has exited.");
+            var processId = _processHandle != null ? GetProcessId(_processHandle) : (uint)(_process?.Id ?? 0);
+            WindowInputDispatcher.Send(processId, action);
+            return Task.CompletedTask;
+        }
+        [DllImport("kernel32.dll")] private static extern uint GetProcessId(SafeHandle process);
 
         public bool HasExited
         {

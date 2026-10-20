@@ -2,6 +2,11 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+.githooks/* text eol=lf
+scripts/*.py text eol=lf
+scripts/knowledge-graph.html text eol=lf
+scripts/knowledge-graph-vendor/* text eol=lf
+docs/knowledge-graph/* text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.
