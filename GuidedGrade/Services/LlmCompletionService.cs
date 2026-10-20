@@ -26,7 +26,7 @@ namespace GuidedGrade.Services
                     throw new NotSupportedException("OpenAI is not yet supported. Select Ollama or Azure OpenAI in AI Provider settings.");
 
                 case LLMProvider.Ollama:
-                    var ollama = client != null ? new OllamaService(client, settings.SelectedModel) : new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel);
+                    var ollama = client != null ? new OllamaService(client, settings.SelectedModel, settings.OllamaContextTokens) : new OllamaService(settings.OllamaBaseUrl, settings.SelectedModel, settings.OllamaContextTokens);
                     return await ollama.CompleteAsync(systemPrompt, userPrompt, cancellationToken, responseSchema, priority, jobTitle);
                 default: throw new NotSupportedException("Unsupported AI provider. Select Ollama or Azure OpenAI.");
             }

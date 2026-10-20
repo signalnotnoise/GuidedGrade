@@ -11,13 +11,15 @@ public class RequestPreferenceTests
     [TestMethod]
     public void SavedPreferencesRoundTripAndOlderSettingsKeepDefaults()
     {
-        var settings = new LLMSettings { ConsoleModelWaitSeconds = 75, ConfirmGrading = false, ConfirmLocalExecution = false };
+        var settings = new LLMSettings { OllamaContextTokens = 131072, ConsoleModelWaitSeconds = 75, ConfirmGrading = false, ConfirmLocalExecution = false };
         var saved = JsonSerializer.Serialize(settings);
         var loaded = JsonSerializer.Deserialize<LLMSettings>(saved)!;
         Assert.AreEqual(TimeSpan.FromSeconds(75), loaded.ConsoleModelWaitTimeout);
+        Assert.AreEqual(131072, loaded.OllamaContextTokens);
         Assert.IsFalse(loaded.ConfirmGrading);
         Assert.IsFalse(loaded.ConfirmLocalExecution);
         var legacy = JsonSerializer.Deserialize<LLMSettings>("{}")!;
+        Assert.AreEqual(65536, legacy.OllamaContextTokens);
         Assert.AreEqual(TimeSpan.FromSeconds(30), legacy.ConsoleModelWaitTimeout);
         Assert.IsTrue(legacy.ConfirmGrading);
         Assert.IsTrue(legacy.ConfirmLocalExecution);

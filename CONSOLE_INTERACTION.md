@@ -1,5 +1,11 @@
 # Console-agent interaction
 
+Native Ollama context reviewed October 18, 2026: console decisions use the saved
+`OllamaContextTokens` setting through `LlmCompletionService` (default 65,536),
+including structured output and CPU fallback. Global Ollama settings are unchanged.
+The existing console timeouts and source-free prompt boundaries still apply;
+a larger context does not increase the model's response deadline.
+
 The September 23 shell conversion uses framework Console/Violations actions and a native sizing
 adapter. The same bounded RichTextBox document remains mounted across panel changes; output,
 input routing and cancellation contracts below are unchanged. No XAML-generated shell controls remain.

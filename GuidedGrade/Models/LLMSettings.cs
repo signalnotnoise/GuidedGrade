@@ -31,6 +31,7 @@ namespace GuidedGrade.Models
 
         // Ollama settings
         public string OllamaBaseUrl { get; set; } = "http://localhost:11434";
+        public int OllamaContextTokens { get; set; } = 65536;
 
         // Analysis settings
         public string RequirementsTemplate { get; set; } = "// Assignment requirements";

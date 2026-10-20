@@ -66,7 +66,7 @@
       "id": "CONSOLE_INTERACTION.md",
       "label": "CONSOLE_INTERACTION.md",
       "group": "root",
-      "sha256": "15cc9d3832d466054d78545962d3131bff1a6070c294dc5f4078b76075413a0c"
+      "sha256": "c3c8386a32b314e5fc4c61de9487fe0970a8ed0917a68422da038d83a40ccbb9"
     },
     {
       "id": "Demo/README.md",
@@ -132,7 +132,7 @@
       "id": "FEEDBACK_WORKSPACE.md",
       "label": "FEEDBACK_WORKSPACE.md",
       "group": "root",
-      "sha256": "bdc2378b690e848b24ccf9f0ec0fb707373a023390aec05276f9d0662593fbaa"
+      "sha256": "9faadd8fde3c4f0d00a12acda33f93e2db7f7a652034b450c99efeb6117de971"
     },
     {
       "id": "FILE_TREE_PERFORMANCE.md",
@@ -300,7 +300,7 @@
       "id": "GuidedGrade.Tests/Services/LlmHttpFailureTests.cs",
       "label": "LlmHttpFailureTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "686c0ae1febdbbd563b6d2e81e934f030928a24dd0075fc9a120fb793aa68a4b"
+      "sha256": "d901c05cc393a76f76807aae6b99e26350931874d4830303ece1b76948d7410b"
     },
     {
       "id": "GuidedGrade.Tests/Services/LlmJobQueueTests.cs",
@@ -336,7 +336,7 @@
       "id": "GuidedGrade.Tests/Services/OllamaStructuredOutputTests.cs",
       "label": "OllamaStructuredOutputTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "fbeedf69a533e62fc0801dcaaa4984686e7a6c1b5defc8c59932e5650a81aaca"
+      "sha256": "93b36d2bf965b88d5c98eeab0f3801f9148507977b0cbcfbf5c6eb5fa1e63a4b"
     },
     {
       "id": "GuidedGrade.Tests/Services/OutputMemoryTests.cs",
@@ -372,7 +372,7 @@
       "id": "GuidedGrade.Tests/Services/RequestPreferenceTests.cs",
       "label": "RequestPreferenceTests.cs",
       "group": "GuidedGrade.Tests",
-      "sha256": "6ff621306f6d3e0ff35fbf1eb906032b9c577338ed1461b87d4a11cf27b41629"
+      "sha256": "dffb8b55cb80f7a067915c222d36eb20803b92d63606d300a0cde2639b10f2e6"
     },
     {
       "id": "GuidedGrade.Tests/Services/ReviewContextTests.cs",
@@ -666,7 +666,7 @@
       "id": "GuidedGrade/Models/LLMSettings.cs",
       "label": "LLMSettings.cs",
       "group": "GuidedGrade",
-      "sha256": "2155121c8c5fed8aee4ff893543c468e1f5297f25bee2f2454849b392fa507f4"
+      "sha256": "c58051207bf577ae909511c3f481b99ebbb0864f9439cb79ead4b356f5e03b08"
     },
     {
       "id": "GuidedGrade/Models/Result.cs",
@@ -972,7 +972,7 @@
       "id": "GuidedGrade/Services/LlmCompletionService.cs",
       "label": "LlmCompletionService.cs",
       "group": "GuidedGrade",
-      "sha256": "cee6fd38585da8b17a1a68d6e6f0983fb5bc48d89a4629b64e2de3aa80f8eede"
+      "sha256": "6c4ec571647606171dc511f98ff4875fae56cae23ac4c62fea51e393a08528f3"
     },
     {
       "id": "GuidedGrade/Services/LlmHttpErrors.cs",
@@ -1002,7 +1002,7 @@
       "id": "GuidedGrade/Services/OllamaService.cs",
       "label": "OllamaService.cs",
       "group": "GuidedGrade",
-      "sha256": "9342298678b22b0b973c22d19d9e0b89bc80b161aa7034119277209b6a59ceb5"
+      "sha256": "51fd0d2fe8c7c22e1152985e03f75cfa9abbf2956733273ff4210da1bad28049"
     },
     {
       "id": "GuidedGrade/Services/OutputLimits.cs",
@@ -1818,7 +1818,7 @@
       "id": "GuidedGrade/Windows/LLMSettingsWindow.cs",
       "label": "LLMSettingsWindow.cs",
       "group": "GuidedGrade",
-      "sha256": "3ff8282d43df4c74e5aeb71ed6389468380c6bf8ad6592d23a1954f4042aa269"
+      "sha256": "71c7676868e5283e84a4e10f6c543616bb164cae1c486615a71e50bf1af86f8e"
     },
     {
       "id": "GuidedGrade/Windows/RubricImportWindow.cs",
@@ -1848,19 +1848,19 @@
       "id": "KNOWLEDGE_GRAPH.md",
       "label": "KNOWLEDGE_GRAPH.md",
       "group": "root",
-      "sha256": "a220388ef8ef051d853284c22366843e28c82ad057753b140a68fee01783b187"
+      "sha256": "d09ef76c7810194aac26eea4ce2ae9cbe209cb1f161da3939d23ead8f97ac29a"
     },
     {
       "id": "LLM_SETTINGS_GUIDE.md",
       "label": "LLM_SETTINGS_GUIDE.md",
       "group": "root",
-      "sha256": "99e48824d8ca9a8926437a073b80563eaddaea1abb0d643e998a405d3aa95544"
+      "sha256": "b2d6abe61264a34f4bb137cadc16ef2f1dd1774f337e5fa827dba969887c773e"
     },
     {
       "id": "MEMORY_LIMITS.md",
       "label": "MEMORY_LIMITS.md",
       "group": "root",
-      "sha256": "2ae9bfb3f58c9717d31c93f560406d77639c053c68ab23edd35f6ebd43f0d557"
+      "sha256": "30dfc9defc31bcabd2e956db1d72dda48d8a0cea0e7c5bc1e031ba7453250d8b"
     },
     {
       "id": "OLLAMA_SETUP.md",

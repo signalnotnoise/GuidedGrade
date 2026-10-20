@@ -34,6 +34,7 @@ namespace GuidedGrade.Windows
             // Ollama
             txtOllamaUrl.Value = _settings.OllamaBaseUrl;
             cmbOllamaModel.Value = _settings.SelectedModel;
+            txtOllamaContext.Value = _settings.OllamaContextTokens.ToString();
 
             // Azure
             txtAzureEndpoint.Value = _settings.AzureEndpoint;
@@ -56,6 +57,7 @@ namespace GuidedGrade.Windows
         }
 
         private readonly State<string> txtOllamaUrl = new("");
+        private readonly State<string> txtOllamaContext = new("65536");
         private readonly State<string> cmbOllamaModel = new("");
         private readonly State<string> txtAzureEndpoint = new("");
         private readonly State<string> txtAzureApiKey = new("");
@@ -85,6 +87,7 @@ namespace GuidedGrade.Windows
                     Text("Deployment"), TextField(cmbAzureDeployment).AccessibilityLabel("Azure deployment"),
                     Button("Test Azure connection", () => TestAzure_Click(this, new())), Text(txtAzureStatus.Value)).Spacing(8).Id("azure"),
                 _ => VStack(Text("Ollama server"), TextField(txtOllamaUrl).AccessibilityLabel("Ollama server"),
+                    Text("Context window (tokens)"), TextField(txtOllamaContext).AccessibilityLabel("Ollama context tokens"),
                     Text("Model name"), TextField(cmbOllamaModel).AccessibilityLabel("Ollama model"),
                     Picker(_models.ToArray(), new Binding<int>(() => _models.ToList().IndexOf(cmbOllamaModel.Value), index =>
                     { if (index >= 0 && index < _models.Count) cmbOllamaModel.Value = _models[index]; })).AccessibilityLabel("Available models"),
@@ -211,6 +214,9 @@ namespace GuidedGrade.Windows
                 // Save all settings
                 _settings.OllamaBaseUrl = txtOllamaUrl.Value;
                 _settings.SelectedModel = cmbOllamaModel.Value;
+                if (!int.TryParse(txtOllamaContext.Value, out var contextTokens) || contextTokens is < 1024 or > 262144)
+                    throw new InvalidOperationException("Ollama context must be between 1024 and 262144 tokens.");
+                _settings.OllamaContextTokens = contextTokens;
 
                 _settings.AzureEndpoint = txtAzureEndpoint.Value;
                 _settings.AzureApiKey = txtAzureApiKey.Value;

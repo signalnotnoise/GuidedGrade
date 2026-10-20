@@ -18,6 +18,13 @@ Choose between:
 
 ### 2. Ollama Settings
 - **Server URL**: Default `http://localhost:11434`
+- **Context window (tokens)**: Default `65536`, saved as `OllamaContextTokens`.
+  Set it in AI Provider settings. Every native `/api/chat` request sends this as
+  `options.num_ctx`, including structured reviews, console requests, and CPU
+  fallback. It does not change Ollama's global context or Rusty's context.
+  The settings field accepts 1,024 to 262,144 tokens; the model and hardware must
+  support the selected size. Combined reviews reject estimated oversize input
+  rather than sending a partial submission. The estimate is not an exact token count.
 - **Model dropdown**: Pre-populated with popular models
   - qwen2.5:3b (fastest, recommended)
   - qwen3.5:9b

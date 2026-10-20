@@ -15,7 +15,7 @@ public class LlmHttpFailureTests
         using var handler = new ReplyHandler((call, _) => call == 1
             ? Failure("CUDA error: out of memory") : Success());
         using var client = new HttpClient(handler);
-        var result = await new OllamaService(client, "test-model").CompleteAsync("system", "prompt",
+        var result = await new OllamaService(client, "test-model", 131072).CompleteAsync("system", "prompt",
             responseSchema: ConsoleDriverAgent.ActionSchema);
         Assert.AreEqual("ok", result);
         Assert.AreEqual(2, handler.Bodies.Count);
@@ -24,6 +24,7 @@ public class LlmHttpFailureTests
         var root = fallback.RootElement;
         Assert.AreEqual(0, root.GetProperty("options").GetProperty("num_gpu").GetInt32());
         Assert.AreEqual(0, root.GetProperty("options").GetProperty("temperature").GetInt32());
+        Assert.AreEqual(131072, root.GetProperty("options").GetProperty("num_ctx").GetInt32());
         Assert.AreEqual(original.RootElement.GetProperty("format").GetRawText(), root.GetProperty("format").GetRawText());
         Assert.AreEqual(original.RootElement.GetProperty("messages").GetRawText(), root.GetProperty("messages").GetRawText());
     }
